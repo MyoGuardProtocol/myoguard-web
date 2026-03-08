@@ -32,6 +32,7 @@ export default function Home() {
   const [email, setEmail] = useState('');
   const [emailSubmitted, setEmailSubmitted] = useState(false);
   const [emailError, setEmailError] = useState('');
+  const [consented, setConsented] = useState(false);
 
   const symptoms = [
     'Constipation',
@@ -105,7 +106,7 @@ export default function Home() {
               </h1>
               <p className="mt-3 text-slate-600 text-base leading-relaxed">
                 Calculate your personalised protein, fibre, and hydration targets
-                to prevent sarcopenia and GI complications during GLP-1 therapy.
+                to support lean muscle maintenance and manage GI symptoms during GLP-1 therapy.
               </p>
             </div>
 
@@ -223,10 +224,25 @@ export default function Home() {
                 </div>
               </div>
 
+              {/* Consent */}
+              <div className="rounded-lg border border-slate-200 p-4">
+                <label className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={consented}
+                    onChange={e => setConsented(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 accent-teal-600 cursor-pointer"
+                  />
+                  <span className="text-xs text-slate-500 leading-relaxed">
+                    I understand this tool provides educational nutritional reference information only. It does not constitute medical advice or create a physician-patient relationship. I will review these recommendations with my prescribing physician.
+                  </span>
+                </label>
+              </div>
+
               {/* Submit */}
               <button
                 onClick={calculate}
-                disabled={!valid}
+                disabled={!valid || !consented}
                 className={`w-full py-3.5 rounded-xl font-semibold text-sm transition-all ${
                   valid
                     ? 'bg-teal-600 hover:bg-teal-700 text-white shadow-sm'
@@ -241,7 +257,7 @@ export default function Home() {
             <p className="mt-6 text-xs text-slate-400 text-center leading-relaxed">
               This tool generates educational nutritional reference data only. It does not constitute
               a physician-patient relationship or individualised medical advice. Review all recommendations
-              with your prescribing physician. © 2026 MyoGuard Protocol.
+              with your prescribing physician. © 2026 MyoGuard Protocol · <a href="/privacy" className="underline hover:text-slate-600 transition-colors">Privacy Policy</a>
             </p>
           </>
         ) : (
@@ -356,7 +372,7 @@ export default function Home() {
             <div className="bg-teal-600 rounded-2xl p-5 text-white mb-6">
               <p className="font-semibold text-sm mb-1">Recommended Supplements</p>
               <p className="text-teal-100 text-xs leading-relaxed mb-3">
-                Professional-grade products selected by Dr. B to match your protocol targets. Thorne and iHerb practitioner-curated selections.
+                Professional-grade products curated using published clinical protocols for GLP-1 patients. Thorne and iHerb selections.
               </p>
               <a
                 href="https://api-comms.iherb.com/gateway/comms/ct?pl=qkZ8DA0slJ0u7dcv5Pi4oWEnPkGns9a_rhHjdya7gGbAWGlkC1br2hy8cjWKNlSikMBDaRoXdIWLfdOdacFttmU3QRqmpI3R7bzdW8z2uZIV-y1zfjUjmjTHbNHWiwlENV8XVAlnmf0fSTeQjbuXjyJjdwZkTdbJcwxXdLhA1VOQGZ4w2R8F58FMRi5InRtxMqkSwbYYvOM0Kp_OBD5aTyRivFcYbmZWa3RKbQe16BEbmyYv3yqzhFZKoXlJs1cScqVqv6VKTFer_6WTNZeujnX9SulVittb02xsbtBVEDbrBcL4LYT0YKQsjsaY3Q%3d%3d"
@@ -385,7 +401,7 @@ export default function Home() {
             <p className="mt-6 text-xs text-slate-400 text-center leading-relaxed">
               This protocol output is an educational nutritional reference tool only. It does not constitute
               a physician-patient relationship or individualised medical advice. Review all recommendations
-              with your prescribing physician before commencing supplementation. © 2026 MyoGuard Protocol · Dr. B, MBBS.
+              with your prescribing physician before commencing supplementation. © 2026 MyoGuard Protocol · Dr. B, MBBS · <a href="/privacy" className="underline hover:text-slate-600 transition-colors">Privacy Policy</a>
             </p>
           </>
         )}
