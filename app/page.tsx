@@ -29,6 +29,9 @@ export default function Home() {
     symptoms: [],
   });
   const [results, setResults] = useState<Results | null>(null);
+  const [email, setEmail] = useState('');
+  const [emailSubmitted, setEmailSubmitted] = useState(false);
+  const [emailError, setEmailError] = useState('');
 
   const symptoms = [
     'Constipation',
@@ -59,6 +62,17 @@ export default function Home() {
     const hydration = Math.round((weightKg * 35) / 1000 * 10) / 10;
     setResults({ proteinStandard, proteinAggressive, fiber, hydration, weightKg: Math.round(weightKg * 10) / 10 });
     setStep('results');
+  };
+
+  const handleEmailSubmit = () => {
+    if (!email || !email.includes('@') || !email.includes('.')) {
+      setEmailError('Please enter a valid email address.');
+      return;
+    }
+    setEmailError('');
+    setEmailSubmitted(true);
+    // TODO: POST to n8n webhook when live
+    console.log('Email captured:', email, 'Results:', results);
   };
 
   const valid = form.weight && parseFloat(form.weight) > 0 && form.dose;
@@ -299,6 +313,45 @@ export default function Home() {
               </div>
             </div>
 
+            {/* Email Capture */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 mb-6">
+              <p className="text-sm font-semibold text-slate-800 mb-1">Send My Protocol to My Email</p>
+              <p className="text-xs text-slate-500 mb-4">Get a copy of your personalised targets delivered to your inbox.</p>
+
+              {emailSubmitted ? (
+                <div className="flex items-center gap-3 bg-teal-50 border border-teal-200 rounded-lg px-4 py-3">
+                  <span className="text-teal-600 text-lg">✓</span>
+                  <p className="text-sm text-teal-700">
+                    Protocol sent to <span className="font-semibold">{email}</span>. Check your inbox.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="flex gap-2">
+                    <input
+                      type="email"
+                      placeholder="you@example.com"
+                      value={email}
+                      onChange={e => { setEmail(e.target.value); setEmailError(''); }}
+                      className={`flex-1 border rounded-lg px-4 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-400 text-sm ${
+                        emailError ? 'border-red-400' : 'border-slate-300'
+                      }`}
+                    />
+                    <button
+                      onClick={handleEmailSubmit}
+                      className="bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm px-4 py-2.5 rounded-lg transition-colors whitespace-nowrap"
+                    >
+                      Send My Protocol →
+                    </button>
+                  </div>
+                  {emailError && (
+                    <p className="text-xs text-red-500 mt-1.5">{emailError}</p>
+                  )}
+                  <p className="text-xs text-slate-400 mt-2">No spam. Unsubscribe anytime.</p>
+                </>
+              )}
+            </div>
+
             {/* Supplement CTA */}
             <div className="bg-teal-600 rounded-2xl p-5 text-white mb-6">
               <p className="font-semibold text-sm mb-1">Recommended Supplements</p>
@@ -313,7 +366,7 @@ export default function Home() {
             {/* Actions */}
             <div className="flex gap-3">
               <button
-                onClick={() => setStep('form')}
+                onClick={() => { setStep('form'); setEmailSubmitted(false); setEmail(''); setEmailError(''); }}
                 className="flex-1 border border-slate-300 text-slate-600 font-medium text-sm py-3 rounded-xl hover:bg-slate-50 transition-colors"
               >
                 ← Recalculate
