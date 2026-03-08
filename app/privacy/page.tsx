@@ -97,7 +97,7 @@ export default function PrivacyPolicy() {
               <li><span className="font-medium text-slate-700">Right to object:</span> you may object to processing based on legitimate interests</li>
             </ul>
             <p className="mt-3">
-              To exercise any of these rights, contact us at <a href="mailto:privacy@myoguard.com" className="text-teal-600 hover:underline">privacy@myoguard.com</a>. We will respond within 30 days.
+              To exercise any of these rights, contact us at <a href="mailto:privacy@myoguard.health" className="text-teal-600 hover:underline">privacy@myoguard.health</a>. We will respond within 30 days.
             </p>
           </section>
 
@@ -112,7 +112,7 @@ export default function PrivacyPolicy() {
               <li><span className="font-medium text-slate-700">Right to non-discrimination:</span> we will not discriminate against you for exercising your CCPA rights</li>
             </ul>
             <p className="mt-3">
-              To submit a CCPA request, contact <a href="mailto:privacy@myoguard.com" className="text-teal-600 hover:underline">privacy@myoguard.com</a>.
+              To submit a CCPA request, contact <a href="mailto:privacy@myoguard.health" className="text-teal-600 hover:underline">privacy@myoguard.health</a>.
             </p>
           </section>
 
@@ -126,7 +126,7 @@ export default function PrivacyPolicy() {
               Calculator inputs (weight, dose, symptoms, etc.) are processed in-browser and are not stored on our servers beyond what is necessary to generate and deliver your protocol.
             </p>
             <p className="mt-3">
-              You may request early deletion of your data at any time by contacting <a href="mailto:privacy@myoguard.com" className="text-teal-600 hover:underline">privacy@myoguard.com</a>.
+              You may request early deletion of your data at any time by contacting <a href="mailto:privacy@myoguard.health" className="text-teal-600 hover:underline">privacy@myoguard.health</a>.
             </p>
           </section>
 
@@ -139,7 +139,7 @@ export default function PrivacyPolicy() {
             <div className="mt-3 bg-slate-50 rounded-lg border border-slate-200 px-4 py-3">
               <p className="font-medium text-slate-700">MyoGuard Protocol, Privacy Office</p>
               <p className="mt-1">
-                <a href="mailto:privacy@myoguard.com" className="text-teal-600 hover:underline">privacy@myoguard.com</a>
+                <a href="mailto:privacy@myoguard.health" className="text-teal-600 hover:underline">privacy@myoguard.health</a>
               </p>
             </div>
           </section>

@@ -257,7 +257,7 @@ export default function Home() {
             <p className="mt-6 text-xs text-slate-400 text-center leading-relaxed">
               This tool generates educational nutritional reference data only. It does not constitute
               a physician-patient relationship or individualised medical advice. Review all recommendations
-              with your prescribing physician. © 2026 MyoGuard Protocol · <a href="/privacy" className="underline hover:text-slate-600 transition-colors">Privacy Policy</a>
+              with your prescribing physician. © 2026 MyoGuard Protocol · myoguard.health · <a href="/privacy" className="underline hover:text-slate-600 transition-colors">Privacy Policy</a>
             </p>
           </>
         ) : (
@@ -401,7 +401,7 @@ export default function Home() {
             <p className="mt-6 text-xs text-slate-400 text-center leading-relaxed">
               This protocol output is an educational nutritional reference tool only. It does not constitute
               a physician-patient relationship or individualised medical advice. Review all recommendations
-              with your prescribing physician before commencing supplementation. © 2026 MyoGuard Protocol · Dr. B, MBBS · <a href="/privacy" className="underline hover:text-slate-600 transition-colors">Privacy Policy</a>
+              with your prescribing physician before commencing supplementation. © 2026 MyoGuard Protocol · myoguard.health · Dr. B, MBBS · <a href="/privacy" className="underline hover:text-slate-600 transition-colors">Privacy Policy</a>
             </p>
           </>
         )}
