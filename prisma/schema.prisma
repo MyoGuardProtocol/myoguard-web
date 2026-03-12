@@ -1,0 +1,241 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+}
+
+enum Role {
+  PATIENT
+  PHYSICIAN
+  ADMIN
+}
+
+enum Sex {
+  MALE
+  FEMALE
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
+enum ActivityLevel {
+  SEDENTARY
+  LIGHTLY_ACTIVE
+  MODERATELY_ACTIVE
+  VERY_ACTIVE
+}
+
+enum Glp1Stage {
+  INITIATION
+  DOSE_ESCALATION
+  MAINTENANCE
+  DISCONTINUING
+}
+
+enum RiskBand {
+  LOW
+  MODERATE
+  HIGH
+  CRITICAL
+}
+
+enum SubscriptionStatus {
+  FREE
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+}
+
+enum NotificationType {
+  WEEKLY_REMINDER
+  REPORT_READY
+  PAYMENT_CONFIRMED
+  WELCOME
+}
+
+model User {
+  id                 String             @id @default(cuid())
+  clerkId            String             @unique
+  email              String             @unique
+  fullName           String
+  role               Role               @default(PATIENT)
+  subscriptionStatus SubscriptionStatus @default(FREE)
+  stripeCustomerId   String?
+  stripeSubId        String?
+  referralSlug       String?
+  referralCode       String?            @unique
+  referredById       String?
+  physicianId        String?
+  researchConsent    Boolean            @default(false)
+  consentDate        DateTime?
+  consentVersion     String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  profile        UserProfile?
+  assessments    Assessment[]
+  muscleScores   MuscleScore[]
+  protocolPlans  ProtocolPlan[]
+  progressLogs   ProgressLog[]
+  weeklyCheckins WeeklyCheckin[]
+  shareCards     ShareCard[]
+  notifications  Notification[]
+  referredBy     User?           @relation("Referrals", fields: [referredById], references: [id])
+  referrals      User[]          @relation("Referrals")
+}
+
+model PhysicianProfile {
+  id            String   @id @default(cuid())
+  slug          String   @unique
+  displayName   String
+  clinicName    String?
+  specialty     String?
+  startSheetUrl String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model UserProfile {
+  id              String        @id @default(cuid())
+  userId          String        @unique
+  age             Int
+  sex             Sex
+  heightCm        Float
+  weightKg        Float
+  goalWeightKg    Float?
+  activityLevel   ActivityLevel
+  glp1Medication  String
+  glp1DoseMg      Float
+  glp1Stage       Glp1Stage
+  treatmentStart  DateTime
+  baselineProtein Float?
+  updatedAt       DateTime      @updatedAt
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Assessment {
+  id              String   @id @default(cuid())
+  userId          String
+  assessmentDate  DateTime @default(now())
+  weightKg        Float
+  proteinGrams    Float
+  exerciseDaysWk  Int
+  hydrationLitres Float
+  symptoms        String[]
+  fatigue         Int
+  nausea          Int
+  muscleWeakness  Int
+  score           Float
+  riskBand        RiskBand
+  createdAt       DateTime @default(now())
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  muscleScore  MuscleScore?
+  protocolPlan ProtocolPlan?
+}
+
+model MuscleScore {
+  id             String   @id @default(cuid())
+  userId         String
+  assessmentId   String   @unique
+  score          Float
+  riskBand       RiskBand
+  leanLossEstPct Float
+  proteinTargetG Float
+  explanation    String
+  generatedAt    DateTime @default(now())
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+}
+
+model ProtocolPlan {
+  id               String   @id @default(cuid())
+  userId           String
+  assessmentId     String   @unique
+  proteinTargetG   Float
+  proteinSources   String[]
+  supplementation  String[]
+  trainingPlan     String
+  hydrationTarget  Float
+  electrolyteNotes String
+  giGuidance       String
+  createdAt        DateTime @default(now())
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+}
+
+model ProgressLog {
+  id              String   @id @default(cuid())
+  userId          String
+  logDate         DateTime @default(now())
+  weightKg        Float
+  proteinGrams    Float
+  workoutsCount   Int
+  hydrationLitres Float
+  energyLevel     Int
+  nauseaLevel     Int
+  notes           String?
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model WeeklyCheckin {
+  id                String    @id @default(cuid())
+  userId            String
+  weekStart         DateTime
+  weekEnd           DateTime
+  avgWeightKg       Float?
+  avgProteinG       Float?
+  totalWorkouts     Int?
+  avgHydration      Float?
+  scoreDelta        Float?
+  proteinAdherence  Float?
+  exerciseAdherence Float?
+  highlights        String[]
+  recommendations   String[]
+  completedAt       DateTime?
+  createdAt         DateTime  @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ShareCard {
+  id         String   @id @default(cuid())
+  userId     String
+  score      Float
+  riskBand   RiskBand
+  imageUrl   String?
+  shareToken String   @unique @default(cuid())
+  createdAt  DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ReferralInvite {
+  id           String    @id @default(cuid())
+  token        String    @unique @default(cuid())
+  createdById  String
+  redeemedById String?   @unique
+  expiresAt    DateTime
+  redeemedAt   DateTime?
+  createdAt    DateTime  @default(now())
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  subject   String
+  body      String
+  sentAt    DateTime?
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String
+  action     String
+  targetType String
+  targetId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+}
