@@ -1,3 +1,4 @@
+import Link from "next/link";
 export default function PrivacyPolicy() {
   return (
     <main className="min-h-screen bg-slate-50 font-sans">
@@ -5,7 +6,7 @@ export default function PrivacyPolicy() {
       <header className="bg-white border-b border-slate-200 px-6 py-4">
         <div className="max-w-3xl mx-auto flex items-center justify-between">
           <div>
-            <a href="/" className="text-xl font-bold text-slate-800 tracking-tight hover:opacity-80 transition-opacity">
+            <Link href="/" className="text-xl font-bold text-slate-800 tracking-tight hover:opacity-80 transition-opacity">
               Myo<span className="text-teal-600">Guard</span> Protocol
             </a>
             <p className="text-xs text-slate-500 mt-0.5">Physician-Formulated · Data-Driven Muscle Protection</p>
