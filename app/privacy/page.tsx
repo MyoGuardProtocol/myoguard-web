@@ -8,7 +8,7 @@ export default function PrivacyPolicy() {
           <div>
             <Link href="/" className="text-xl font-bold text-slate-800 tracking-tight hover:opacity-80 transition-opacity">
               Myo<span className="text-teal-600">Guard</span> Protocol
-            </a>
+            </Link>
             <p className="text-xs text-slate-500 mt-0.5">Physician-Formulated · Data-Driven Muscle Protection</p>
           </div>
           <span className="text-xs bg-teal-50 text-teal-700 border border-teal-200 rounded-full px-3 py-1 font-medium">
@@ -165,12 +165,12 @@ export default function PrivacyPolicy() {
 
         {/* Back to homepage */}
         <div className="mt-8 text-center">
-          <a
+          <Link
             href="/"
             className="inline-block bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm px-6 py-3 rounded-xl transition-colors"
           >
             ← Back to Calculator
-          </a>
+          </Link>
         </div>
 
         <p className="mt-6 text-xs text-slate-400 text-center">
