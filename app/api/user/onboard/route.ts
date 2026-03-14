@@ -32,6 +32,13 @@ export async function POST(req: NextRequest) {
         user: { connect: { id: user.id } },
       },
     })
+    // Send welcome email (fire and forget)
+    fetch(process.env.NEXT_PUBLIC_APP_URL + "/api/email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: user.email, firstName: body.fullName.split(" ")[0] }),
+    }).catch(() => {})
+
     return NextResponse.json({ success: true, userId: user.id })
   } catch (e: any) {
     console.error(e)
