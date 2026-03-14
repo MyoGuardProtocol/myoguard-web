@@ -72,8 +72,7 @@ export default function Home() {
     }
     setEmailError('');
     setEmailSubmitted(true);
-    // TODO: POST to n8n webhook when live
-    console.log('Email captured:', email, 'Results:', results);
+    setTimeout(() => { window.location.href = '/sign-up'; }, 1500);
   };
 
   const valid = form.weight && parseFloat(form.weight) > 0 && form.dose;
