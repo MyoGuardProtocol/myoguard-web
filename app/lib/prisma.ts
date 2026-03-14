@@ -1,7 +1,9 @@
-import Prisma from "@prisma/client"
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const globalForPrisma = globalThis as any
 
-const globalForPrisma = globalThis as unknown as { prisma: any }
+if (!globalForPrisma.prisma) {
+  const { PrismaClient } = require("@prisma/client")
+  globalForPrisma.prisma = new PrismaClient()
+}
 
-export const prisma = globalForPrisma.prisma ?? new (Prisma as any).PrismaClient()
-
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma
+export const prisma = globalForPrisma.prisma
