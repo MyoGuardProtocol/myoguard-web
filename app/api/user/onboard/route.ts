@@ -18,17 +18,18 @@ export async function POST(req: NextRequest) {
       where: { userId: user.id },
       update: {
         age: body.age, sex: body.sex, heightCm: body.heightCm, weightKg: body.weightKg,
-        goalWeightKg: body.goalWeightKg, activityLevel: body.activityLevel,
-        glp1Medication: body.glp1Medication, glp1DoseMg: body.glp1DoseMg,
+        goalWeightKg: body.goalWeightKg || null, activityLevel: body.activityLevel,
+        glp1Medication: body.glp1Medication, glp1DoseMg: body.glp1DoseMg || 0,
         glp1Stage: body.glp1Stage, treatmentStart: new Date(body.treatmentStart),
-        baselineProtein: body.baselineProtein,
+        baselineProtein: body.baselineProtein || null,
       },
       create: {
-        userId: user.id, age: body.age, sex: body.sex, heightCm: body.heightCm,
-        weightKg: body.weightKg, goalWeightKg: body.goalWeightKg, activityLevel: body.activityLevel,
-        glp1Medication: body.glp1Medication, glp1DoseMg: body.glp1DoseMg,
+        age: body.age, sex: body.sex, heightCm: body.heightCm,
+        weightKg: body.weightKg, goalWeightKg: body.goalWeightKg || null, activityLevel: body.activityLevel,
+        glp1Medication: body.glp1Medication, glp1DoseMg: body.glp1DoseMg || 0,
         glp1Stage: body.glp1Stage, treatmentStart: new Date(body.treatmentStart),
-        baselineProtein: body.baselineProtein,
+        baselineProtein: body.baselineProtein || null,
+        user: { connect: { id: user.id } },
       },
     })
     return NextResponse.json({ success: true, userId: user.id })
