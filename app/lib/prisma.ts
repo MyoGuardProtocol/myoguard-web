@@ -1,8 +1,4 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
-const globalForPrisma = globalThis as any
-
-  const { PrismaClient } = require("@prisma/client")
-  globalForPrisma.prisma = new PrismaClient()
-}
-
-export const prisma = globalForPrisma.prisma
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { PrismaClient } = require("@prisma/client")
+const g = globalThis as any
+export const prisma = g.prisma || (g.prisma = new PrismaClient())
