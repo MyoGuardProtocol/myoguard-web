@@ -57,28 +57,28 @@ export async function POST(req: NextRequest) {
     })
     const assessment = await prisma.assessment.create({
       data: {
-        userId: user.id,
         weightKg: body.weightKg,
         proteinGrams: body.proteinGrams,
-        exerciseDaysWk: body.exerciseDaysWk,
-        hydrationLitres: body.hydrationLitres,
-        symptoms: body.symptoms,
-        fatigue: body.fatigue,
-        nausea: body.nausea,
-        muscleWeakness: body.muscleWeakness,
+        exerciseDaysWk: body.exerciseDaysWk || 0,
+        hydrationLitres: body.hydrationLitres || 0,
+        symptoms: body.symptoms || [],
+        fatigue: body.fatigue || 1,
+        nausea: body.nausea || 1,
+        muscleWeakness: body.muscleWeakness || 1,
         score: result.score,
         riskBand: result.riskBand as any,
+        user: { connect: { id: user.id } },
       }
     })
     await prisma.muscleScore.create({
       data: {
-        userId: user.id,
-        assessmentId: assessment.id,
         score: result.score,
         riskBand: result.riskBand as any,
         leanLossEstPct: result.leanLossEstimatePct,
         proteinTargetG: result.proteinTargetG,
         explanation: result.explanation,
+        user: { connect: { id: user.id } },
+        assessment: { connect: { id: assessment.id } },
       }
     })
     return NextResponse.json({ success: true, assessmentId: assessment.id, ...result })
