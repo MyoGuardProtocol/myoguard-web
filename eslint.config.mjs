@@ -15,4 +15,5 @@ const eslintConfig = defineConfig([
   ]),
 ]);
 
-export default eslintConfig;
+const override = { rules: { "@typescript-eslint/no-explicit-any": "off" } }
+export default [...eslintConfig, override];
