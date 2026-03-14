@@ -1,6 +1,6 @@
 import { auth } from "@clerk/nextjs/server"
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "../../../lib/prisma"
+import { prisma } from "@/app/lib/prisma"
 
 function calculateScore(input: any) {
   let score = 100
