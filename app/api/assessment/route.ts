@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/src/lib/prisma';
 import { calculateProtocol } from '@/src/lib/protocolEngine';
 import { AssessmentInputSchema } from '@/src/schemas/assessment';
@@ -62,7 +63,7 @@ export async function POST(req: NextRequest) {
 
   try {
     // Create assessment + muscle score in a transaction
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const assessment = await tx.assessment.create({
         data: {
           userId:         user.id,
