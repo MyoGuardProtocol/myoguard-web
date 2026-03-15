@@ -1,7 +1,7 @@
-import { PrismaClient } from "@prisma/client"
-
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient | undefined }
-
-export const prisma = globalForPrisma.prisma ?? new PrismaClient()
-
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma
+/**
+ * Compatibility re-export.
+ * Sprint 2/3 routes import from "@/app/lib/prisma".
+ * The canonical Prisma singleton (Prisma 7 + PrismaPg adapter) lives at
+ * "@/src/lib/prisma". This file re-exports it so both import paths work.
+ */
+export { prisma } from "@/src/lib/prisma";
