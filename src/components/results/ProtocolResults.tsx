@@ -6,6 +6,7 @@ import ProteinCard from './ProteinCard';
 import FibreCard from './FibreCard';
 import HydrationCard from './HydrationCard';
 import ScoreCard from './ScoreCard';
+import ScoreProjectionCard from './ScoreProjectionCard';
 import EmailCapture from '../ui/EmailCapture';
 import SupplementCTA from '../ui/SupplementCTA';
 
@@ -59,6 +60,10 @@ export default function ProtocolResults({
           riskBand={results.riskBand}
           leanLossEstPct={results.leanLossEstPct}
           explanation={results.explanation}
+        />
+        <ScoreProjectionCard
+          results={results}
+          formData={formData}
         />
         <ProteinCard
           proteinStandard={results.proteinStandard}
