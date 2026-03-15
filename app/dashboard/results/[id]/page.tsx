@@ -63,7 +63,22 @@ export default function ResultsPage() {
           <h2 style={{ color:"#111827", fontSize:"16px", fontWeight:"600", marginBottom:"8px" }}>Clinical Note</h2>
           <p style={{ color:"#6b7280", fontSize:"13px", lineHeight:"1.6" }}>MyoGuard Protocol provides clinical decision support and educational guidance. It does not replace the advice of your treating physician. Share these results with your doctor at your next consultation.</p>
         </div>
-        <a href="/dashboard/assessment" style={{ display:"block", textAlign:"center", padding:"14px", backgroundColor:"#0d9488", color:"white", borderRadius:"8px", fontWeight:"600", fontSize:"15px", textDecoration:"none" }}>Take Another Assessment</a>
+        <div style={{ backgroundColor:"white", borderRadius:"16px", padding:"32px", boxShadow:"0 1px 3px rgba(0,0,0,0.1)", border:"2px solid #0d9488" }}>
+          <div style={{ textAlign:"center", marginBottom:"20px" }}>
+            <div style={{ fontSize:"13px", fontWeight:"600", color:"#0d9488", marginBottom:"4px", textTransform:"uppercase", letterSpacing:"0.05em" }}>MyoGuard Protocol — Full Access</div>
+            <div style={{ fontSize:"28px", fontWeight:"bold", color:"#111827" }}>9<span style={{ fontSize:"14px", fontWeight:"normal", color:"#6b7280" }}>/month</span></div>
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:"12px", marginBottom:"24px" }}>
+            {["Complete personalised protocol (protein sources, training plan, hydration)","Weekly check-in tracking and progress chart","GI symptom management guidance","Supplement recommendations","Physician-ready report to share with your doctor"].map(f=>(
+              <div key={f} style={{ display:"flex", alignItems:"flex-start", gap:"10px" }}>
+                <span style={{ color:"#0d9488", fontWeight:"bold", flexShrink:0 }}>✓</span>
+                <span style={{ fontSize:"14px", color:"#374151" }}>{f}</span>
+              </div>
+            ))}
+          </div>
+          <a href="/upgrade" style={{ display:"block", textAlign:"center", padding:"14px", backgroundColor:"#0d9488", color:"white", borderRadius:"8px", fontWeight:"600", fontSize:"15px", textDecoration:"none", marginBottom:"12px" }}>Unlock Full Protocol — 9/month</a>
+          <a href="/dashboard/assessment" style={{ display:"block", textAlign:"center", padding:"10px", color:"#6b7280", fontSize:"13px", textDecoration:"none" }}>Take Another Assessment (Free)</a>
+        </div>
       </div>
     </div>
   )
