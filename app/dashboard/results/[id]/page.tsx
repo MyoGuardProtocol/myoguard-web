@@ -66,7 +66,7 @@ export default function ResultsPage() {
         <div style={{ backgroundColor:"white", borderRadius:"16px", padding:"32px", boxShadow:"0 1px 3px rgba(0,0,0,0.1)", border:"2px solid #0d9488" }}>
           <div style={{ textAlign:"center", marginBottom:"20px" }}>
             <div style={{ fontSize:"13px", fontWeight:"600", color:"#0d9488", marginBottom:"4px", textTransform:"uppercase", letterSpacing:"0.05em" }}>MyoGuard Protocol — Full Access</div>
-            <div style={{ fontSize:"28px", fontWeight:"bold", color:"#111827" }}>9<span style={{ fontSize:"14px", fontWeight:"normal", color:"#6b7280" }}>/month</span></div>
+            <div style={{ fontSize:"28px", fontWeight:"bold", color:"#111827" }}>$19<span style={{ fontSize:"14px", fontWeight:"normal", color:"#6b7280" }}>/month</span></div>
           </div>
           <div style={{ display:"flex", flexDirection:"column", gap:"12px", marginBottom:"24px" }}>
             {["Complete personalised protocol (protein sources, training plan, hydration)","Weekly check-in tracking and progress chart","GI symptom management guidance","Supplement recommendations","Physician-ready report to share with your doctor"].map(f=>(
