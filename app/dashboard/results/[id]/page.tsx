@@ -76,7 +76,7 @@ export default function ResultsPage() {
               </div>
             ))}
           </div>
-          <a href="/upgrade" style={{ display:"block", textAlign:"center", padding:"14px", backgroundColor:"#0d9488", color:"white", borderRadius:"8px", fontWeight:"600", fontSize:"15px", textDecoration:"none", marginBottom:"12px" }}>Unlock Full Protocol — 9/month</a>
+          <a href="/upgrade" style={{ display:"block", textAlign:"center", padding:"14px", backgroundColor:"#0d9488", color:"white", borderRadius:"8px", fontWeight:"600", fontSize:"15px", textDecoration:"none", marginBottom:"12px" }}>Unlock Full Protocol — $19/month</a>
           <a href="/dashboard/assessment" style={{ display:"block", textAlign:"center", padding:"10px", color:"#6b7280", fontSize:"13px", textDecoration:"none" }}>Take Another Assessment (Free)</a>
         </div>
       </div>
