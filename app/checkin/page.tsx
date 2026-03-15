@@ -120,7 +120,7 @@ export default function CheckinPage() {
               placeholder="e.g. 84.5"
               value={form.avgWeightKg}
               onChange={e => setForm(f => ({ ...f, avgWeightKg: e.target.value }))}
-              className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-400 text-sm"
+              className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-slate-800 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-400 text-sm"
             />
           </div>
 
@@ -134,7 +134,7 @@ export default function CheckinPage() {
               placeholder="e.g. 120"
               value={form.avgProteinG}
               onChange={e => setForm(f => ({ ...f, avgProteinG: e.target.value }))}
-              className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-400 text-sm"
+              className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-slate-800 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-400 text-sm"
             />
           </div>
 
@@ -150,7 +150,7 @@ export default function CheckinPage() {
               max={21}
               value={form.totalWorkouts}
               onChange={e => setForm(f => ({ ...f, totalWorkouts: e.target.value }))}
-              className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-400 text-sm"
+              className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-slate-800 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-400 text-sm"
             />
           </div>
 
@@ -164,7 +164,7 @@ export default function CheckinPage() {
               placeholder="e.g. 2.5"
               value={form.avgHydration}
               onChange={e => setForm(f => ({ ...f, avgHydration: e.target.value }))}
-              className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-400 text-sm"
+              className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-slate-800 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-400 text-sm"
             />
           </div>
 
@@ -224,7 +224,7 @@ export default function CheckinPage() {
               value={form.notes}
               onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
               rows={3}
-              className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-400 text-sm resize-none"
+              className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-slate-800 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-400 text-sm resize-none"
             />
           </div>
 

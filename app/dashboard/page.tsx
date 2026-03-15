@@ -143,6 +143,23 @@ export default async function DashboardPage() {
           </div>
         )}
 
+        {/* Journey CTA */}
+        {latestScore !== null && (
+          <div className="bg-slate-800 rounded-2xl p-5 text-white">
+            <p className="text-xs font-semibold text-teal-400 uppercase tracking-widest mb-1">Your Progress Story</p>
+            <p className="text-sm font-bold mb-1">View your MyoGuard Journey</p>
+            <p className="text-slate-400 text-xs leading-relaxed mb-3">
+              See your score change over time, your distance to the next risk band, and your most effective next step.
+            </p>
+            <Link
+              href="/dashboard/journey"
+              className="inline-block bg-teal-500 hover:bg-teal-400 text-white font-bold text-sm px-4 py-2 rounded-lg transition-colors"
+            >
+              View Journey →
+            </Link>
+          </div>
+        )}
+
         {/* Weekly Check-in CTA */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
           <div className="flex items-start justify-between">

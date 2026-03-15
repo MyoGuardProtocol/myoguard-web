@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+import { useUser } from '@clerk/nextjs';
 import type { ProtocolResult, AssessmentInput, PhysicianInfo } from '@/src/types';
 import ClinicalSummary from './ClinicalSummary';
 import ProteinCard from './ProteinCard';
@@ -7,14 +9,15 @@ import FibreCard from './FibreCard';
 import HydrationCard from './HydrationCard';
 import ScoreCard from './ScoreCard';
 import ScoreProjectionCard from './ScoreProjectionCard';
+import AccountGate from '../ui/AccountGate';
 import EmailCapture from '../ui/EmailCapture';
 import SupplementCTA from '../ui/SupplementCTA';
 
 type ProtocolResultsProps = {
-  results:      ProtocolResult;
-  formData:     AssessmentInput;
+  results:       ProtocolResult;
+  formData:      AssessmentInput;
   referralSlug?: string | null;
-  physician?:   PhysicianInfo | null;
+  physician?:    PhysicianInfo | null;
   onRecalculate: () => void;
 };
 
@@ -25,12 +28,19 @@ export default function ProtocolResults({
   physician,
   onRecalculate,
 }: ProtocolResultsProps) {
-  const medLabel = formData.medication === 'semaglutide' ? 'Semaglutide' : 'Tirzepatide';
+  const { isSignedIn, isLoaded } = useUser();
+
+  // Gate is open (showing) until user dismisses it or is already signed in.
+  // We wait for Clerk to load before deciding — avoids a flash on signed-in users.
+  const [guestMode, setGuestMode] = useState(false);
+
+  const medLabel        = formData.medication === 'semaglutide' ? 'Semaglutide' : 'Tirzepatide';
   const hasConstipation = formData.symptoms.includes('Constipation');
 
-  const handleSavePdf = () => {
-    window.print();
-  };
+  // Show gate when: Clerk loaded, user is NOT signed in, and hasn't chosen guest yet
+  const showGate = isLoaded && !isSignedIn && !guestMode;
+
+  const handleSavePdf = () => window.print();
 
   return (
     <>
@@ -53,37 +63,37 @@ export default function ProtocolResults({
         physician={physician}
       />
 
-      {/* ── Detail cards ── */}
-      <div className="grid grid-cols-1 gap-4 mb-6">
+      {/* ── Score card — always visible ── */}
+      <div className="grid grid-cols-1 gap-4 mb-4">
         <ScoreCard
           myoguardScore={results.myoguardScore}
           riskBand={results.riskBand}
           leanLossEstPct={results.leanLossEstPct}
           explanation={results.explanation}
         />
-        <ScoreProjectionCard
-          results={results}
-          formData={formData}
-        />
-        <ProteinCard
-          proteinStandard={results.proteinStandard}
-          proteinAggressive={results.proteinAggressive}
-        />
-        <FibreCard
-          fiber={results.fiber}
-          hasConstipation={hasConstipation}
-        />
-        <HydrationCard hydration={results.hydration} />
       </div>
 
-      {/* ── Email capture ── */}
-      <EmailCapture
-        results={results}
-        formData={formData}
-        referralSlug={referralSlug}
-      />
+      {/* ── Account gate — shown to unauthenticated guests ── */}
+      {showGate ? (
+        <AccountGate
+          score={results.myoguardScore}
+          onGuest={() => setGuestMode(true)}
+        />
+      ) : (
+        /* ── Full protocol (visible after gate dismissed or user signed in) ── */
+        <div className="grid grid-cols-1 gap-4 mb-6">
+          <ScoreProjectionCard results={results} formData={formData} />
+          <ProteinCard
+            proteinStandard={results.proteinStandard}
+            proteinAggressive={results.proteinAggressive}
+          />
+          <FibreCard fiber={results.fiber} hasConstipation={hasConstipation} />
+          <HydrationCard hydration={results.hydration} />
+        </div>
+      )}
 
-      {/* ── Supplement CTA ── */}
+      {/* ── Email capture + CTA (always visible) ── */}
+      <EmailCapture results={results} formData={formData} referralSlug={referralSlug} />
       <SupplementCTA />
 
       {/* ── Actions ── */}
