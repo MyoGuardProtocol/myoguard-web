@@ -88,9 +88,11 @@ export default function Home() {
             </span>
             <p className="text-xs text-slate-500 mt-0.5">Physician-Formulated · Data-Driven Muscle Protection</p>
           </div>
-          <span className="text-xs bg-teal-50 text-teal-700 border border-teal-200 rounded-full px-3 py-1 font-medium">
-            Dr. B, MBBS
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs bg-teal-50 text-teal-700 border border-teal-200 rounded-full px-3 py-1 font-medium">Dr. B, MBBS</span>
+            <a href="/dashboard" className="text-xs bg-teal-600 text-white rounded-full px-3 py-1 font-medium hover:bg-teal-700">My Dashboard</a>
+            <a href="/sign-in" className="text-xs border border-slate-200 text-slate-600 rounded-full px-3 py-1 font-medium hover:bg-slate-50">Sign In</a>
+          </div>
         </div>
       </header>
 
