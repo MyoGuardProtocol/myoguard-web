@@ -59,7 +59,10 @@ export default function EmailCapture({ results, formData, referralSlug }: EmailC
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 mb-6">
       <p className="text-sm font-semibold text-slate-800 mb-1">Send My Protocol to My Email</p>
-      <p className="text-xs text-slate-500 mb-4">Get a copy of your personalised targets delivered to your inbox.</p>
+      <p className="text-xs text-slate-500 mb-3">
+        Enter your email to receive your full protocol report.<br />
+        We will not send spam or share your information.
+      </p>
 
       {emailSubmitted ? (
         <div className="flex items-center gap-3 bg-teal-50 border border-teal-200 rounded-lg px-4 py-3">
@@ -76,7 +79,7 @@ export default function EmailCapture({ results, formData, referralSlug }: EmailC
               placeholder="you@example.com"
               value={email}
               onChange={e => { setEmail(e.target.value); setEmailError(''); }}
-              className={`flex-1 border rounded-lg px-4 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-400 text-sm ${
+              className={`flex-1 border rounded-lg px-4 py-2.5 text-slate-800 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-400 text-sm ${
                 emailError ? 'border-red-400' : 'border-slate-300'
               }`}
             />

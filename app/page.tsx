@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { calculateProtocol } from '@/src/lib/protocolEngine';
 import type { AssessmentInput, ProtocolResult, PhysicianInfo } from '@/src/types';
 import Header from '@/src/components/ui/Header';
+import ReferralBanner from '@/src/components/ui/ReferralBanner';
 import AssessmentForm from '@/src/components/forms/AssessmentForm';
 import ProtocolResults from '@/src/components/results/ProtocolResults';
 
@@ -61,7 +62,10 @@ function CalculatorInner() {
 
       <div className="max-w-3xl mx-auto px-6 py-10">
         {step === 'form' ? (
-          <AssessmentForm onSubmit={handleFormSubmit} />
+          <>
+            <ReferralBanner physician={physician} refSlug={refSlug} />
+            <AssessmentForm onSubmit={handleFormSubmit} />
+          </>
         ) : results && formData ? (
           <ProtocolResults
             results={results}
