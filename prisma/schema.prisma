@@ -1,11 +1,10 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+binaryTargets   = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
 }
 
 enum Role {
@@ -74,6 +73,7 @@ model User {
   consentVersion     String?
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
+
   profile        UserProfile?
   assessments    Assessment[]
   muscleScores   MuscleScore[]
@@ -113,6 +113,7 @@ model UserProfile {
   treatmentStart  DateTime
   baselineProtein Float?
   updatedAt       DateTime      @updatedAt
+
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
@@ -131,6 +132,7 @@ model Assessment {
   score           Float
   riskBand        RiskBand
   createdAt       DateTime @default(now())
+
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   muscleScore  MuscleScore?
   protocolPlan ProtocolPlan?
@@ -146,6 +148,7 @@ model MuscleScore {
   proteinTargetG Float
   explanation    String
   generatedAt    DateTime @default(now())
+
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
 }
@@ -162,6 +165,7 @@ model ProtocolPlan {
   electrolyteNotes String
   giGuidance       String
   createdAt        DateTime @default(now())
+
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
 }
@@ -177,6 +181,7 @@ model ProgressLog {
   energyLevel     Int
   nauseaLevel     Int
   notes           String?
+
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
@@ -196,6 +201,7 @@ model WeeklyCheckin {
   recommendations   String[]
   completedAt       DateTime?
   createdAt         DateTime  @default(now())
+
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
@@ -207,6 +213,7 @@ model ShareCard {
   imageUrl   String?
   shareToken String   @unique @default(cuid())
   createdAt  DateTime @default(now())
+
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
@@ -229,6 +236,7 @@ model Notification {
   sentAt    DateTime?
   readAt    DateTime?
   createdAt DateTime         @default(now())
+
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 

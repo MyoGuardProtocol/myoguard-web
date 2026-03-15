@@ -1,63 +1,194 @@
-'use client'
-import { useUser } from "@clerk/nextjs"
-import { useEffect, useState } from "react"
-import Link from "next/link"
+import { auth } from '@clerk/nextjs/server';
+import { redirect } from 'next/navigation';
+import { prisma } from '@/src/lib/prisma';
+import Link from 'next/link';
 
-export default function DashboardPage() {
-  const { user } = useUser()
-  const [latest, setLatest] = useState<any>(null)
+const RISK_BADGE: Record<string, { label: string; cls: string }> = {
+  LOW:      { label: 'Low Risk',      cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  MODERATE: { label: 'Moderate Risk', cls: 'bg-amber-50  text-amber-700  border-amber-200'   },
+  HIGH:     { label: 'High Risk',     cls: 'bg-orange-50 text-orange-700 border-orange-200'   },
+  CRITICAL: { label: 'Critical Risk', cls: 'bg-red-50    text-red-700    border-red-200'      },
+};
 
-  useEffect(() => {
-    fetch("/api/assessment?latest=true")
-      .then(r => r.json())
-      .then(d => setLatest(d.assessment))
-      .catch(() => {})
-  }, [])
+function formatDate(d: Date) {
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
 
-  const score = latest?.muscleScore
-  const band = score?.riskBand || null
-  const COLORS: any = { LOW:"#16a34a", MODERATE:"#d97706", HIGH:"#ea580c", CRITICAL:"#dc2626" }
-  const LABELS: any = { LOW:"Low Risk", MODERATE:"Moderate Risk", HIGH:"High Risk", CRITICAL:"Critical Risk" }
+export default async function DashboardPage() {
+  const { userId } = await auth();
+  if (!userId) redirect('/sign-in');
+
+  const user = await prisma.user.findUnique({
+    where: { clerkId: userId },
+    select: {
+      id: true,
+      fullName: true,
+      subscriptionStatus: true,
+      assessments: {
+        orderBy: { assessmentDate: 'desc' },
+        take: 10,
+        include: { muscleScore: { select: { score: true, riskBand: true } } },
+      },
+      weeklyCheckins: {
+        orderBy: { weekStart: 'desc' },
+        take: 4,
+      },
+    },
+  });
+
+  // User exists in Clerk but not yet synced to DB
+  if (!user) {
+    return (
+      <main className="min-h-screen bg-slate-50 font-sans flex items-center justify-center">
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 max-w-md text-center">
+          <p className="text-slate-800 font-semibold mb-2">Account setup in progress</p>
+          <p className="text-sm text-slate-500 mb-4">Your account is being provisioned. Please try again in a moment.</p>
+          <Link href="/" className="bg-teal-600 text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-teal-700 transition-colors inline-block">
+            Back to Calculator
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
+  const latestAssessment = user.assessments[0];
+  const latestScore      = latestAssessment?.muscleScore?.score ?? null;
+  const latestBand       = latestAssessment?.muscleScore?.riskBand ?? null;
+  const isPremium        = user.subscriptionStatus === 'ACTIVE';
 
   return (
-    <div style={{ minHeight:"100vh", backgroundColor:"#f9fafb", padding:"40px 20px" }}>
-      <div style={{ maxWidth:"640px", margin:"0 auto", display:"flex", flexDirection:"column", gap:"20px" }}>
-        <div style={{ backgroundColor:"white", borderRadius:"16px", padding:"32px", boxShadow:"0 1px 3px rgba(0,0,0,0.1)" }}>
-          <h1 style={{ color:"#0d9488", fontSize:"22px", fontWeight:"bold", marginBottom:"4px" }}>Welcome back{user?.firstName ? ", " + user.firstName : ""}</h1>
-          <p style={{ color:"#6b7280", fontSize:"14px" }}>Your muscle protection dashboard</p>
+    <main className="min-h-screen bg-slate-50 font-sans">
+      {/* Header */}
+      <header className="bg-white border-b border-slate-200 px-6 py-4">
+        <div className="max-w-3xl mx-auto flex items-center justify-between">
+          <div>
+            <Link href="/" className="text-xl font-bold text-slate-800 tracking-tight hover:opacity-80 transition-opacity">
+              Myo<span className="text-teal-600">Guard</span> Protocol
+            </Link>
+            <p className="text-xs text-slate-500 mt-0.5">Physician-Formulated · Data-Driven Muscle Protection</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className={`text-xs border rounded-full px-3 py-1 font-medium ${isPremium ? 'bg-teal-50 text-teal-700 border-teal-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+              {isPremium ? '⭐ Premium' : 'Free Plan'}
+            </span>
+          </div>
         </div>
-        {score ? (
-          <div style={{ backgroundColor:"white", borderRadius:"16px", padding:"32px", boxShadow:"0 1px 3px rgba(0,0,0,0.1)" }}>
-            <h2 style={{ color:"#111827", fontSize:"16px", fontWeight:"600", marginBottom:"16px" }}>Your Latest Score</h2>
-            <div style={{ display:"flex", alignItems:"center", gap:"24px" }}>
-              <div style={{ width:"80px", height:"80px", borderRadius:"50%", border:"6px solid", borderColor:COLORS[band], display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                <span style={{ fontSize:"24px", fontWeight:"bold", color:COLORS[band] }}>{Math.round(score.score)}</span>
-              </div>
-              <div>
-                <div style={{ fontSize:"14px", fontWeight:"600", color:COLORS[band], marginBottom:"4px" }}>{LABELS[band]}</div>
-                <div style={{ fontSize:"13px", color:"#6b7280" }}>Protein target: {score.proteinTargetG}g/day</div>
-                <div style={{ fontSize:"12px", color:"#9ca3af", marginTop:"4px" }}>Last assessment: {new Date(latest.assessmentDate).toLocaleDateString()}</div>
-              </div>
+      </header>
+
+      <div className="max-w-3xl mx-auto px-6 py-10 space-y-6">
+
+        {/* Welcome */}
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">
+            Welcome back{user.fullName ? `, ${user.fullName.split(' ')[0]}` : ''}
+          </h1>
+          <p className="text-slate-500 text-sm mt-1">Track your muscle protection progress here.</p>
+        </div>
+
+        {/* Score Summary */}
+        {latestScore !== null && latestBand ? (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+            <p className="text-xs font-semibold text-teal-600 uppercase tracking-wide mb-3">Latest MyoGuard Score</p>
+            <div className="flex items-center gap-4">
+              <div className="text-4xl font-bold text-slate-800">{latestScore}<span className="text-xl text-slate-400 font-normal">/100</span></div>
+              <span className={`text-xs font-semibold border rounded-full px-3 py-1 ${RISK_BADGE[latestBand]?.cls ?? ''}`}>
+                {RISK_BADGE[latestBand]?.label ?? latestBand}
+              </span>
             </div>
+            <div className="mt-3 h-2 rounded-full bg-slate-100 overflow-hidden">
+              <div className="h-full rounded-full bg-teal-500 transition-all" style={{ width: `${latestScore}%` }} />
+            </div>
+            <p className="mt-2 text-xs text-slate-400">
+              Assessed {formatDate(latestAssessment!.assessmentDate)}
+            </p>
           </div>
         ) : (
-          <div style={{ backgroundColor:"#f0fdfa", borderRadius:"16px", padding:"32px", border:"1px solid #99f6e4" }}>
-            <h2 style={{ color:"#0f766e", fontSize:"16px", fontWeight:"600", marginBottom:"8px" }}>No assessment yet</h2>
-            <p style={{ color:"#374151", fontSize:"14px", marginBottom:"16px" }}>Take your first assessment to get your MyoGuard Score.</p>
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 text-center">
+            <p className="text-slate-700 font-semibold mb-2">No assessment yet</p>
+            <p className="text-sm text-slate-500 mb-4">Complete the protocol calculator to generate your first MyoGuard Score.</p>
+            <Link href="/" className="bg-teal-600 text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-teal-700 transition-colors inline-block">
+              Start Assessment →
+            </Link>
           </div>
         )}
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"16px" }}>
-          <Link href="/dashboard/assessment" style={{ backgroundColor:"#0d9488", color:"white", borderRadius:"12px", padding:"20px", textDecoration:"none", display:"block" }}>
-            <div style={{ fontSize:"16px", fontWeight:"600", marginBottom:"4px" }}>New Assessment</div>
-            <div style={{ fontSize:"13px", opacity:0.8 }}>Update your weekly score</div>
-          </Link>
-          <Link href="/sign-out" style={{ backgroundColor:"white", color:"#374151", borderRadius:"12px", padding:"20px", textDecoration:"none", display:"block", border:"1px solid #e5e7eb" }}>
-            <div style={{ fontSize:"16px", fontWeight:"600", marginBottom:"4px" }}>Sign Out</div>
-            <div style={{ fontSize:"13px", color:"#9ca3af" }}>See you next week</div>
+
+        {/* Assessment History */}
+        {user.assessments.length > 0 && (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+            <p className="text-xs font-semibold text-teal-600 uppercase tracking-wide mb-3">Assessment History</p>
+            <div className="space-y-3">
+              {user.assessments.map((a) => {
+                const band = a.muscleScore?.riskBand;
+                const score = a.muscleScore?.score;
+                return (
+                  <div key={a.id} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
+                    <div>
+                      <p className="text-sm font-medium text-slate-700">{formatDate(a.assessmentDate)}</p>
+                      <p className="text-xs text-slate-400">{a.weightKg}kg · {a.proteinGrams}g protein target</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {score !== undefined && score !== null && (
+                        <span className="text-sm font-bold text-slate-800">{score}/100</span>
+                      )}
+                      {band && (
+                        <span className={`text-xs font-medium border rounded-full px-2 py-0.5 ${RISK_BADGE[band]?.cls ?? ''}`}>
+                          {RISK_BADGE[band]?.label ?? band}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Weekly Check-in CTA */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-semibold text-teal-600 uppercase tracking-wide mb-1">Weekly Check-in</p>
+              <p className="text-sm font-semibold text-slate-800">Log this week&apos;s metrics</p>
+              <p className="text-xs text-slate-500 mt-1">
+                Track weight, protein adherence, workouts, and hydration week over week.
+              </p>
+              {user.weeklyCheckins[0] && (
+                <p className="text-xs text-slate-400 mt-1">
+                  Last check-in: {formatDate(user.weeklyCheckins[0].weekStart)}
+                </p>
+              )}
+            </div>
+            <Link href="/checkin" className="bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors whitespace-nowrap">
+              Check In →
+            </Link>
+          </div>
+        </div>
+
+        {/* Subscription */}
+        {!isPremium && (
+          <div className="bg-slate-800 rounded-2xl p-5 text-white">
+            <p className="font-semibold text-sm mb-1">Upgrade to Premium</p>
+            <p className="text-slate-300 text-xs leading-relaxed mb-3">
+              Unlock full score trend history, physician report exports, and priority protocol updates.
+            </p>
+            <form action="/api/stripe/checkout" method="POST">
+              <button
+                type="submit"
+                className="bg-teal-500 hover:bg-teal-400 text-white font-semibold text-sm px-4 py-2 rounded-lg transition-colors"
+              >
+                Upgrade Now →
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* Recalculate */}
+        <div className="text-center">
+          <Link href="/" className="text-sm text-teal-600 hover:underline font-medium">
+            ← Run a new assessment
           </Link>
         </div>
-        <p style={{ color:"#9ca3af", fontSize:"12px", textAlign:"center" }}>MyoGuard Protocol — Clinical decision support for GLP-1 patients</p>
       </div>
-    </div>
-  )
+    </main>
+  );
 }

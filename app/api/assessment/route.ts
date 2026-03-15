@@ -1,107 +1,136 @@
-export const dynamic = "force-dynamic"
+import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
+import { prisma } from '@/src/lib/prisma';
+import { calculateProtocol } from '@/src/lib/protocolEngine';
+import { AssessmentInputSchema } from '@/src/schemas/assessment';
 
-import { auth } from "@clerk/nextjs/server"
-import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/app/lib/prisma"
-
-function calculateScore(input: any) {
-  let score = 100
-  const proteinPerKg = input.proteinGrams / input.currentWeightKg
-  let leanLossPct = 0.30
-  if (input.age > 65) leanLossPct += 0.10
-  else if (input.age > 50) leanLossPct += 0.05
-  if (proteinPerKg < 0.8) leanLossPct += 0.05
-  if (input.exerciseDaysPerWeek < 2) leanLossPct += 0.05
-  leanLossPct = Math.min(leanLossPct, 0.60)
-  if (leanLossPct > 0.35) score -= 20
-  else if (leanLossPct >= 0.30) score -= 10
-  const proteinTarget = input.currentWeightKg * 1.4
-  if (input.proteinGrams < proteinTarget) score -= 15
-  if (input.exerciseDaysPerWeek < 2) score -= 15
-  if (input.age > 65) score -= 10
-  if (input.glp1Stage === "INITIATION") score -= 5
-  if (input.fatigueLevel > 3) score -= 5
-  if (input.nauseaLevel > 3) score -= 5
-  score = Math.max(0, Math.min(100, Math.round(score)))
-  let riskBand = "LOW"
-  if (score < 40) riskBand = "CRITICAL"
-  else if (score < 60) riskBand = "HIGH"
-  else if (score < 80) riskBand = "MODERATE"
-  const proteinTargetG = Math.round(input.currentWeightKg * 1.4)
-  const explanation = score >= 80
-    ? "Your nutrition and exercise habits are providing good protection for your muscle mass."
-    : score >= 60
-    ? "You have moderate risk of lean muscle loss. Targeted improvements to protein intake and exercise can significantly improve your score."
-    : score >= 40
-    ? "You have a high risk of lean muscle loss. Immediate improvements to protein intake and resistance training are strongly recommended."
-    : "Critical risk of lean muscle loss. Urgent protocol adherence is required."
-  return { score, riskBand, leanLossEstimatePct: Math.round(leanLossPct * 100), proteinTargetG, explanation }
-}
-
+/**
+ * POST /api/assessment
+ * Auth required. Saves a scored assessment + MuscleScore record to DB.
+ *
+ * GET /api/assessment
+ * Auth required. Returns the user's last 10 assessments (for dashboard).
+ */
 export async function POST(req: NextRequest) {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorised' }, { status: 401 });
+  }
+
+  let body: unknown;
   try {
-    const { userId: clerkId } = await auth()
-    if (!clerkId) return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    const user = await prisma.user.findUnique({ where: { clerkId }, include: { profile: true } })
-    if (!user || !user.profile) return NextResponse.json({ error: "Please complete onboarding first." }, { status: 404 })
-    const body = await req.json()
-    const profile = user.profile
-    const result = calculateScore({
-      age: profile.age,
-      currentWeightKg: body.weightKg,
-      proteinGrams: body.proteinGrams,
-      exerciseDaysPerWeek: body.exerciseDaysWk,
-      glp1Stage: profile.glp1Stage,
-      fatigueLevel: body.fatigue,
-      nauseaLevel: body.nausea,
-    })
-    const assessment = await prisma.assessment.create({
-      data: {
-        weightKg: body.weightKg,
-        proteinGrams: body.proteinGrams,
-        exerciseDaysWk: body.exerciseDaysWk || 0,
-        hydrationLitres: body.hydrationLitres || 0,
-        symptoms: body.symptoms || [],
-        fatigue: body.fatigue || 1,
-        nausea: body.nausea || 1,
-        muscleWeakness: body.muscleWeakness || 1,
-        score: result.score,
-        riskBand: result.riskBand as any,
-        user: { connect: { id: user.id } },
-      }
-    })
-    await prisma.muscleScore.create({
-      data: {
-        score: result.score,
-        riskBand: result.riskBand as any,
-        leanLossEstPct: result.leanLossEstimatePct,
-        proteinTargetG: result.proteinTargetG,
-        explanation: result.explanation,
-        user: { connect: { id: user.id } },
-        assessment: { connect: { id: assessment.id } },
-      }
-    })
-    return NextResponse.json({ success: true, assessmentId: assessment.id, ...result })
-  } catch (e: any) {
-    console.error(e)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  const parsed = AssessmentInputSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Validation failed', details: parsed.error.flatten() },
+      { status: 422 }
+    );
+  }
+
+  // Resolve internal user ID from Clerk ID
+  const user = await prisma.user.findUnique({
+    where: { clerkId: userId },
+    select: { id: true },
+  });
+
+  if (!user) {
+    return NextResponse.json({ error: 'User not found — complete onboarding first' }, { status: 404 });
+  }
+
+  const input = parsed.data;
+  const protocol = calculateProtocol(input);
+
+  // Map activityLevel string to Prisma enum
+  const activityMap: Record<string, string> = {
+    sedentary: 'SEDENTARY',
+    moderate:  'MODERATELY_ACTIVE',
+    active:    'VERY_ACTIVE',
+  };
+
+  // Map riskBand to Prisma enum (already matches)
+  const riskBandMap: Record<string, 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL'> = {
+    LOW:      'LOW',
+    MODERATE: 'MODERATE',
+    HIGH:     'HIGH',
+    CRITICAL: 'CRITICAL',
+  };
+
+  try {
+    // Create assessment + muscle score in a transaction
+    const result = await prisma.$transaction(async (tx) => {
+      const assessment = await tx.assessment.create({
+        data: {
+          userId:         user.id,
+          weightKg:       protocol.weightKg,
+          proteinGrams:   protocol.proteinStandard,
+          exerciseDaysWk: input.activityLevel === 'active' ? 5 : input.activityLevel === 'moderate' ? 3 : 1,
+          hydrationLitres: protocol.hydration,
+          symptoms:       input.symptoms,
+          fatigue:        input.symptoms.includes('Fatigue') ? 1 : 0,
+          nausea:         input.symptoms.includes('Nausea') ? 1 : 0,
+          muscleWeakness: input.symptoms.includes('Muscle weakness') ? 1 : 0,
+          score:          protocol.myoguardScore,
+          riskBand:       riskBandMap[protocol.riskBand],
+        },
+      });
+
+      const muscleScore = await tx.muscleScore.create({
+        data: {
+          userId:         user.id,
+          assessmentId:   assessment.id,
+          score:          protocol.myoguardScore,
+          riskBand:       riskBandMap[protocol.riskBand],
+          leanLossEstPct: protocol.leanLossEstPct,
+          proteinTargetG: protocol.proteinAggressive,
+          explanation:    protocol.explanation,
+        },
+      });
+
+      return { assessment, muscleScore };
+    });
+
+    return NextResponse.json({
+      assessmentId: result.assessment.id,
+      score:        protocol.myoguardScore,
+      riskBand:     protocol.riskBand,
+    });
+  } catch (err) {
+    console.error('[POST /api/assessment]', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 export async function GET() {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorised' }, { status: 401 });
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { clerkId: userId },
+    select: { id: true },
+  });
+
+  if (!user) {
+    return NextResponse.json({ assessments: [] });
+  }
+
   try {
-    const { userId: clerkId } = await auth()
-    if (!clerkId) return NextResponse.json({ error: "Unauthorised" }, { status: 401 })
-    const user = await prisma.user.findUnique({ where: { clerkId } })
-    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 })
-    const assessment = await prisma.assessment.findFirst({
+    const assessments = await prisma.assessment.findMany({
       where: { userId: user.id },
-      orderBy: { assessmentDate: "desc" },
-      include: { muscleScore: true },
-    })
-    return NextResponse.json({ assessment })
-  } catch (e: any) {
-    console.error(e)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+      orderBy: { assessmentDate: 'desc' },
+      take: 10,
+      include: { muscleScore: { select: { score: true, riskBand: true, explanation: true } } },
+    });
+
+    return NextResponse.json({ assessments });
+  } catch (err) {
+    console.error('[GET /api/assessment]', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
