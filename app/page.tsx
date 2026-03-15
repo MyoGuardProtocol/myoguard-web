@@ -71,6 +71,7 @@ function CalculatorInner() {
             results={results}
             formData={formData}
             referralSlug={activeSlug}
+            physician={physician}
             onRecalculate={handleRecalculate}
           />
         ) : null}

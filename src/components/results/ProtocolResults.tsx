@@ -1,6 +1,7 @@
 'use client';
 
-import type { ProtocolResult, AssessmentInput } from '@/src/types';
+import type { ProtocolResult, AssessmentInput, PhysicianInfo } from '@/src/types';
+import ClinicalSummary from './ClinicalSummary';
 import ProteinCard from './ProteinCard';
 import FibreCard from './FibreCard';
 import HydrationCard from './HydrationCard';
@@ -9,20 +10,18 @@ import EmailCapture from '../ui/EmailCapture';
 import SupplementCTA from '../ui/SupplementCTA';
 
 type ProtocolResultsProps = {
-  results: ProtocolResult;
-  formData: AssessmentInput;
+  results:      ProtocolResult;
+  formData:     AssessmentInput;
   referralSlug?: string | null;
+  physician?:   PhysicianInfo | null;
   onRecalculate: () => void;
 };
 
-/**
- * Results view orchestrator — verbatim structure from app/page.tsx lines 263–405.
- * Composes the individual result cards + new ScoreCard + email capture.
- */
 export default function ProtocolResults({
   results,
   formData,
   referralSlug,
+  physician,
   onRecalculate,
 }: ProtocolResultsProps) {
   const medLabel = formData.medication === 'semaglutide' ? 'Semaglutide' : 'Tirzepatide';
@@ -34,10 +33,10 @@ export default function ProtocolResults({
 
   return (
     <>
-      {/* Results Header */}
-      <div className="mb-6">
+      {/* ── Page heading ── */}
+      <div className="mb-5">
         <div className="flex items-center gap-2 mb-1">
-          <span className="w-2 h-2 rounded-full bg-teal-500 inline-block"></span>
+          <span className="w-2 h-2 rounded-full bg-teal-500 inline-block" />
           <span className="text-xs font-medium text-teal-600 uppercase tracking-wide">Protocol Generated</span>
         </div>
         <h1 className="text-2xl font-bold text-slate-800">Your MyoGuard Protocol</h1>
@@ -46,7 +45,14 @@ export default function ProtocolResults({
         </p>
       </div>
 
-      {/* Result Cards */}
+      {/* ── Clinical summary header ── */}
+      <ClinicalSummary
+        results={results}
+        formData={formData}
+        physician={physician}
+      />
+
+      {/* ── Detail cards ── */}
       <div className="grid grid-cols-1 gap-4 mb-6">
         <ScoreCard
           myoguardScore={results.myoguardScore}
@@ -65,17 +71,17 @@ export default function ProtocolResults({
         <HydrationCard hydration={results.hydration} />
       </div>
 
-      {/* Email Capture */}
+      {/* ── Email capture ── */}
       <EmailCapture
         results={results}
         formData={formData}
         referralSlug={referralSlug}
       />
 
-      {/* Supplement CTA */}
+      {/* ── Supplement CTA ── */}
       <SupplementCTA />
 
-      {/* Actions */}
+      {/* ── Actions ── */}
       <div className="flex gap-3">
         <button
           onClick={onRecalculate}
@@ -91,11 +97,12 @@ export default function ProtocolResults({
         </button>
       </div>
 
-      {/* Disclaimer */}
+      {/* ── Disclaimer ── */}
       <p className="mt-6 text-xs text-slate-400 text-center leading-relaxed">
         This protocol output is an educational nutritional reference tool only. It does not constitute
         a physician-patient relationship or individualised medical advice. Review all recommendations
-        with your prescribing physician before commencing supplementation. © 2026 MyoGuard Protocol · myoguard.health · Dr. B, MBBS · <a href="/privacy" className="underline hover:text-slate-600 transition-colors">Privacy Policy</a>
+        with your prescribing physician before commencing supplementation. © 2026 MyoGuard Protocol · myoguard.health · Dr. B, MBBS ·{' '}
+        <a href="/privacy" className="underline hover:text-slate-600 transition-colors">Privacy Policy</a>
       </p>
     </>
   );
