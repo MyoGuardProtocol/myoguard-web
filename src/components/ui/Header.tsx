@@ -33,7 +33,7 @@ export default function Header({ physicianName, showNav = false }: HeaderProps) 
               <Link href="/dashboard" className="text-xs bg-teal-600 text-white rounded-full px-3 py-1 font-medium hover:bg-teal-700 transition-colors">
                 My Dashboard
               </Link>
-              <Link href="/sign-in" className="text-xs border border-slate-200 text-slate-600 rounded-full px-3 py-1 font-medium hover:bg-slate-50 transition-colors">
+              <Link href="/get-started" className="text-xs border border-slate-200 text-slate-600 rounded-full px-3 py-1 font-medium hover:bg-slate-50 transition-colors">
                 Sign In
               </Link>
             </>
