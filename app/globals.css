@@ -1,13 +1,11 @@
 @layer clerk;
 @import "tailwindcss";
 
-/* ─── Colour tokens ─────────────────────────────────────────────────────────
-   Force light mode only. The app does not support dark mode — removing the
-   dark-mode override prevents iOS/Android system themes from bleeding into
-   form controls, input backgrounds, and placeholder colours.
-   color-scheme: light also tells WebKit to keep native controls (selects,
-   date pickers, scrollbars) in their light-mode form.
-   ───────────────────────────────────────────────────────────────────────── */
+/* ─── Colour tokens ──────────────────────────────────────────────────────────
+   Force light mode only. color-scheme: light tells WebKit/iOS to keep all
+   native controls (selects, date pickers, scrollbars, autofill) in their
+   light-mode appearance regardless of the device's system theme.
+   ─────────────────────────────────────────────────────────────────────────── */
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -27,47 +25,83 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* ─── iOS Safari input fixes ────────────────────────────────────────────────
-   1. font-size ≥ 16px on mobile prevents the automatic zoom-on-focus that
-      iOS Safari triggers for inputs smaller than 16px.
-   2. -webkit-appearance: none removes the native pill/inset shadow so
-      Tailwind border/radius styles are applied cleanly.
-   3. The :-webkit-autofill rules override the yellow/blue autofill tint that
-      iOS and Chrome apply; the inset box-shadow trick is the only reliable
-      cross-browser way to set a custom autofill background.
-   ───────────────────────────────────────────────────────────────────────── */
-@media (max-width: 768px) {
-  input[type="text"],
-  input[type="number"],
-  input[type="email"],
-  input[type="tel"],
-  input[type="password"],
-  input[type="search"],
-  select,
-  textarea {
-    font-size: 16px !important;
-  }
-}
+/* ─── iOS Safari / mobile input fixes ───────────────────────────────────────
+   Problem: on iPhone in dark mode (or with certain iOS versions), inputs can
+   render with a dark background and light text even when Tailwind's bg-white
+   is applied, because WebKit applies its own system-color-scheme styling
+   before Tailwind's classes resolve.
 
+   Fixes applied:
+   1. background-color: #ffffff !important  — hard-forces white background on
+      every input/select/textarea at the CSS layer, below Tailwind. The
+      !important is necessary here specifically to override WebKit's internal
+      system-color stylesheet, which also uses !important in some versions.
+   2. color: #111827 !important             — forces near-black text (gray-900)
+      so input values are always high-contrast on the white background.
+   3. color-scheme: light                   — scoped to the element level,
+      reinforces that WebKit should treat this element as light-mode.
+   4. -webkit-appearance: none              — strips native iOS inset shadow /
+      pill shape so Tailwind border-radius and border-color render cleanly.
+   5. font-size: 16px on mobile             — prevents iOS Safari auto-zoom on
+      focus (triggered whenever an input's computed font-size is < 16px).
+   ─────────────────────────────────────────────────────────────────────────── */
+input,
 input[type="text"],
 input[type="number"],
 input[type="email"],
 input[type="tel"],
 input[type="password"],
 input[type="search"],
+input[type="url"],
 select,
 textarea {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  color-scheme: light;
   -webkit-appearance: none;
   appearance: none;
 }
 
-/* Autofill background + text override (works on iOS Safari, Chrome, Edge) */
+/* Placeholder contrast — lighter than input text, clearly readable */
+input::placeholder,
+textarea::placeholder {
+  color: #9ca3af !important; /* gray-400 */
+  opacity: 1;                /* Firefox reduces opacity by default */
+}
+
+/* ─── Mobile font-size (prevents iOS auto-zoom on focus) ────────────────── */
+@media (max-width: 768px) {
+  input,
+  input[type="text"],
+  input[type="number"],
+  input[type="email"],
+  input[type="tel"],
+  input[type="password"],
+  input[type="search"],
+  input[type="url"],
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* ─── Autofill override ─────────────────────────────────────────────────────
+   iOS Safari and Chrome replace the background with a coloured tint when
+   autofill activates. The inset box-shadow trick is the only cross-browser
+   method that reliably overrides it without JavaScript.
+   -webkit-text-fill-color overrides the text colour specifically during
+   autofill (color property is ignored by WebKit in autofill state).
+   ─────────────────────────────────────────────────────────────────────────── */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus,
-input:-webkit-autofill:active {
-  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
-  -webkit-text-fill-color: #1e293b !important; /* slate-800 */
-  caret-color: #1e293b;
+input:-webkit-autofill:active,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+textarea:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0px 1000px #ffffff inset !important;
+  -webkit-text-fill-color: #111827 !important; /* gray-900 */
+  caret-color: #111827;
   transition: background-color 5000s ease-in-out 0s;
 }
