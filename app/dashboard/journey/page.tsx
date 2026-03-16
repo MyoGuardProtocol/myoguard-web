@@ -538,12 +538,14 @@ export default async function JourneyPage() {
             </div>
 
             <div className="flex flex-col items-end gap-2 mt-1 flex-shrink-0">
-              <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border ${meta.bg} ${meta.border} ${meta.colour}`}>
+              {/* Risk badge — fades in from above on load */}
+              <span className={`myg-badge-in inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border ${meta.bg} ${meta.border} ${meta.colour}`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />
                 {meta.label}
               </span>
               {delta !== null && (
-                <span className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold ${
+                /* Delta badge — slightly later fade-in */
+                <span className={`myg-badge-in-late inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold ${
                   delta > 0 ? 'bg-emerald-900/70 text-emerald-400 border border-emerald-700'
                   : delta < 0 ? 'bg-red-900/70 text-red-400 border border-red-700'
                   : 'bg-slate-700 text-slate-400 border border-slate-600'
@@ -557,7 +559,8 @@ export default async function JourneyPage() {
           {/* Progress track */}
           <div className="mb-5">
             <div className="relative mb-1">
-              <div className="h-4 rounded-full overflow-hidden flex gap-px">
+              {/* Track reveals left→right; overflow-hidden clips the clip-path animation cleanly */}
+              <div className="myg-track-reveal h-4 rounded-full overflow-hidden flex gap-px">
                 <div className="h-full bg-red-900/60"     style={{ width: '40%' }} />
                 <div className="h-full bg-orange-900/60"  style={{ width: '20%' }} />
                 <div className="h-full bg-amber-900/60"   style={{ width: '20%' }} />
@@ -566,8 +569,9 @@ export default async function JourneyPage() {
               {band !== 'LOW' && (
                 <div className="absolute top-0 h-full w-0.5 bg-emerald-500/40" style={{ left: '80%' }} />
               )}
+              {/* Thumb pops in after the track reveal finishes (0.5 s delay) */}
               <div
-                className={`absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-white shadow-xl ring-2 ${meta.ring}`}
+                className={`myg-thumb-pop absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-white shadow-xl ring-2 ${meta.ring}`}
                 style={{ left: `${Math.min(97, Math.max(3, current))}%` }}
               />
             </div>
@@ -667,14 +671,16 @@ export default async function JourneyPage() {
                 <div className="flex items-center gap-3">
                   <span className="text-[10px] text-slate-500 w-12 flex-shrink-0 font-medium">Now</span>
                   <div className="flex-1 h-2 rounded-full bg-slate-700 overflow-hidden">
-                    <div className="h-full rounded-full bg-slate-400" style={{ width: `${current}%` }} />
+                    {/* scaleX from left; parent overflow-hidden clips the animation */}
+                    <div className="myg-bar-grow h-full rounded-full bg-slate-400" style={{ width: `${current}%` }} />
                   </div>
                   <span className="text-[10px] text-slate-400 w-7 text-right tabular-nums font-semibold">{current}</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-[10px] text-slate-500 w-12 flex-shrink-0 font-medium">Projected</span>
                   <div className="flex-1 h-2 rounded-full bg-slate-700 overflow-hidden">
-                    <div className={`h-full rounded-full ${trendCfg.barCls}`} style={{ width: `${trajectory.projected}%` }} />
+                    {/* Projected bar animates slightly later than the Now bar */}
+                    <div className={`myg-bar-grow-late h-full rounded-full ${trendCfg.barCls}`} style={{ width: `${trajectory.projected}%` }} />
                   </div>
                   <span className={`text-[10px] w-7 text-right tabular-nums font-bold ${
                     trajectory.status === 'improving' ? 'text-emerald-400' :
@@ -767,10 +773,12 @@ export default async function JourneyPage() {
           <div className="px-5 pt-4 pb-4">
             <div className="flex items-center gap-1.5 mb-1">
               {streakData.window.map((active, i) => (
+                /* Each bar animates in with a 60 ms stagger — left→right reveal */
                 <div
                   key={i}
                   title={active ? 'Check-in logged' : 'No check-in'}
-                  className={`flex-1 h-2 rounded-full transition-colors ${
+                  style={{ animationDelay: `${i * 60}ms` }}
+                  className={`myg-streak-bar flex-1 h-2 rounded-full ${
                     active ? 'bg-teal-500' : 'bg-slate-700'
                   }`}
                 />

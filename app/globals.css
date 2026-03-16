@@ -105,3 +105,82 @@ textarea:-webkit-autofill:active {
   caret-color: #111827;
   transition: background-color 5000s ease-in-out 0s;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MyoGuard dashboard micro-animations
+   ───────────────────────────────────────────────────────────────────────────
+   All keyframes and animation utility classes are scoped inside
+   prefers-reduced-motion: no-preference.  Users who have requested reduced
+   motion see static elements — no fallback opacity quirks, no layout shift.
+
+   GPU-composited properties only (transform, opacity, clip-path).
+   Max cumulative timeline: ~850 ms (score track → thumb pop finish).
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: no-preference) {
+
+  /* ── 1. Score track: segmented bar reveals left → right via clip-path ── */
+  .myg-track-reveal {
+    animation: myg-track-reveal 0.55s cubic-bezier(0.25, 0, 0, 1) 0.1s both;
+  }
+  @keyframes myg-track-reveal {
+    from { clip-path: inset(0 100% 0 0 round 9999px); }
+    to   { clip-path: inset(0 0%   0 0 round 9999px); }
+  }
+
+  /* ── 2. Score thumb: fades in after the track reveal finishes ── */
+  .myg-thumb-pop {
+    animation: myg-thumb-pop 0.3s ease 0.5s both;
+  }
+  @keyframes myg-thumb-pop {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  /* ── 3. Badge fade-slide: risk band and delta badges ── */
+  .myg-badge-in {
+    animation: myg-badge-in 0.35s ease 0.25s both;
+  }
+  .myg-badge-in-late {
+    animation: myg-badge-in 0.35s ease 0.42s both;
+  }
+  @keyframes myg-badge-in {
+    from { opacity: 0; transform: translateY(-5px); }
+    to   { opacity: 1; transform: translateY(0);    }
+  }
+
+  /* ── 4. Inner progress bars: scaleX from left (projection + general) ── */
+  .myg-bar-grow {
+    transform-origin: left center;
+    animation: myg-bar-grow 0.5s cubic-bezier(0.25, 0, 0, 1) 0.15s both;
+  }
+  .myg-bar-grow-late {
+    transform-origin: left center;
+    animation: myg-bar-grow 0.5s cubic-bezier(0.25, 0, 0, 1) 0.38s both;
+  }
+  @keyframes myg-bar-grow {
+    from { transform: scaleX(0); }
+    to   { transform: scaleX(1); }
+  }
+
+  /* ── 5. Streak bars: staggered left → right reveal ── */
+  /*      animation-delay is set inline per bar via style prop             */
+  .myg-streak-bar {
+    opacity: 0;
+    transform-origin: left center;
+    animation: myg-streak-bar-in 0.3s ease forwards;
+  }
+  @keyframes myg-streak-bar-in {
+    from { opacity: 0; transform: scaleX(0); }
+    to   { opacity: 1; transform: scaleX(1); }
+  }
+
+  /* ── 6. Projected score number: subtle fade-up ── */
+  .myg-stat-enter {
+    animation: myg-stat-enter 0.4s ease 0.2s both;
+  }
+  @keyframes myg-stat-enter {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0);   }
+  }
+
+}
