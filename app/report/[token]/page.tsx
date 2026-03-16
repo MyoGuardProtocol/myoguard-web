@@ -4,30 +4,27 @@
  * No authentication required. The share token in the URL grants read-only
  * access to the patient's latest assessment report. Identical layout to
  * /dashboard/report but without action buttons and with an attribution banner.
+ *
+ * Clinical parity sections (read-only, no editing controls):
+ *   • Escalation Alert         — conditional on buildEscalationSignal()
+ *   • Clinical Interpretation  — from buildInterpretation()
+ *   • Suggested Physician Actions — from buildSuggestedActions()
+ *   • Physician Review         — static display of saved PhysicianReview record
  */
 
 import { notFound }             from 'next/navigation';
 import Link                     from 'next/link';
 import { prisma }               from '@/src/lib/prisma';
 import { generateWeeklyDigest } from '@/src/lib/weeklyDigest';
+import {
+  BAND_LIGHT,
+  buildInterpretation,
+  buildSuggestedActions,
+  buildEscalationSignal,
+  type Band,
+}                               from '@/src/lib/reportClinical';
 
-// ─── Display helpers (mirrored from /dashboard/report) ───────────────────────
-
-type Band = 'CRITICAL' | 'HIGH' | 'MODERATE' | 'LOW';
-
-const BAND_LIGHT: Record<Band, {
-  label:   string;
-  colour:  string;
-  bg:      string;
-  border:  string;
-  dot:     string;
-  barCls:  string;
-}> = {
-  CRITICAL: { label: 'Critical Risk', colour: 'text-red-700',     bg: 'bg-red-50',     border: 'border-red-200',     dot: 'bg-red-500',     barCls: 'bg-red-500'     },
-  HIGH:     { label: 'High Risk',     colour: 'text-orange-700',  bg: 'bg-orange-50',  border: 'border-orange-200',  dot: 'bg-orange-500',  barCls: 'bg-orange-500'  },
-  MODERATE: { label: 'Moderate Risk', colour: 'text-amber-700',   bg: 'bg-amber-50',   border: 'border-amber-200',   dot: 'bg-amber-500',   barCls: 'bg-amber-500'   },
-  LOW:      { label: 'Low Risk',      colour: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200', dot: 'bg-emerald-500', barCls: 'bg-emerald-500' },
-};
+// ─── Display helpers ──────────────────────────────────────────────────────────
 
 const TREND_LABEL: Record<string, { text: string; colour: string; icon: string }> = {
   improving:    { text: 'Improving',         colour: 'text-emerald-700', icon: '↑' },
@@ -46,6 +43,12 @@ const STAGE_LABEL: Record<string, string> = {
   DOSE_ESCALATION: 'Dose escalation',
   MAINTENANCE:     'Maintenance',
   DISCONTINUING:   'Discontinuing',
+};
+
+const IMPRESSION_LABEL: Record<string, string> = {
+  stable:       'Stable — continue current protocol',
+  monitoring:   'Monitoring — watch and reassess',
+  intervention: 'Intervention required',
 };
 
 function longDate(d: Date): string {
@@ -107,10 +110,12 @@ export default async function PublicReportPage({
         orderBy: { weekStart: 'desc' },
         take:    4,
         select: {
-          weekStart:     true,
-          avgProteinG:   true,
-          totalWorkouts: true,
-          avgHydration:  true,
+          weekStart:          true,
+          avgProteinG:        true,
+          totalWorkouts:      true,
+          avgHydration:       true,
+          proteinAdherence:   true,
+          exerciseAdherence:  true,
         },
       },
     },
@@ -129,6 +134,45 @@ export default async function PublicReportPage({
   const trendCfg  = TREND_LABEL[digest?.trendStatus ?? 'insufficient'];
   const historyAsc = [...user.assessments].reverse();
   const generatedAt = new Date();
+
+  // ── Clinical intelligence — same signals as /dashboard/report ────────────────
+  const sharedSignals = {
+    band,
+    proteinTargetG:  ms.proteinTargetG,
+    proteinIntakeG:  latestAssessment.proteinGrams,
+    exerciseDaysWk:  latestAssessment.exerciseDaysWk,
+    hydrationLitres: latestAssessment.hydrationLitres,
+    fatigue:         latestAssessment.fatigue,
+    nausea:          latestAssessment.nausea,
+    muscleWeakness:  latestAssessment.muscleWeakness,
+    trendStatus:     digest?.trendStatus ?? 'insufficient',
+    checkins:        user.weeklyCheckins,
+    glp1Stage:       user.profile?.glp1Stage ?? null,
+  };
+
+  const interp  = buildInterpretation({ leanLossEstPct: ms.leanLossEstPct, ...sharedSignals });
+  const actions = buildSuggestedActions(sharedSignals);
+
+  const signal = buildEscalationSignal({
+    riskBand:        band,
+    symptomAvg:      (latestAssessment.fatigue + latestAssessment.nausea + latestAssessment.muscleWeakness) / 3,
+    proteinDeficit:  ms.proteinTargetG - latestAssessment.proteinGrams,
+    exerciseDaysWk:  latestAssessment.exerciseDaysWk,
+    hydrationLitres: latestAssessment.hydrationLitres,
+    leanLossEstPct:  ms.leanLossEstPct,
+    trendStatus:     digest?.trendStatus ?? 'insufficient',
+  });
+
+  // ── Saved physician review (read-only on public page) ────────────────────────
+  const savedReview = await prisma.physicianReview.findUnique({
+    where:  { assessmentId: latestAssessment.id },
+    select: {
+      overallImpression: true,
+      followUpDays:      true,
+      note:              true,
+      reviewedAt:        true,
+    },
+  });
 
   return (
     <main className="min-h-screen bg-slate-100 font-sans">
@@ -238,6 +282,303 @@ export default async function PublicReportPage({
               </div>
             </div>
           </section>
+
+          {/* ── Escalation Alert (conditional) ── */}
+          {signal.escalate && (
+            <section aria-live="assertive">
+              <div className={`rounded-xl border-2 px-5 py-4 space-y-2.5 ${
+                signal.urgency === 'urgent'
+                  ? 'border-red-400 bg-red-50'
+                  : 'border-amber-400 bg-amber-50'
+              }`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ${
+                      signal.urgency === 'urgent' ? 'bg-red-100' : 'bg-amber-100'
+                    }`}>
+                      <svg
+                        className={`w-4 h-4 ${signal.urgency === 'urgent' ? 'text-red-700' : 'text-amber-700'}`}
+                        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round"
+                          d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
+                        />
+                      </svg>
+                    </span>
+                    <p className={`text-sm font-black tracking-tight ${
+                      signal.urgency === 'urgent' ? 'text-red-900' : 'text-amber-900'
+                    }`}>
+                      Physician Escalation Alert
+                    </p>
+                  </div>
+                  <span className={`flex-shrink-0 text-[10px] font-black uppercase tracking-[0.15em] px-2.5 py-1 rounded border ${
+                    signal.urgency === 'urgent'
+                      ? 'bg-red-100 text-red-700 border-red-300'
+                      : 'bg-amber-100 text-amber-700 border-amber-300'
+                  }`}>
+                    {signal.urgency === 'urgent' ? 'Urgent' : 'Monitor'}
+                  </span>
+                </div>
+                <p className={`text-xs leading-relaxed ${
+                  signal.urgency === 'urgent' ? 'text-red-800' : 'text-amber-800'
+                }`}>
+                  {signal.reason}
+                </p>
+                <p className={`text-[11px] font-semibold ${
+                  signal.urgency === 'urgent' ? 'text-red-700' : 'text-amber-700'
+                }`}>
+                  Consider reassessment or intervention.
+                </p>
+              </div>
+            </section>
+          )}
+
+          {/* ── Clinical Interpretation ── */}
+          <section>
+            <h2 className="text-[10px] font-bold text-teal-700 uppercase tracking-[0.18em] mb-3">
+              Clinical Interpretation
+            </h2>
+            <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100">
+
+              {/* Row 1: Risk Category + 30-day projection */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 sm:divide-x divide-slate-100">
+                <div className="px-5 py-4">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2.5">
+                    Risk Category
+                  </p>
+                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border mb-2 ${meta.bg} ${meta.border} ${meta.colour}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />
+                    {interp.riskCategory.label}
+                  </span>
+                  <p className="text-xs text-slate-600 leading-relaxed mt-1.5">
+                    {interp.riskCategory.detail}
+                  </p>
+                </div>
+                <div className="px-5 py-4">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2.5">
+                    30-Day Lean Mass Projection
+                  </p>
+                  <p className={`text-2xl font-black tabular-nums leading-tight mb-1 ${meta.colour}`}>
+                    {ms.leanLossEstPct}%
+                    <span className="text-sm font-normal text-slate-500 ml-1">lean loss risk</span>
+                  </p>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    {interp.leanMassProjection.split('. ').slice(1).join('. ')}
+                  </p>
+                </div>
+              </div>
+
+              {/* Row 2: Key Risk Drivers + Protocol Adherence */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 sm:divide-x divide-slate-100">
+                <div className="px-5 py-4">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-3">
+                    Key Risk Drivers
+                  </p>
+                  <ul className="space-y-2">
+                    {interp.keyDrivers.map((driver, i) => (
+                      <li key={i} className="flex items-start gap-2.5">
+                        <span className={`flex-shrink-0 mt-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-black ${
+                          driver.severity === 'concern'
+                            ? 'bg-red-100 text-red-700'
+                            : driver.severity === 'caution'
+                            ? 'bg-amber-100 text-amber-700'
+                            : 'bg-emerald-100 text-emerald-700'
+                        }`}>
+                          {driver.severity === 'concern' ? '!' : driver.severity === 'caution' ? '~' : '✓'}
+                        </span>
+                        <span className={`text-[11px] leading-snug ${
+                          driver.severity === 'concern'
+                            ? 'text-red-800'
+                            : driver.severity === 'caution'
+                            ? 'text-amber-800'
+                            : 'text-slate-500'
+                        }`}>
+                          {driver.text}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="px-5 py-4">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-3">
+                    Protocol Adherence Signal
+                  </p>
+                  {interp.adherenceSignal.lines.length > 0 ? (
+                    <ul className="space-y-2">
+                      {interp.adherenceSignal.lines.map((line, i) => {
+                        const isHigh = line.includes('High') || line.includes('Consistent') || line.includes('Strong');
+                        const isLow  = line.includes('Low') || line.includes('Poor');
+                        return (
+                          <li key={i} className={`text-[11px] leading-snug ${
+                            isHigh ? 'text-emerald-700' : isLow ? 'text-red-700' : 'text-slate-700'
+                          }`}>
+                            {line}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : (
+                    <p className="text-xs text-slate-500 italic leading-relaxed">
+                      {interp.adherenceSignal.summary}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+            </div>
+          </section>
+
+          {/* ── Suggested Physician Actions ── */}
+          <section>
+            <h2 className="text-[10px] font-bold text-teal-700 uppercase tracking-[0.18em] mb-3">
+              Suggested Physician Actions
+            </h2>
+            <ol className="space-y-2.5">
+              {actions.map((action, i) => {
+                const urgencyTokens = {
+                  urgent: {
+                    cardBorder:  'border-red-200',
+                    cardBg:      'bg-red-50/60',
+                    numBg:       'bg-red-100 text-red-700',
+                    badgeBg:     'bg-red-100 text-red-700 border-red-200',
+                    timeBg:      'bg-red-100/70 text-red-600',
+                    label:       'Urgent',
+                  },
+                  recommended: {
+                    cardBorder:  'border-amber-200',
+                    cardBg:      'bg-amber-50/40',
+                    numBg:       'bg-amber-100 text-amber-700',
+                    badgeBg:     'bg-amber-100 text-amber-700 border-amber-200',
+                    timeBg:      'bg-amber-100/70 text-amber-600',
+                    label:       'Recommended',
+                  },
+                  maintenance: {
+                    cardBorder:  'border-emerald-200',
+                    cardBg:      'bg-emerald-50/40',
+                    numBg:       'bg-emerald-100 text-emerald-700',
+                    badgeBg:     'bg-emerald-100 text-emerald-700 border-emerald-200',
+                    timeBg:      'bg-emerald-100/70 text-emerald-600',
+                    label:       'Maintenance',
+                  },
+                }[action.urgency];
+
+                return (
+                  <li
+                    key={i}
+                    className={`rounded-xl border px-4 py-3.5 flex items-start gap-3.5 ${urgencyTokens.cardBorder} ${urgencyTokens.cardBg}`}
+                  >
+                    <span className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black mt-0.5 ${urgencyTokens.numBg}`}>
+                      {i + 1}
+                    </span>
+                    <div className="flex-1 min-w-0 space-y-1.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wide ${urgencyTokens.badgeBg}`}>
+                          {action.urgency === 'urgent' && (
+                            <svg className="w-2.5 h-2.5 flex-shrink-0" fill="none" viewBox="0 0 10 10" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 2v3m0 2.5v.5" />
+                            </svg>
+                          )}
+                          {action.urgency === 'recommended' && (
+                            <svg className="w-2.5 h-2.5 flex-shrink-0" fill="none" viewBox="0 0 10 10" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 1a4 4 0 100 8A4 4 0 005 1zm0 2v2.5l1.5 1" />
+                            </svg>
+                          )}
+                          {action.urgency === 'maintenance' && (
+                            <svg className="w-2.5 h-2.5 flex-shrink-0" fill="none" viewBox="0 0 10 10" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M2 5l2.5 2.5 3.5-3.5" />
+                            </svg>
+                          )}
+                          {urgencyTokens.label}
+                        </span>
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${urgencyTokens.timeBg}`}>
+                          {action.timeframe}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-700 leading-relaxed">
+                        {action.text}
+                      </p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+          </section>
+
+          {/* ── Physician Review (read-only static display) ── */}
+          {savedReview && (
+            <section>
+              <h2 className="text-[10px] font-bold text-teal-700 uppercase tracking-[0.18em] mb-3">
+                Physician Review
+              </h2>
+              <div className="border border-slate-200 rounded-xl divide-y divide-slate-100">
+
+                {/* Header row — reviewed date + author note */}
+                <div className="px-5 py-3 bg-slate-50 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-3.5 h-3.5 text-teal-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="text-[11px] font-semibold text-teal-700">
+                      Review recorded {shortDate(savedReview.reviewedAt)}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {savedReview.reviewedAt.toISOString().slice(0, 10)}
+                  </span>
+                </div>
+
+                {/* Overall impression */}
+                {savedReview.overallImpression && (
+                  <div className="px-5 py-3.5">
+                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+                      Overall Impression
+                    </p>
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${
+                      savedReview.overallImpression === 'stable'
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                        : savedReview.overallImpression === 'monitoring'
+                        ? 'bg-amber-50 border-amber-200 text-amber-700'
+                        : 'bg-red-50 border-red-200 text-red-700'
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${
+                        savedReview.overallImpression === 'stable'
+                          ? 'bg-emerald-500'
+                          : savedReview.overallImpression === 'monitoring'
+                          ? 'bg-amber-500'
+                          : 'bg-red-500'
+                      }`} />
+                      {IMPRESSION_LABEL[savedReview.overallImpression] ?? savedReview.overallImpression}
+                    </span>
+                  </div>
+                )}
+
+                {/* Follow-up timing */}
+                {savedReview.followUpDays != null && (
+                  <div className="px-5 py-3.5">
+                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+                      Recommended Follow-up
+                    </p>
+                    <p className="text-sm font-bold text-slate-900">
+                      Within {savedReview.followUpDays} days
+                    </p>
+                  </div>
+                )}
+
+                {/* Physician note */}
+                {savedReview.note && (
+                  <div className="px-5 py-3.5">
+                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+                      Physician Note
+                    </p>
+                    <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                      {savedReview.note}
+                    </p>
+                  </div>
+                )}
+
+              </div>
+            </section>
+          )}
 
           {/* Trajectory */}
           {digest && (digest.projectedScore !== null || digest.streakWeeks > 0) && (
