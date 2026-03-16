@@ -252,22 +252,36 @@ export default function AssessmentForm({ onSubmit }: AssessmentFormProps) {
           </div>
         </div>
 
-        {/* Consent */}
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-          <label className="flex items-start gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={consented}
-              onChange={e => setConsented(e.target.checked)}
-              className="mt-0.5 h-4 w-4 accent-teal-600 cursor-pointer"
-            />
-            <span className="text-xs text-slate-600 leading-relaxed">
-              I understand this tool provides educational nutritional reference information only. It does not
-              constitute medical advice or create a physician-patient relationship. I will review these
-              recommendations with my prescribing physician.
-            </span>
-          </label>
-        </div>
+        {/* Consent — custom visual checkbox (bypasses iOS Safari -webkit-appearance stripping) */}
+        <button
+          type="button"
+          onClick={() => setConsented(c => !c)}
+          aria-pressed={consented}
+          className={`w-full flex items-start gap-3 rounded-lg border p-4 text-left transition-colors focus:outline-none focus:ring-2 focus:ring-teal-400 focus:ring-offset-1 ${
+            consented
+              ? 'border-teal-400 bg-teal-50'
+              : 'border-slate-200 bg-slate-50 hover:border-slate-300'
+          }`}
+        >
+          {/* Custom checkbox box */}
+          <span
+            aria-hidden="true"
+            className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+              consented ? 'bg-teal-600 border-teal-600' : 'bg-white border-slate-400'
+            }`}
+          >
+            {consented && (
+              <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M2 6l3 3 5-5" />
+              </svg>
+            )}
+          </span>
+          <span className="text-xs text-slate-600 leading-relaxed">
+            I understand this tool provides educational nutritional reference information only. It does not
+            constitute medical advice or create a physician-patient relationship. I will review these
+            recommendations with my prescribing physician.
+          </span>
+        </button>
 
         {/* Submit */}
         <button
@@ -279,7 +293,7 @@ export default function AssessmentForm({ onSubmit }: AssessmentFormProps) {
               : 'bg-slate-200 text-slate-400 cursor-not-allowed'
           }`}
         >
-          Generate My Protocol →
+          Generate My Muscle Protection Plan →
         </button>
       </div>
 
