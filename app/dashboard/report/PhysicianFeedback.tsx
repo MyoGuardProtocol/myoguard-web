@@ -1,11 +1,24 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Impression  = 'stable' | 'monitoring' | 'intervention';
 type FollowUpDay = 7 | 14 | 21 | 30;
+type SaveState   = 'idle' | 'saving' | 'saved' | 'error';
+
+export interface InitialFeedback {
+  overallImpression: Impression | null;
+  followUpDays:      FollowUpDay | null;
+  note:              string;
+  reviewedAt:        string; // ISO-8601 — serialised from Date on server
+}
+
+interface Props {
+  assessmentId:    string;
+  initialFeedback: InitialFeedback | null;
+}
 
 // ─── Impression option definitions ───────────────────────────────────────────
 
@@ -66,17 +79,84 @@ const IMPRESSION_OPTIONS: ImpressionOption[] = [
 
 const FOLLOW_UP_DAYS: FollowUpDay[] = [7, 14, 21, 30];
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function formatReviewedAt(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString('en-GB', {
+      day:   'numeric',
+      month: 'short',
+      year:  'numeric',
+    });
+  } catch {
+    return iso;
+  }
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function PhysicianFeedback() {
-  const [impression, setImpression] = useState<Impression | null>(null);
-  const [followUp,   setFollowUp]   = useState<FollowUpDay | null>(null);
-  const [note,       setNote]       = useState('');
+export default function PhysicianFeedback({ assessmentId, initialFeedback }: Props) {
+  const [impression, setImpression] = useState<Impression | null>(
+    initialFeedback?.overallImpression ?? null,
+  );
+  const [followUp, setFollowUp] = useState<FollowUpDay | null>(
+    initialFeedback?.followUpDays ?? null,
+  );
+  const [note, setNote] = useState<string>(initialFeedback?.note ?? '');
+
+  // reviewedAt — initialised from server data; updated on each successful save
+  const [reviewedAt, setReviewedAt] = useState<string | null>(
+    initialFeedback?.reviewedAt ?? null,
+  );
+
+  const [saveState, setSaveState] = useState<SaveState>('idle');
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const selectedOption = IMPRESSION_OPTIONS.find(o => o.value === impression);
+  void selectedOption; // used only for future styling hooks
 
-  // ── Determine save-button intent (disabled until at least one field is touched)
-  const isDirty = impression !== null || followUp !== null || note.trim().length > 0;
+  // Save button is enabled as soon as any field has a value
+  const canSave = impression !== null || followUp !== null || note.trim().length > 0;
+
+  // ── Save handler ──────────────────────────────────────────────────────────
+  async function handleSave() {
+    if (!canSave || saveState === 'saving') return;
+
+    setSaveState('saving');
+
+    // Clear any pending auto-reset timer
+    if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+
+    try {
+      const res = await fetch('/api/report/feedback', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          assessmentId,
+          overallImpression: impression,
+          followUpDays:      followUp,
+          note:              note.trim() || null,
+        }),
+      });
+
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({})) as { error?: string };
+        console.error('[PhysicianFeedback] save failed', payload);
+        setSaveState('error');
+        return;
+      }
+
+      const data = await res.json() as { reviewedAt: string };
+      setReviewedAt(data.reviewedAt);
+      setSaveState('saved');
+
+      // Auto-reset to idle after 4 s so the button is reusable
+      savedTimerRef.current = setTimeout(() => setSaveState('idle'), 4000);
+    } catch (err) {
+      console.error('[PhysicianFeedback] network error', err);
+      setSaveState('error');
+    }
+  }
 
   // ─────────────────────────────────────────────────────────────────────────────
   return (
@@ -96,9 +176,16 @@ export default function PhysicianFeedback() {
               Record your clinical impression of this report
             </p>
           </div>
-          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.15em] border border-slate-200 rounded px-2 py-0.5">
-            For Official Use
-          </span>
+          <div className="flex items-center gap-2.5">
+            {reviewedAt && (
+              <p className="text-[9px] text-slate-400 leading-tight">
+                Last saved {formatReviewedAt(reviewedAt)}
+              </p>
+            )}
+            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.15em] border border-slate-200 rounded px-2 py-0.5">
+              For Official Use
+            </span>
+          </div>
         </div>
 
         <div className="px-5 py-5 space-y-6">
@@ -209,19 +296,89 @@ export default function PhysicianFeedback() {
           <div className="flex items-center gap-3 pt-1">
             <button
               type="button"
-              disabled
-              aria-disabled="true"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-400 text-xs font-semibold cursor-not-allowed select-none"
+              onClick={handleSave}
+              disabled={!canSave || saveState === 'saving'}
+              aria-disabled={!canSave || saveState === 'saving'}
+              className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border text-xs font-semibold transition-colors ${
+                saveState === 'saving'
+                  ? 'border-teal-200 bg-teal-50 text-teal-500 cursor-wait'
+                  : saveState === 'saved'
+                  ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                  : saveState === 'error'
+                  ? 'border-red-300 bg-red-50 text-red-700 cursor-pointer'
+                  : canSave
+                  ? 'border-teal-400 bg-teal-600 text-white hover:bg-teal-700 cursor-pointer'
+                  : 'border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed select-none'
+              }`}
             >
-              {/* Lock icon */}
-              <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 14 14" stroke="currentColor" strokeWidth={1.8}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M10 6V4.5a3 3 0 00-6 0V6M4 6h6a1.5 1.5 0 011.5 1.5v4A1.5 1.5 0 0110 13H4a1.5 1.5 0 01-1.5-1.5v-4A1.5 1.5 0 014 6z" />
-              </svg>
-              Save Physician Review
+              {/* ── State-specific icon ── */}
+              {saveState === 'saving' && (
+                <svg
+                  className="w-3.5 h-3.5 flex-shrink-0 animate-spin"
+                  fill="none"
+                  viewBox="0 0 14 14"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  aria-hidden="true"
+                >
+                  <path strokeLinecap="round" d="M7 1a6 6 0 1 1-4.243 1.757" />
+                </svg>
+              )}
+              {saveState === 'saved' && (
+                <svg
+                  className="w-3.5 h-3.5 flex-shrink-0"
+                  fill="none"
+                  viewBox="0 0 14 14"
+                  stroke="currentColor"
+                  strokeWidth={2.2}
+                  aria-hidden="true"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2 7l4 4 6-6" />
+                </svg>
+              )}
+              {saveState === 'error' && (
+                <svg
+                  className="w-3.5 h-3.5 flex-shrink-0"
+                  fill="none"
+                  viewBox="0 0 14 14"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  aria-hidden="true"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 2v5m0 2.5v.5M2.5 12h9L7 2 2.5 12z" />
+                </svg>
+              )}
+              {saveState === 'idle' && !canSave && (
+                <svg
+                  className="w-3.5 h-3.5 flex-shrink-0"
+                  fill="none"
+                  viewBox="0 0 14 14"
+                  stroke="currentColor"
+                  strokeWidth={1.8}
+                  aria-hidden="true"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 6V4.5a3 3 0 00-6 0V6M4 6h6a1.5 1.5 0 011.5 1.5v4A1.5 1.5 0 0110 13H4a1.5 1.5 0 01-1.5-1.5v-4A1.5 1.5 0 014 6z" />
+                </svg>
+              )}
+
+              {/* ── Label ── */}
+              {saveState === 'saving' && 'Saving…'}
+              {saveState === 'saved'  && 'Physician review saved'}
+              {saveState === 'error'  && 'Save failed — try again'}
+              {saveState === 'idle'   && 'Save Physician Review'}
             </button>
-            <p className="text-[10px] text-slate-400 leading-tight">
-              Persistence wiring comes next
-            </p>
+
+            {/* Contextual helper text */}
+            {saveState === 'idle' && !canSave && (
+              <p className="text-[10px] text-slate-400 leading-tight">
+                Select an impression, follow-up timing, or add a note to enable saving
+              </p>
+            )}
+            {saveState === 'error' && (
+              <p className="text-[10px] text-red-400 leading-tight">
+                Could not reach the server. Check your connection and try again.
+              </p>
+            )}
           </div>
 
         </div>
@@ -229,8 +386,9 @@ export default function PhysicianFeedback() {
 
       {/* ══════════════════════════════════════════════════════════════════════ */}
       {/* PRINT VERSION — hidden on screen, visible in print/PDF                */}
-      {/* Renders either the recorded values (if any field touched) or a blank   */}
-      {/* annotation block for the physician to complete by hand.               */}
+      {/* Renders saved values (if any field is set) as a static clinical       */}
+      {/* summary. If nothing is set, falls back to blank annotation lines so   */}
+      {/* the physician can complete the review by hand.                        */}
       {/* ══════════════════════════════════════════════════════════════════════ */}
       <div className="hidden print:block border border-slate-300 rounded-xl overflow-hidden">
 
@@ -324,15 +482,26 @@ export default function PhysicianFeedback() {
             )}
           </div>
 
-          {/* Signature line */}
+          {/* Signature + reviewed date */}
           <div className="flex items-end justify-between pt-2 border-t border-slate-200">
             <div className="space-y-1">
               <div className="border-b border-slate-400 w-48 h-6" />
               <p className="text-[9px] text-slate-400 uppercase tracking-wide">Physician signature</p>
             </div>
-            <div className="space-y-1">
-              <div className="border-b border-slate-400 w-28 h-6" />
-              <p className="text-[9px] text-slate-400 uppercase tracking-wide">Date reviewed</p>
+            <div className="space-y-1 text-right">
+              {reviewedAt ? (
+                <>
+                  <p className="text-[11px] font-semibold text-slate-700">
+                    {formatReviewedAt(reviewedAt)}
+                  </p>
+                  <p className="text-[9px] text-slate-400 uppercase tracking-wide">Date reviewed</p>
+                </>
+              ) : (
+                <>
+                  <div className="border-b border-slate-400 w-28 h-6" />
+                  <p className="text-[9px] text-slate-400 uppercase tracking-wide">Date reviewed</p>
+                </>
+              )}
             </div>
           </div>
 

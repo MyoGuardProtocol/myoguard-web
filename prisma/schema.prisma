@@ -80,10 +80,11 @@ model User {
   protocolPlans  ProtocolPlan[]
   progressLogs   ProgressLog[]
   weeklyCheckins WeeklyCheckin[]
-  shareCards     ShareCard[]
-  notifications  Notification[]
-  referredBy     User?           @relation("Referrals", fields: [referredById], references: [id])
-  referrals      User[]          @relation("Referrals")
+  shareCards        ShareCard[]
+  notifications     Notification[]
+  physicianReviews  PhysicianReview[]
+  referredBy        User?             @relation("Referrals", fields: [referredById], references: [id])
+  referrals         User[]            @relation("Referrals")
 }
 
 model PhysicianProfile {
@@ -133,9 +134,10 @@ model Assessment {
   riskBand        RiskBand
   createdAt       DateTime @default(now())
 
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  muscleScore  MuscleScore?
-  protocolPlan ProtocolPlan?
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  muscleScore      MuscleScore?
+  protocolPlan     ProtocolPlan?
+  physicianReview  PhysicianReview?
 }
 
 model MuscleScore {
@@ -238,6 +240,24 @@ model Notification {
   createdAt DateTime         @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// One review per assessment — upserted each time the physician saves.
+// overallImpression and followUpDays are nullable so partial saves are
+// valid (e.g. note-only or follow-up-only saves).
+model PhysicianReview {
+  id                String   @id @default(cuid())
+  assessmentId      String   @unique
+  userId            String
+  overallImpression String?                   // 'stable' | 'monitoring' | 'intervention'
+  followUpDays      Int?                      // 7 | 14 | 21 | 30
+  note              String?
+  reviewedAt        DateTime
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model AuditLog {

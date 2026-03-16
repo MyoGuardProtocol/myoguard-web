@@ -657,6 +657,34 @@ export default async function ReportPage() {
     trendStatus:     digest?.trendStatus ?? 'insufficient',
   });
 
+  // ── Physician review — load any previously saved record for this assessment ──
+  const savedReview = await prisma.physicianReview.findUnique({
+    where:  { assessmentId: latestAssessment.id },
+    select: {
+      overallImpression: true,
+      followUpDays:      true,
+      note:              true,
+      reviewedAt:        true,
+    },
+  });
+
+  // Type-narrow the stored string values back to the component's union types.
+  // Invalid DB values (defensive) fall back to null rather than throwing.
+  const toImpression = (s: string | null): 'stable' | 'monitoring' | 'intervention' | null =>
+    s === 'stable' || s === 'monitoring' || s === 'intervention' ? s : null;
+
+  const toFollowUpDays = (n: number | null): 7 | 14 | 21 | 30 | null =>
+    n === 7 || n === 14 || n === 21 || n === 30 ? n : null;
+
+  const initialFeedback = savedReview
+    ? {
+        overallImpression: toImpression(savedReview.overallImpression ?? null),
+        followUpDays:      toFollowUpDays(savedReview.followUpDays ?? null),
+        note:              savedReview.note ?? '',
+        reviewedAt:        savedReview.reviewedAt.toISOString(),
+      }
+    : null;
+
   // Suggested PDF filename: MyoGuard-Report-Firstname-YYYY-MM-DD
   const firstName      = (user.fullName ?? 'Patient').split(' ')[0];
   const dateStamp      = generatedAt.toISOString().slice(0, 10);           // YYYY-MM-DD
@@ -1076,7 +1104,10 @@ export default async function ReportPage() {
             <h2 className="text-[10px] font-bold text-teal-700 uppercase tracking-[0.18em] mb-3">
               Physician Review
             </h2>
-            <PhysicianFeedback />
+            <PhysicianFeedback
+              assessmentId={latestAssessment.id}
+              initialFeedback={initialFeedback}
+            />
           </section>
 
           {/* ══════════════════════════════════════════════════════════════════ */}
