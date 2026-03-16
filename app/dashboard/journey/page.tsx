@@ -18,7 +18,7 @@ const BAND_META: Record<Band, {
   bg:         string;
   border:     string;
 }> = {
-  CRITICAL: { label: 'Critical Risk', threshold: 0,  next: 'HIGH',     nextThr: 40,  colour: 'text-red-400',     dimColour: 'text-red-500/70',  dot: 'bg-red-500',     ring: 'ring-red-500',     bg: 'bg-red-950',     border: 'border-red-800'     },
+  CRITICAL: { label: 'Critical Risk', threshold: 0,  next: 'HIGH',     nextThr: 40,  colour: 'text-red-400',     dimColour: 'text-red-500/70',    dot: 'bg-red-500',     ring: 'ring-red-500',     bg: 'bg-red-950',     border: 'border-red-800'     },
   HIGH:     { label: 'High Risk',     threshold: 40, next: 'MODERATE', nextThr: 60,  colour: 'text-orange-400',  dimColour: 'text-orange-500/70', dot: 'bg-orange-500',  ring: 'ring-orange-500',  bg: 'bg-orange-950',  border: 'border-orange-800'  },
   MODERATE: { label: 'Moderate Risk', threshold: 60, next: 'LOW',      nextThr: 80,  colour: 'text-amber-400',   dimColour: 'text-amber-500/70',  dot: 'bg-amber-500',   ring: 'ring-amber-500',   bg: 'bg-amber-950',   border: 'border-amber-800'   },
   LOW:      { label: 'Low Risk',      threshold: 80, next: null,       nextThr: null, colour: 'text-emerald-400', dimColour: 'text-emerald-500/70', dot: 'bg-emerald-500', ring: 'ring-emerald-500', bg: 'bg-emerald-950', border: 'border-emerald-800' },
@@ -31,6 +31,194 @@ function shortDate(d: Date): string {
 function weekLabel(d: Date): string {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
+
+// ─── Trajectory computation ────────────────────────────────────────────────────
+type TrendStatus = 'improving' | 'stable' | 'declining' | 'insufficient';
+
+type TrajectoryResult = {
+  status:      TrendStatus;
+  projected:   number;
+  pointChange: number;
+  basisText:   string;
+};
+
+function computeTrajectory(
+  scored:   Array<{ assessmentDate: Date; muscleScore: { score: number } | null }>,
+  checkins: Array<{ avgProteinG: number | null; totalWorkouts: number | null }>,
+): TrajectoryResult {
+  if (scored.length < 2) {
+    return { status: 'insufficient', projected: 0, pointChange: 0, basisText: '' };
+  }
+
+  // Use up to last 3 assessments
+  const recent  = scored.slice(-3);
+  const first   = recent[0];
+  const last    = recent[recent.length - 1];
+  const msFirst = first.muscleScore?.score ?? 0;
+  const msLast  = last.muscleScore?.score ?? 0;
+
+  const daysDiff = Math.max(1,
+    (last.assessmentDate.getTime() - first.assessmentDate.getTime()) / (1000 * 60 * 60 * 24),
+  );
+
+  let ratePerDay = (msLast - msFirst) / daysDiff;
+
+  // Soft signal from most recent check-in
+  if (checkins.length > 0) {
+    const ci = checkins[0];
+    if (ci.totalWorkouts != null && ci.totalWorkouts >= 3) ratePerDay += 0.06;
+    if (ci.avgProteinG   != null && ci.avgProteinG   <  60) ratePerDay -= 0.06;
+  }
+
+  const projected   = Math.round(Math.min(100, Math.max(0, msLast + ratePerDay * 30)));
+  const pointChange = projected - Math.round(msLast);
+  const status: TrendStatus =
+    pointChange >  2 ? 'improving' :
+    pointChange < -2 ? 'declining' : 'stable';
+
+  const basisText = scored.length >= 3
+    ? 'Based on your last 3 assessments and recent check-in data.'
+    : 'Based on your last 2 assessments and recent check-in data.';
+
+  return { status, projected, pointChange, basisText };
+}
+
+// ─── Trend display config ──────────────────────────────────────────────────────
+const TREND_CONFIG: Record<TrendStatus, {
+  arrow:      string;
+  label:      string;
+  badgeCls:   string;
+  ringCls:    string;
+  barCls:     string;
+}> = {
+  improving:   { arrow: '↑', label: 'Improving',  badgeCls: 'bg-emerald-900/70 text-emerald-300 border-emerald-700', ringCls: 'ring-emerald-500', barCls: 'bg-emerald-500' },
+  stable:      { arrow: '→', label: 'Stable',     badgeCls: 'bg-slate-700     text-slate-300    border-slate-600',   ringCls: 'ring-slate-400',   barCls: 'bg-slate-400'   },
+  declining:   { arrow: '↓', label: 'Declining',  badgeCls: 'bg-red-900/70    text-red-300      border-red-700',     ringCls: 'ring-red-500',     barCls: 'bg-red-500'     },
+  insufficient:{ arrow: '→', label: 'Building…',  badgeCls: 'bg-slate-700     text-slate-400    border-slate-600',   ringCls: 'ring-slate-400',   barCls: 'bg-slate-400'   },
+};
+
+// ─── Smart next action ─────────────────────────────────────────────────────────
+type ActionType = 'urgent' | 'recommended' | 'maintenance';
+type NextAction = {
+  icon:     string;
+  title:    string;
+  subtitle: string;
+  cta:      string;
+  ctaHref:  string;
+  type:     ActionType;
+};
+
+function getSmartNextAction(
+  band:             Band,
+  proteinTargetG:   number | null,
+  latestCheckin:    { weekStart: Date; avgProteinG: number | null; totalWorkouts: number | null } | null,
+  trajectoryStatus: TrendStatus,
+  now:              Date,
+): NextAction {
+  const daysSinceCheckin = latestCheckin
+    ? Math.floor((now.getTime() - latestCheckin.weekStart.getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+
+  // P1: Score declining → urgent protocol review
+  if (trajectoryStatus === 'declining') {
+    return {
+      icon:     '⚠️',
+      title:    'Review your MyoGuard protocol today',
+      subtitle: 'Your trend shows a declining score. Protein adherence and resistance training are the two fastest levers to reverse this.',
+      cta:      'Run new assessment →',
+      ctaHref:  '/',
+      type:     'urgent',
+    };
+  }
+
+  // P2: Overdue check-in (> 7 days)
+  if (daysSinceCheckin === null || daysSinceCheckin >= 7) {
+    return {
+      icon:     '📋',
+      title:    'Complete your weekly check-in',
+      subtitle: "It's been over a week since your last log. Consistent tracking gives MyoGuard more signal to keep your protocol accurate.",
+      cta:      'Log this week →',
+      ctaHref:  '/checkin',
+      type:     'recommended',
+    };
+  }
+
+  // P3: Protein gap > 20 g/day
+  if (proteinTargetG != null && latestCheckin?.avgProteinG != null) {
+    const gap = proteinTargetG - latestCheckin.avgProteinG;
+    if (gap > 20) {
+      return {
+        icon:     '🥩',
+        title:    `Add ${Math.round(gap)}g protein today to stay on track`,
+        subtitle: `Your recent average is ${Math.round(latestCheckin.avgProteinG)}g vs your ${Math.round(proteinTargetG)}g daily target. Closing this gap is the fastest route to a higher score.`,
+        cta:      'Log this week →',
+        ctaHref:  '/checkin',
+        type:     'recommended',
+      };
+    }
+  }
+
+  // P4: Low workout frequency in high/critical band
+  if (
+    latestCheckin?.totalWorkouts != null &&
+    latestCheckin.totalWorkouts < 2 &&
+    (band === 'HIGH' || band === 'CRITICAL')
+  ) {
+    return {
+      icon:     '🏋️',
+      title:    'Add 2 resistance sessions this week',
+      subtitle: 'Your recent log shows fewer than 2 workouts. Resistance training is the single highest-impact change at your current risk level.',
+      cta:      'View protocol →',
+      ctaHref:  '/',
+      type:     'recommended',
+    };
+  }
+
+  // P5: In Low Risk → maintenance reminder
+  if (band === 'LOW') {
+    return {
+      icon:     '✅',
+      title:    'Reassess before your next dose escalation',
+      subtitle: "You're in the optimal zone. Each dose step-up is a muscle-risk window — a fresh assessment keeps your protocol ahead of it.",
+      cta:      'New assessment →',
+      ctaHref:  '/',
+      type:     'maintenance',
+    };
+  }
+
+  // Band-based fallback
+  if (band === 'MODERATE') {
+    return {
+      icon:     '🥩',
+      title:    'Hit your daily protein target consistently',
+      subtitle: 'Sustained protein adherence over 4–6 weeks is the most reliable path out of the Moderate Risk zone.',
+      cta:      'Log this week →',
+      ctaHref:  '/checkin',
+      type:     'recommended',
+    };
+  }
+
+  return {
+    icon:     '🏋️',
+    title:    'Add resistance training 2–3 sessions this week',
+    subtitle: 'Resistance training carries the largest single score gain at your current risk level. Bodyweight exercises count — no gym needed.',
+    cta:      'View protocol →',
+    ctaHref:  '/',
+    type:     'urgent',
+  };
+}
+
+const ACTION_STYLE: Record<ActionType, {
+  border:  string;
+  bg:      string;
+  badge:   string;
+  label:   string;
+  ctaCls:  string;
+}> = {
+  urgent:      { border: 'border-orange-800', bg: 'bg-orange-950',  badge: 'bg-orange-900  text-orange-300  border-orange-800',  label: 'Highest impact', ctaCls: 'bg-orange-600 hover:bg-orange-500' },
+  recommended: { border: 'border-teal-800',   bg: 'bg-teal-950',    badge: 'bg-teal-900    text-teal-300    border-teal-800',    label: 'Recommended',    ctaCls: 'bg-teal-600   hover:bg-teal-500'   },
+  maintenance: { border: 'border-slate-700',  bg: 'bg-slate-800',   badge: 'bg-slate-700   text-slate-300   border-slate-600',   label: 'Maintenance',    ctaCls: 'bg-slate-600  hover:bg-slate-500'  },
+};
 
 // ─── Progress message ──────────────────────────────────────────────────────────
 function getProgressMessage(delta: number | null, band: Band, count: number): string {
@@ -49,46 +237,6 @@ function getProgressMessage(delta: number | null, band: Band, count: number): st
   if (delta > 0)  return 'Moving in the right direction. Small, consistent gains compound into significant muscle protection over time.';
   if (delta === 0) return 'Score is holding steady. Review your next best step below to identify your highest-impact move.';
   return 'A small dip — not uncommon during dose escalations. Your targets remain unchanged; refocus on protein adherence first.';
-}
-
-// ─── Next best step ────────────────────────────────────────────────────────────
-function getNextStep(
-  band: Band,
-  hasCheckins: boolean,
-  proteinTargetG: number | null,
-): { icon: string; action: string; detail: string; urgency: 'high' | 'medium' | 'low' } {
-  if (band === 'CRITICAL' || band === 'HIGH') {
-    return {
-      icon:    '🏋️',
-      action:  'Add resistance training 2–3 sessions this week',
-      detail:  'This single change carries the largest score gain in your model. Squats, push-ups, and rows all qualify — no gym required.',
-      urgency: 'high',
-    };
-  }
-  if (band === 'MODERATE') {
-    return {
-      icon:    '🥩',
-      action:  proteinTargetG
-        ? `Reach ${Math.round(proteinTargetG)}g protein every day`
-        : 'Hit your daily protein target consistently',
-      detail:  'Consistent protein adherence removes the protein-deficit deduction from your score — the most immediate win available.',
-      urgency: 'medium',
-    };
-  }
-  if (!hasCheckins) {
-    return {
-      icon:    '📋',
-      action:  'Log your first weekly check-in',
-      detail:  'You\'re in the low-risk zone. Weekly check-ins will catch any drift early — before your next dose escalation.',
-      urgency: 'low',
-    };
-  }
-  return {
-    icon:    '📅',
-    action:  'Reassess before your next dose escalation',
-    detail:  'Dose escalations are the highest-risk window for lean-mass loss. Running an assessment before each step-up keeps you ahead of the curve.',
-    urgency: 'low',
-  };
 }
 
 // ─── Score bar colour ──────────────────────────────────────────────────────────
@@ -120,11 +268,12 @@ export default async function JourneyPage() {
         orderBy: { weekStart: 'desc' },
         take: 3,
         select: {
-          id: true,
-          weekStart: true,
-          avgProteinG: true,
-          totalWorkouts: true,
+          id:           true,
+          weekStart:    true,
+          avgProteinG:  true,
+          totalWorkouts:true,
           avgHydration: true,
+          scoreDelta:   true,
         },
       },
     },
@@ -162,35 +311,29 @@ export default async function JourneyPage() {
   }
 
   // ── Derived data ─────────────────────────────────────────────────────────────
-  const latest        = scored[scored.length - 1];
-  const first         = scored[0];
-  const ms            = latest.muscleScore!;
-  const current       = Math.round(ms.score);
-  const band          = (ms.riskBand as Band) ?? 'HIGH';
-  const meta          = BAND_META[band];
+  const latest     = scored[scored.length - 1];
+  const first      = scored[0];
+  const ms         = latest.muscleScore!;
+  const current    = Math.round(ms.score);
+  const band       = (ms.riskBand as Band) ?? 'HIGH';
+  const meta       = BAND_META[band];
 
   const delta: number | null = scored.length > 1
     ? Math.round(ms.score - first.muscleScore!.score)
     : null;
-  const hasCheckins      = checkins.length > 0;
-  const pointsToLow      = current < 80 ? 80 - current : null;
-  const proteinTarget    = ms.proteinTargetG ?? null;
+  const pointsToLow   = current < 80 ? 80 - current : null;
+  const proteinTarget = ms.proteinTargetG ?? null;
+  const firstName     = user.fullName?.split(' ')[0] ?? null;
+  const now           = new Date();
 
-  const nextStep = getNextStep(band, hasCheckins, proteinTarget);
-  const message  = getProgressMessage(delta, band, scored.length);
-  const firstName = user.fullName?.split(' ')[0] ?? null;
+  // ── Trajectory + action ──────────────────────────────────────────────────────
+  const trajectory  = computeTrajectory(scored, checkins);
+  const trendCfg    = TREND_CONFIG[trajectory.status];
+  const latestCI    = checkins[0] ?? null;
+  const nextAction  = getSmartNextAction(band, proteinTarget, latestCI, trajectory.status, now);
+  const actionStyle = ACTION_STYLE[nextAction.type];
 
-  const urgencyBorder = {
-    high:   'border-orange-800  bg-orange-950',
-    medium: 'border-teal-800    bg-teal-950',
-    low:    'border-slate-700   bg-slate-800',
-  }[nextStep.urgency];
-
-  const urgencyLabel = {
-    high:   { text: 'Highest impact',  cls: 'bg-orange-900 text-orange-300 border-orange-800' },
-    medium: { text: 'Recommended',     cls: 'bg-teal-900   text-teal-300   border-teal-800'   },
-    low:    { text: 'Maintenance',     cls: 'bg-slate-700  text-slate-300  border-slate-600'  },
-  }[nextStep.urgency];
+  const message   = getProgressMessage(delta, band, scored.length);
 
   return (
     <main className="min-h-screen bg-slate-900 font-sans">
@@ -274,13 +417,9 @@ export default async function JourneyPage() {
             <div className="relative mb-1">
               {/* Segmented colour track */}
               <div className="h-4 rounded-full overflow-hidden flex gap-px">
-                {/* CRITICAL 0–40 = 40% */}
                 <div className="h-full bg-red-900/60"     style={{ width: '40%' }} />
-                {/* HIGH 40–60 = 20% */}
                 <div className="h-full bg-orange-900/60"  style={{ width: '20%' }} />
-                {/* MODERATE 60–80 = 20% */}
                 <div className="h-full bg-amber-900/60"   style={{ width: '20%' }} />
-                {/* LOW 80–100 = 20% */}
                 <div className="h-full bg-emerald-900/60" style={{ width: '20%' }} />
               </div>
 
@@ -335,6 +474,139 @@ export default async function JourneyPage() {
         </div>
 
         {/* ══════════════════════════════════════════════════════════════════════ */}
+        {/* ── 30-DAY SCORE PROJECTION CARD ── */}
+        {/* ══════════════════════════════════════════════════════════════════════ */}
+        <div className="bg-slate-800 rounded-3xl border border-slate-700 overflow-hidden">
+
+          {/* Card header */}
+          <div className="px-5 pt-5 pb-4 border-b border-slate-700/70">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] mb-1">
+                  Projected Score · 30 Days
+                </p>
+                <p className="text-xs text-slate-500 leading-snug">
+                  Estimated trajectory based on your assessment history
+                </p>
+              </div>
+              <span className="text-xl">📈</span>
+            </div>
+          </div>
+
+          {trajectory.status === 'insufficient' ? (
+            /* ── Not enough data ── */
+            <div className="px-5 py-7 text-center">
+              <div className="w-12 h-12 rounded-full bg-slate-700/60 flex items-center justify-center text-2xl mx-auto mb-3">
+                📊
+              </div>
+              <p className="text-sm font-semibold text-slate-200 mb-1">
+                Building your trajectory…
+              </p>
+              <p className="text-xs text-slate-500 leading-relaxed mb-5 max-w-xs mx-auto">
+                Complete your next assessment after your next dose escalation to
+                activate score projection. Two data points are needed to
+                calculate your 30-day trend.
+              </p>
+              <Link
+                href="/"
+                className="inline-block bg-teal-600 hover:bg-teal-500 text-white font-semibold text-xs px-5 py-2.5 rounded-xl transition-colors"
+              >
+                New assessment →
+              </Link>
+            </div>
+          ) : (
+            /* ── Projection display ── */
+            <div className="px-5 py-5">
+
+              {/* Main projection row */}
+              <div className="flex items-center justify-between mb-5">
+                <div>
+                  {/* Status badge */}
+                  <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border mb-3 ${trendCfg.badgeCls}`}>
+                    <span className="text-sm font-black leading-none">{trendCfg.arrow}</span>
+                    {trendCfg.label}
+                  </span>
+
+                  {/* Projected score */}
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-5xl font-black text-white tabular-nums leading-none">
+                      {trajectory.projected}
+                    </span>
+                    <span className="text-xl text-slate-600 font-light leading-none">/100</span>
+                  </div>
+
+                  {/* Point change line */}
+                  <p className={`text-xs font-semibold mt-1.5 ${
+                    trajectory.status === 'improving' ? 'text-emerald-400' :
+                    trajectory.status === 'declining' ? 'text-red-400'     : 'text-slate-400'
+                  }`}>
+                    {trajectory.pointChange > 0
+                      ? `+${trajectory.pointChange} points projected`
+                      : trajectory.pointChange < 0
+                      ? `${trajectory.pointChange} points projected`
+                      : 'Score holding steady'
+                    }
+                  </p>
+                </div>
+
+                {/* Visual delta indicator */}
+                <div className={`w-16 h-16 rounded-2xl flex flex-col items-center justify-center border flex-shrink-0 ${
+                  trajectory.status === 'improving' ? 'bg-emerald-900/40 border-emerald-800' :
+                  trajectory.status === 'declining' ? 'bg-red-900/40     border-red-800'     :
+                  'bg-slate-700/40 border-slate-600'
+                }`}>
+                  <span className={`text-3xl font-black leading-none ${
+                    trajectory.status === 'improving' ? 'text-emerald-400' :
+                    trajectory.status === 'declining' ? 'text-red-400'     : 'text-slate-400'
+                  }`}>
+                    {trendCfg.arrow}
+                  </span>
+                  <span className="text-[9px] font-medium text-slate-500 mt-0.5">30 days</span>
+                </div>
+              </div>
+
+              {/* Before / After bar comparison */}
+              <div className="space-y-2.5 mb-4">
+                {/* Current */}
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] text-slate-500 w-12 flex-shrink-0 font-medium">Now</span>
+                  <div className="flex-1 h-2 rounded-full bg-slate-700 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-slate-400 transition-all"
+                      style={{ width: `${current}%` }}
+                    />
+                  </div>
+                  <span className="text-[10px] text-slate-400 w-7 text-right tabular-nums font-semibold">
+                    {current}
+                  </span>
+                </div>
+                {/* Projected */}
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] text-slate-500 w-12 flex-shrink-0 font-medium">Projected</span>
+                  <div className="flex-1 h-2 rounded-full bg-slate-700 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${trendCfg.barCls}`}
+                      style={{ width: `${trajectory.projected}%` }}
+                    />
+                  </div>
+                  <span className={`text-[10px] w-7 text-right tabular-nums font-bold ${
+                    trajectory.status === 'improving' ? 'text-emerald-400' :
+                    trajectory.status === 'declining' ? 'text-red-400'     : 'text-slate-400'
+                  }`}>
+                    {trajectory.projected}
+                  </span>
+                </div>
+              </div>
+
+              {/* Basis note */}
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                {trajectory.basisText}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* ══════════════════════════════════════════════════════════════════════ */}
         {/* ── PROGRESS MESSAGE ── */}
         {/* ══════════════════════════════════════════════════════════════════════ */}
         <div className="bg-slate-800/60 rounded-2xl px-5 py-4 border border-slate-700/50">
@@ -347,30 +619,48 @@ export default async function JourneyPage() {
         </div>
 
         {/* ══════════════════════════════════════════════════════════════════════ */}
-        {/* ── YOUR NEXT BEST STEP ── */}
+        {/* ── YOUR NEXT MUSCLE PROTECTION STEP ── */}
         {/* ══════════════════════════════════════════════════════════════════════ */}
-        <div className={`rounded-2xl px-5 py-5 border ${urgencyBorder}`}>
-          <div className="flex items-center gap-2 mb-4">
-            <p className="text-[10px] font-bold text-slate-300 uppercase tracking-[0.15em]">
-              Your next best step
-            </p>
-            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${urgencyLabel.cls}`}>
-              {urgencyLabel.text}
-            </span>
+        <div className={`rounded-2xl border overflow-hidden ${actionStyle.border} ${actionStyle.bg}`}>
+
+          {/* Card header */}
+          <div className={`px-5 pt-4 pb-3 border-b ${actionStyle.border}`}>
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-[10px] font-bold text-slate-200 uppercase tracking-[0.15em]">
+                Your Next Muscle Protection Step
+              </p>
+              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${actionStyle.badge}`}>
+                {actionStyle.label}
+              </span>
+            </div>
           </div>
 
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-slate-800/50 border border-slate-700/50 flex items-center justify-center text-2xl flex-shrink-0">
-              {nextStep.icon}
+          {/* Action content */}
+          <div className="px-5 py-5">
+            <div className="flex items-start gap-4 mb-5">
+              {/* Icon */}
+              <div className="w-12 h-12 rounded-2xl bg-slate-800/50 border border-slate-700/50 flex items-center justify-center text-2xl flex-shrink-0">
+                {nextAction.icon}
+              </div>
+
+              {/* Text */}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-white mb-1.5 leading-snug">
+                  {nextAction.title}
+                </p>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  {nextAction.subtitle}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-bold text-white mb-1.5 leading-snug">
-                {nextStep.action}
-              </p>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                {nextStep.detail}
-              </p>
-            </div>
+
+            {/* CTA button */}
+            <Link
+              href={nextAction.ctaHref}
+              className={`block w-full text-center text-white font-bold text-sm py-3 rounded-xl transition-colors ${actionStyle.ctaCls}`}
+            >
+              {nextAction.cta}
+            </Link>
           </div>
         </div>
 
@@ -501,8 +791,8 @@ export default async function JourneyPage() {
               {/* Bar chart */}
               <div className="flex items-end gap-1.5 mb-2" style={{ height: '80px' }}>
                 {scored.map((a, i) => {
-                  const s     = Math.round(a.muscleScore!.score);
-                  const b     = (a.muscleScore!.riskBand as Band) ?? 'HIGH';
+                  const s      = Math.round(a.muscleScore!.score);
+                  const b      = (a.muscleScore!.riskBand as Band) ?? 'HIGH';
                   const isLast = i === scored.length - 1;
                   const height = Math.max(8, (s / 100) * 72);
 
@@ -522,7 +812,7 @@ export default async function JourneyPage() {
 
               {/* Score labels */}
               <div className="flex gap-1.5 mb-0.5">
-                {scored.map((a, i) => (
+                {scored.map((a) => (
                   <div key={a.id} className="flex-1 text-center min-w-0">
                     <span className="text-[9px] text-slate-500 tabular-nums">
                       {Math.round(a.muscleScore!.score)}
@@ -533,7 +823,7 @@ export default async function JourneyPage() {
 
               {/* Date labels */}
               <div className="flex gap-1.5 mb-4">
-                {scored.map((a, i) => (
+                {scored.map((a) => (
                   <div key={a.id} className="flex-1 text-center min-w-0">
                     <span className="text-[8px] text-slate-600 truncate block">
                       {shortDate(a.assessmentDate)}
