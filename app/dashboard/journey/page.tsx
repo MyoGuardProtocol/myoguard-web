@@ -2,6 +2,7 @@ import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/src/lib/prisma';
 import Link from 'next/link';
+import { generateWeeklyDigest } from '@/src/lib/weeklyDigest';
 
 // ─── Band config ───────────────────────────────────────────────────────────────
 type Band = 'CRITICAL' | 'HIGH' | 'MODERATE' | 'LOW';
@@ -32,54 +33,8 @@ function weekLabel(d: Date): string {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-// ─── Trajectory computation ────────────────────────────────────────────────────
+// ─── Trend display config ──────────────────────────────────────────────────────
 type TrendStatus = 'improving' | 'stable' | 'declining' | 'insufficient';
-
-type TrajectoryResult = {
-  status:      TrendStatus;
-  projected:   number;
-  pointChange: number;
-  basisText:   string;
-};
-
-function computeTrajectory(
-  scored:   Array<{ assessmentDate: Date; muscleScore: { score: number } | null }>,
-  checkins: Array<{ avgProteinG: number | null; totalWorkouts: number | null }>,
-): TrajectoryResult {
-  if (scored.length < 2) {
-    return { status: 'insufficient', projected: 0, pointChange: 0, basisText: '' };
-  }
-
-  const recent  = scored.slice(-3);
-  const first   = recent[0];
-  const last    = recent[recent.length - 1];
-  const msFirst = first.muscleScore?.score ?? 0;
-  const msLast  = last.muscleScore?.score ?? 0;
-
-  const daysDiff = Math.max(1,
-    (last.assessmentDate.getTime() - first.assessmentDate.getTime()) / (1000 * 60 * 60 * 24),
-  );
-
-  let ratePerDay = (msLast - msFirst) / daysDiff;
-
-  if (checkins.length > 0) {
-    const ci = checkins[0];
-    if (ci.totalWorkouts != null && ci.totalWorkouts >= 3) ratePerDay += 0.06;
-    if (ci.avgProteinG   != null && ci.avgProteinG   <  60) ratePerDay -= 0.06;
-  }
-
-  const projected   = Math.round(Math.min(100, Math.max(0, msLast + ratePerDay * 30)));
-  const pointChange = projected - Math.round(msLast);
-  const status: TrendStatus =
-    pointChange >  2 ? 'improving' :
-    pointChange < -2 ? 'declining' : 'stable';
-
-  const basisText = scored.length >= 3
-    ? 'Based on your last 3 assessments and recent check-in data.'
-    : 'Based on your last 2 assessments and recent check-in data.';
-
-  return { status, projected, pointChange, basisText };
-}
 
 const TREND_CONFIG: Record<TrendStatus, {
   arrow:    string;
@@ -94,7 +49,9 @@ const TREND_CONFIG: Record<TrendStatus, {
   insufficient:{ arrow: '→', label: 'Building…', badgeCls: 'bg-slate-700     text-slate-400    border-slate-600',   ringCls: 'ring-slate-400',   barCls: 'bg-slate-400'   },
 };
 
-// ─── Smart next action ─────────────────────────────────────────────────────────
+// ─── Smart next action (rich UI — icon / subtitle / CTA label) ─────────────────
+// The digest provides nextAction text + type + href.
+// This function maps those to the richer UI shape the card needs.
 type ActionType = 'urgent' | 'recommended' | 'maintenance';
 type NextAction = {
   icon:     string;
@@ -211,71 +168,7 @@ const ACTION_STYLE: Record<ActionType, {
   maintenance: { border: 'border-slate-700',  bg: 'bg-slate-800',  badge: 'bg-slate-700   text-slate-300   border-slate-600',  label: 'Maintenance',   ctaCls: 'bg-slate-600  hover:bg-slate-500'  },
 };
 
-// ─── Streak computation ────────────────────────────────────────────────────────
-type StreakData = {
-  current: number;
-  best:    number;
-  total:   number;
-  /** last 8 weekly slots (oldest→newest): true = had a check-in */
-  window:  boolean[];
-};
-
-function computeStreaks(
-  checkins: Array<{ weekStart: Date }>,
-  now: Date,
-): StreakData {
-  const total = checkins.length;
-  if (total === 0) return { current: 0, best: 0, total: 0, window: Array(8).fill(false) };
-
-  const msInDay  = 1000 * 60 * 60 * 24;
-  const msInWeek = 7 * msInDay;
-
-  // Sort oldest → newest
-  const sorted = [...checkins].sort((a, b) => a.weekStart.getTime() - b.weekStart.getTime());
-
-  // ── Best streak ─────────────────────────────────────────────────────────────
-  let bestStreak = 1;
-  let runStreak  = 1;
-  for (let i = 1; i < sorted.length; i++) {
-    const gap = (sorted[i].weekStart.getTime() - sorted[i - 1].weekStart.getTime()) / msInDay;
-    if (gap <= 10) {
-      runStreak++;
-      if (runStreak > bestStreak) bestStreak = runStreak;
-    } else {
-      runStreak = 1;
-    }
-  }
-
-  // ── Current streak ───────────────────────────────────────────────────────────
-  const mostRecent      = sorted[sorted.length - 1];
-  const daysSinceRecent = (now.getTime() - mostRecent.weekStart.getTime()) / msInDay;
-
-  let currentStreak = 0;
-  if (daysSinceRecent <= 14) {
-    currentStreak = 1;
-    for (let i = sorted.length - 2; i >= 0; i--) {
-      const gap = (sorted[i + 1].weekStart.getTime() - sorted[i].weekStart.getTime()) / msInDay;
-      if (gap <= 10) currentStreak++;
-      else break;
-    }
-  }
-
-  // ── 8-week window ────────────────────────────────────────────────────────────
-  const window: boolean[] = [];
-  for (let i = 7; i >= 0; i--) {
-    const slotStart = now.getTime() - (i + 1) * msInWeek;
-    const slotEnd   = now.getTime() - i * msInWeek;
-    // ±3-day tolerance to handle off-by-day weekStart values
-    const hit = checkins.some(ci => {
-      const t = ci.weekStart.getTime();
-      return t >= slotStart - 3 * msInDay && t <= slotEnd + 3 * msInDay;
-    });
-    window.push(hit);
-  }
-
-  return { current: currentStreak, best: Math.max(bestStreak, currentStreak), total, window };
-}
-
+// ─── Streak message ─────────────────────────────────────────────────────────────
 function getStreakMessage(current: number, total: number): string {
   if (current === 0 && total === 0) return 'Start your first weekly check-in to begin building your consistency record.';
   if (current === 0) return 'Time to restart your streak. Every week back on track compounds your results.';
@@ -391,44 +284,43 @@ function barColour(b: Band) {
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
 export default async function JourneyPage() {
-  const { userId } = await auth();
-  if (!userId) redirect('/sign-in');
+  const { userId: clerkId } = await auth();
+  if (!clerkId) redirect('/sign-in');
 
-  const user = await prisma.user.findUnique({
-    where: { clerkId: userId },
+  // ── Display-only query: user name + raw assessment/check-in data for chart/rows
+  const userData = await prisma.user.findUnique({
+    where: { clerkId },
     select: {
+      id:       true,
       fullName: true,
       assessments: {
         orderBy: { assessmentDate: 'asc' },
         include: {
           muscleScore: {
-            select: { score: true, riskBand: true, proteinTargetG: true },
+            select: { score: true, riskBand: true },
           },
         },
       },
-      // Fetch up to 52 weeks for streak computation; display slices to 3
       weeklyCheckins: {
         orderBy: { weekStart: 'desc' },
         take: 52,
         select: {
-          id:           true,
-          weekStart:    true,
-          avgProteinG:  true,
-          totalWorkouts:true,
-          avgHydration: true,
-          scoreDelta:   true,
+          id:            true,
+          weekStart:     true,
+          avgProteinG:   true,
+          totalWorkouts: true,
+          avgHydration:  true,
         },
       },
     },
   });
 
-  if (!user) redirect('/dashboard');
+  if (!userData) redirect('/dashboard');
 
-  const scored   = user.assessments.filter(a => a.muscleScore?.score != null);
-  const checkins = user.weeklyCheckins;       // up to 52 — used for streak
-  const recentCI = checkins.slice(0, 3);      // top 3 — used for display rows
+  const scored   = userData.assessments.filter(a => a.muscleScore?.score != null);
+  const checkins = userData.weeklyCheckins;
 
-  // ── Empty state ──────────────────────────────────────────────────────────────
+  // ── Empty state (no scored assessments yet) ───────────────────────────────────
   if (scored.length === 0) {
     return (
       <main className="min-h-screen bg-slate-900 font-sans flex items-center justify-center px-6">
@@ -454,35 +346,60 @@ export default async function JourneyPage() {
     );
   }
 
-  // ── Derived data ─────────────────────────────────────────────────────────────
-  const latest        = scored[scored.length - 1];
-  const first         = scored[0];
-  const ms            = latest.muscleScore!;
-  const current       = Math.round(ms.score);
-  const band          = (ms.riskBand as Band) ?? 'HIGH';
-  const meta          = BAND_META[band];
-  const now           = new Date();
+  // ── Smart data via digest engine ──────────────────────────────────────────────
+  // generateWeeklyDigest accepts the internal DB User.id (NOT Clerk userId)
+  const digest = await generateWeeklyDigest(userData.id);
 
+  // digest is null only when there are no scored assessments — already handled above
+  if (!digest) redirect('/dashboard');
+
+  // ── Derived display variables ─────────────────────────────────────────────────
+  const now        = new Date();
+  const current    = digest.score;
+  const band       = digest.riskBand as Band;
+  const meta       = BAND_META[band];
+  const trendCfg   = TREND_CONFIG[digest.trendStatus];
+
+  // Point change for projection card label
+  const pointChange = digest.projectedScore != null ? digest.projectedScore - current : 0;
+
+  // Basis text depends on how many assessments drove the projection
+  const basisText = scored.length >= 3
+    ? 'Based on your last 3 assessments and recent check-in data.'
+    : 'Based on your last 2 assessments and recent check-in data.';
+
+  const first      = scored[0];
+  const latest     = scored[scored.length - 1];
   const delta: number | null = scored.length > 1
-    ? Math.round(ms.score - first.muscleScore!.score)
+    ? Math.round(scored[scored.length - 1].muscleScore!.score - first.muscleScore!.score)
     : null;
-  const pointsToLow   = current < 80 ? 80 - current : null;
-  const proteinTarget = ms.proteinTargetG ?? null;
-  const firstName     = user.fullName?.split(' ')[0] ?? null;
+  const pointsToLow  = current < 80 ? 80 - current : null;
+  const firstName    = userData.fullName?.split(' ')[0] ?? null;
 
-  // Trajectory + action
-  const trajectory  = computeTrajectory(scored, checkins);
-  const trendCfg    = TREND_CONFIG[trajectory.status];
+  // Rich next-action UI (icon, subtitle, CTA label) — fed by digest fields
   const latestCI    = checkins[0] ?? null;
-  const nextAction  = getSmartNextAction(band, proteinTarget, latestCI, trajectory.status, now);
+  const nextAction  = getSmartNextAction(band, digest.proteinTargetG, latestCI, digest.trendStatus, now);
   const actionStyle = ACTION_STYLE[nextAction.type];
 
-  // Streak + wins
-  const streakData    = computeStreaks(checkins, now);
-  const streakMessage = getStreakMessage(streakData.current, streakData.total);
-  const recentWins    = buildRecentWins(recentCI, scored, proteinTarget);
+  // Streak display — numbers come from digest; 8-week window is display-only
+  const streakMessage = getStreakMessage(digest.streakWeeks, digest.totalCheckins);
 
-  const message = getProgressMessage(delta, band, scored.length);
+  const msInDay  = 86_400_000;
+  const msInWeek = 7 * msInDay;
+  const streakWindow: boolean[] = [];
+  for (let i = 7; i >= 0; i--) {
+    const slotStart = now.getTime() - (i + 1) * msInWeek;
+    const slotEnd   = now.getTime() - i * msInWeek;
+    const hit = checkins.some(ci => {
+      const t = ci.weekStart.getTime();
+      return t >= slotStart - 3 * msInDay && t <= slotEnd + 3 * msInDay;
+    });
+    streakWindow.push(hit);
+  }
+
+  const recentCI   = checkins.slice(0, 3);
+  const recentWins = buildRecentWins(recentCI, scored, digest.proteinTargetG);
+  const message    = getProgressMessage(delta, band, scored.length);
 
   return (
     <main className="min-h-screen bg-slate-900 font-sans">
@@ -610,9 +527,9 @@ export default async function JourneyPage() {
                 Daily protein target
               </p>
             </div>
-            {proteinTarget != null ? (
+            {digest.proteinTargetG != null ? (
               <span className="text-sm font-extrabold text-white tabular-nums">
-                {Math.round(proteinTarget)}
+                {Math.round(digest.proteinTargetG)}
                 <span className="text-xs font-semibold text-slate-400 ml-0.5">g/day</span>
               </span>
             ) : (
@@ -645,7 +562,7 @@ export default async function JourneyPage() {
             </div>
           </div>
 
-          {trajectory.status === 'insufficient' ? (
+          {digest.trendStatus === 'insufficient' ? (
             <div className="px-5 py-7 text-center">
               <div className="w-12 h-12 rounded-full bg-slate-700/60 flex items-center justify-center text-2xl mx-auto mb-3">📊</div>
               <p className="text-sm font-semibold text-slate-200 mb-1">Building your trajectory…</p>
@@ -665,26 +582,26 @@ export default async function JourneyPage() {
                     {trendCfg.label}
                   </span>
                   <div className="flex items-baseline gap-1.5">
-                    <span className="text-5xl font-black text-white tabular-nums leading-none">{trajectory.projected}</span>
+                    <span className="text-5xl font-black text-white tabular-nums leading-none">{digest.projectedScore}</span>
                     <span className="text-xl text-slate-600 font-light leading-none">/100</span>
                   </div>
                   <p className={`text-xs font-semibold mt-1.5 ${
-                    trajectory.status === 'improving' ? 'text-emerald-400' :
-                    trajectory.status === 'declining' ? 'text-red-400' : 'text-slate-400'
+                    digest.trendStatus === 'improving' ? 'text-emerald-400' :
+                    digest.trendStatus === 'declining' ? 'text-red-400' : 'text-slate-400'
                   }`}>
-                    {trajectory.pointChange > 0 ? `+${trajectory.pointChange} points projected`
-                    : trajectory.pointChange < 0 ? `${trajectory.pointChange} points projected`
+                    {pointChange > 0 ? `+${pointChange} points projected`
+                    : pointChange < 0 ? `${pointChange} points projected`
                     : 'Score holding steady'}
                   </p>
                 </div>
                 <div className={`w-16 h-16 rounded-2xl flex flex-col items-center justify-center border flex-shrink-0 ${
-                  trajectory.status === 'improving' ? 'bg-emerald-900/40 border-emerald-800' :
-                  trajectory.status === 'declining' ? 'bg-red-900/40 border-red-800' :
+                  digest.trendStatus === 'improving' ? 'bg-emerald-900/40 border-emerald-800' :
+                  digest.trendStatus === 'declining' ? 'bg-red-900/40 border-red-800' :
                   'bg-slate-700/40 border-slate-600'
                 }`}>
                   <span className={`text-3xl font-black leading-none ${
-                    trajectory.status === 'improving' ? 'text-emerald-400' :
-                    trajectory.status === 'declining' ? 'text-red-400' : 'text-slate-400'
+                    digest.trendStatus === 'improving' ? 'text-emerald-400' :
+                    digest.trendStatus === 'declining' ? 'text-red-400' : 'text-slate-400'
                   }`}>{trendCfg.arrow}</span>
                   <span className="text-[9px] font-medium text-slate-500 mt-0.5">30 days</span>
                 </div>
@@ -703,16 +620,16 @@ export default async function JourneyPage() {
                   <span className="text-[10px] text-slate-500 w-12 flex-shrink-0 font-medium">Projected</span>
                   <div className="flex-1 h-2 rounded-full bg-slate-700 overflow-hidden">
                     {/* Projected bar animates slightly later than the Now bar */}
-                    <div className={`myg-bar-grow-late h-full rounded-full ${trendCfg.barCls}`} style={{ width: `${trajectory.projected}%` }} />
+                    <div className={`myg-bar-grow-late h-full rounded-full ${trendCfg.barCls}`} style={{ width: `${digest.projectedScore}%` }} />
                   </div>
                   <span className={`text-[10px] w-7 text-right tabular-nums font-bold ${
-                    trajectory.status === 'improving' ? 'text-emerald-400' :
-                    trajectory.status === 'declining' ? 'text-red-400' : 'text-slate-400'
-                  }`}>{trajectory.projected}</span>
+                    digest.trendStatus === 'improving' ? 'text-emerald-400' :
+                    digest.trendStatus === 'declining' ? 'text-red-400' : 'text-slate-400'
+                  }`}>{digest.projectedScore}</span>
                 </div>
               </div>
 
-              <p className="text-[11px] text-slate-500 leading-relaxed">{trajectory.basisText}</p>
+              <p className="text-[11px] text-slate-500 leading-relaxed">{basisText}</p>
             </div>
           )}
         </div>
@@ -776,16 +693,16 @@ export default async function JourneyPage() {
                 </p>
               </div>
               {/* Streak flame indicator */}
-              {streakData.current >= 2 && (
+              {digest.streakWeeks >= 2 && (
                 <div className={`flex-shrink-0 w-12 h-12 rounded-2xl flex flex-col items-center justify-center border ml-3 ${
-                  streakData.current >= 8  ? 'bg-emerald-900/50 border-emerald-700' :
-                  streakData.current >= 4  ? 'bg-teal-900/50    border-teal-700'    :
+                  digest.streakWeeks >= 8  ? 'bg-emerald-900/50 border-emerald-700' :
+                  digest.streakWeeks >= 4  ? 'bg-teal-900/50    border-teal-700'    :
                                              'bg-slate-700/50   border-slate-600'
                 }`}>
                   <span className={`text-lg font-black tabular-nums leading-none ${
-                    streakData.current >= 8 ? 'text-emerald-400' :
-                    streakData.current >= 4 ? 'text-teal-400'    : 'text-slate-300'
-                  }`}>{streakData.current}</span>
+                    digest.streakWeeks >= 8 ? 'text-emerald-400' :
+                    digest.streakWeeks >= 4 ? 'text-teal-400'    : 'text-slate-300'
+                  }`}>{digest.streakWeeks}</span>
                   <span className="text-[8px] font-medium text-slate-500 mt-0.5">wks</span>
                 </div>
               )}
@@ -795,7 +712,7 @@ export default async function JourneyPage() {
           {/* ── 8-week activity window ── */}
           <div className="px-5 pt-4 pb-4">
             <div className="flex items-center gap-1.5 mb-1">
-              {streakData.window.map((active, i) => (
+              {streakWindow.map((active, i) => (
                 /* Each bar animates in with a 60 ms stagger — left→right reveal */
                 <div
                   key={i}
@@ -816,9 +733,9 @@ export default async function JourneyPage() {
           {/* ── Stat trio ── */}
           <div className="grid grid-cols-3 divide-x divide-slate-700/60 border-t border-slate-700/60">
             {[
-              { value: streakData.current, label: 'Current streak', unit: 'wks' },
-              { value: streakData.best,    label: 'Best streak',    unit: 'wks' },
-              { value: streakData.total,   label: 'Total check-ins', unit: '' },
+              { value: digest.streakWeeks,   label: 'Current streak',  unit: 'wks' },
+              { value: digest.bestStreak,    label: 'Best streak',     unit: 'wks' },
+              { value: digest.totalCheckins, label: 'Total check-ins', unit: '' },
             ].map(({ value, label, unit }) => (
               <div key={label} className="px-4 py-4 text-center">
                 <div className="flex items-baseline justify-center gap-0.5 mb-1">
