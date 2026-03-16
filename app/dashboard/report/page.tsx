@@ -5,6 +5,8 @@ import { prisma }                from '@/src/lib/prisma';
 import { generateWeeklyDigest }  from '@/src/lib/weeklyDigest';
 import PrintButton               from './PrintButton';
 import ShareButton               from './ShareButton';
+import DownloadPDFButton         from './DownloadPDFButton';
+import PhysicianFeedback         from './PhysicianFeedback';
 
 // ─── Display helpers ──────────────────────────────────────────────────────────
 
@@ -42,6 +44,391 @@ const STAGE_LABEL: Record<string, string> = {
   MAINTENANCE:     'Maintenance',
   DISCONTINUING:   'Discontinuing',
 };
+
+// ─── Clinical interpretation types ────────────────────────────────────────────
+
+interface InterpDriver {
+  text:     string;
+  severity: 'concern' | 'caution' | 'ok';
+}
+
+interface Interpretation {
+  riskCategory:       { label: string; detail: string };
+  keyDrivers:         InterpDriver[];
+  leanMassProjection: string;
+  adherenceSignal:    { summary: string; lines: string[] };
+}
+
+// ─── Clinical interpretation builder ─────────────────────────────────────────
+//
+// Pure, deterministic function — no AI calls. Derives physician-friendly
+// language from the raw assessment metrics using clinical thresholds.
+
+function buildInterpretation(params: {
+  band:            Band;
+  leanLossEstPct:  number;
+  proteinTargetG:  number;
+  proteinIntakeG:  number;
+  exerciseDaysWk:  number;
+  hydrationLitres: number;
+  fatigue:         number;
+  nausea:          number;
+  muscleWeakness:  number;
+  trendStatus:     string;
+  checkins:        Array<{ proteinAdherence: number | null; exerciseAdherence: number | null }>;
+  glp1Stage?:      string | null;
+}): Interpretation {
+  const {
+    band, leanLossEstPct, proteinTargetG, proteinIntakeG,
+    exerciseDaysWk, hydrationLitres, fatigue, nausea, muscleWeakness,
+    trendStatus, checkins, glp1Stage,
+  } = params;
+
+  // ── Risk category description ───────────────────────────────────────────────
+  const RISK_DETAIL: Record<Band, string> = {
+    CRITICAL: 'Immediate clinical review warranted; high probability of accelerated sarcopenic change if current trajectory is maintained.',
+    HIGH:     'Significant muscle catabolism risk detected; physician discussion and protocol escalation are recommended at earliest opportunity.',
+    MODERATE: 'One or more myoprotective markers are suboptimal; targeted protocol adjustment is advised to prevent risk progression.',
+    LOW:      'Myoprotective targets are within acceptable range; patient should sustain current protocol to maintain this classification.',
+  };
+  const riskCategory = { label: BAND_LIGHT[band].label, detail: RISK_DETAIL[band] };
+
+  // ── Key risk drivers ────────────────────────────────────────────────────────
+  const drivers: InterpDriver[] = [];
+
+  // 1. Protein deficit
+  const proteinDeficit = proteinTargetG - proteinIntakeG;
+  if (proteinDeficit > 30) {
+    drivers.push({
+      severity: 'concern',
+      text: `Protein deficit: −${Math.round(proteinDeficit)} g/day below target (reported ${Math.round(proteinIntakeG)} g, target ${Math.round(proteinTargetG)} g) — primary anabolic stimulus insufficient`,
+    });
+  } else if (proteinDeficit > 10) {
+    drivers.push({
+      severity: 'caution',
+      text: `Protein intake below target (${Math.round(proteinIntakeG)} g/day; target ${Math.round(proteinTargetG)} g/day) — gap may be addressable through meal timing or supplementation`,
+    });
+  } else {
+    drivers.push({
+      severity: 'ok',
+      text: `Protein intake meeting or approaching target (${Math.round(proteinIntakeG)} g/day of ${Math.round(proteinTargetG)} g/day target)`,
+    });
+  }
+
+  // 2. Exercise frequency
+  if (exerciseDaysWk < 2) {
+    drivers.push({
+      severity: 'concern',
+      text: `Insufficient resistance exercise stimulus (${exerciseDaysWk} day${exerciseDaysWk !== 1 ? 's' : ''}/week) — minimum 2 sessions/week required to preserve muscle during GLP-1 therapy`,
+    });
+  } else if (exerciseDaysWk < 4) {
+    drivers.push({
+      severity: 'caution',
+      text: `Sub-optimal exercise frequency (${exerciseDaysWk} days/week) — 4+ sessions/week is recommended for adequate myoprotective stimulus`,
+    });
+  } else {
+    drivers.push({
+      severity: 'ok',
+      text: `Adequate resistance exercise frequency (${exerciseDaysWk} days/week)`,
+    });
+  }
+
+  // 3. Hydration
+  if (hydrationLitres < 1.5) {
+    drivers.push({
+      severity: 'concern',
+      text: `Inadequate hydration (${hydrationLitres} L/day) — may impair renal clearance, electrolyte balance, and downstream protein synthesis`,
+    });
+  } else if (hydrationLitres < 2.0) {
+    drivers.push({
+      severity: 'caution',
+      text: `Borderline hydration intake (${hydrationLitres} L/day) — encourage progressive increase toward 2.0 L/day minimum`,
+    });
+  } else {
+    drivers.push({
+      severity: 'ok',
+      text: `Adequate hydration (${hydrationLitres} L/day)`,
+    });
+  }
+
+  // 4. Symptom burden
+  const symptomAvg = (fatigue + nausea + muscleWeakness) / 3;
+  if (symptomAvg > 6) {
+    drivers.push({
+      severity: 'concern',
+      text: `Elevated symptom burden (fatigue ${fatigue}/10, muscle weakness ${muscleWeakness}/10, nausea ${nausea}/10) — likely impairing dietary adherence and exercise tolerance`,
+    });
+  } else if (symptomAvg > 3) {
+    drivers.push({
+      severity: 'caution',
+      text: `Moderate symptom burden (avg ${symptomAvg.toFixed(1)}/10) — monitor impact on protocol adherence; consider GI management strategies`,
+    });
+  } else {
+    drivers.push({
+      severity: 'ok',
+      text: 'Symptom burden low; adherence is unlikely to be symptom-limited at current presentation',
+    });
+  }
+
+  // 5. GLP-1 dose escalation flag
+  if (glp1Stage === 'DOSE_ESCALATION') {
+    drivers.push({
+      severity: 'caution',
+      text: 'Active GLP-1 dose escalation phase — this is a heightened muscle loss risk period; increased monitoring frequency is recommended',
+    });
+  }
+
+  // Sort: concerns → cautions → ok
+  const SEV_ORDER: Record<InterpDriver['severity'], number> = { concern: 0, caution: 1, ok: 2 };
+  drivers.sort((a, b) => SEV_ORDER[a.severity] - SEV_ORDER[b.severity]);
+
+  // ── 30-day lean mass projection ─────────────────────────────────────────────
+  const TREND_PROJECTION: Record<string, string> = {
+    improving:    'Trajectory currently improving — lean mass loss risk is attenuating with present adherence.',
+    stable:       'Trajectory stable — sustained adherence is required to maintain current risk classification.',
+    declining:    'Trajectory declining — protocol escalation is recommended to arrest progression.',
+    insufficient: 'Insufficient longitudinal data for trajectory assessment; recommend reassessment in 2–4 weeks.',
+  };
+  const leanMassProjection =
+    `Estimated lean mass loss risk at current assessment cycle: ${leanLossEstPct}%. ` +
+    (TREND_PROJECTION[trendStatus] ?? TREND_PROJECTION.insufficient);
+
+  // ── Protocol adherence signal ────────────────────────────────────────────────
+  const withProtein  = checkins.filter(c => c.proteinAdherence  != null);
+  const withExercise = checkins.filter(c => c.exerciseAdherence != null);
+
+  const avgProteinAdh  = withProtein.length
+    ? Math.round(withProtein.reduce((s, c) => s + c.proteinAdherence!, 0) / withProtein.length)
+    : null;
+  const avgExerciseAdh = withExercise.length
+    ? Math.round(withExercise.reduce((s, c) => s + c.exerciseAdherence!, 0) / withExercise.length)
+    : null;
+
+  if (avgProteinAdh === null && avgExerciseAdh === null) {
+    return {
+      riskCategory,
+      keyDrivers: drivers,
+      leanMassProjection,
+      adherenceSignal: {
+        summary: 'Insufficient longitudinal check-in data. Weekly monitoring is recommended to establish adherence trends.',
+        lines:   [],
+      },
+    };
+  }
+
+  const lines: string[] = [];
+
+  if (avgProteinAdh !== null) {
+    if (avgProteinAdh >= 80) {
+      lines.push(`Protein adherence: High (avg ${avgProteinAdh}%) — dietary target met consistently`);
+    } else if (avgProteinAdh >= 50) {
+      lines.push(`Protein adherence: Moderate (avg ${avgProteinAdh}%) — adherence gaps present; consider supplementation or meal-timing strategies`);
+    } else {
+      lines.push(`Protein adherence: Low (avg ${avgProteinAdh}%) — primary intervention target; deficit is compounding catabolism risk`);
+    }
+  }
+
+  if (avgExerciseAdh !== null) {
+    if (avgExerciseAdh >= 80) {
+      lines.push(`Exercise adherence: Consistent (avg ${avgExerciseAdh}%) — resistance stimulus adequate`);
+    } else if (avgExerciseAdh >= 50) {
+      lines.push(`Exercise adherence: Inconsistent (avg ${avgExerciseAdh}%) — structured scheduling and accountability recommended`);
+    } else {
+      lines.push(`Exercise adherence: Poor (avg ${avgExerciseAdh}%) — muscle stimulus insufficient; likely contributor to elevated lean loss risk`);
+    }
+  }
+
+  const bothKnown  = avgProteinAdh !== null && avgExerciseAdh !== null;
+  const bothStrong = bothKnown && avgProteinAdh >= 70 && avgExerciseAdh >= 70;
+  const bothPoor   = bothKnown && avgProteinAdh < 50  && avgExerciseAdh < 50;
+
+  if (bothStrong) lines.push('Overall adherence signal: Strong — continue current protocol approach');
+  else if (bothPoor) lines.push('Overall adherence signal: Poor — multidomain intervention review indicated');
+
+  return { riskCategory, keyDrivers: drivers, leanMassProjection, adherenceSignal: { summary: '', lines } };
+}
+
+// ─── Suggested physician actions ─────────────────────────────────────────────
+//
+// Deterministic function — no AI calls. Produces 1–3 prioritised, actionable
+// recommendations from the same clinical signals used in buildInterpretation().
+// Actions are ranked by clinical urgency; the reassessment timing anchor always
+// appears as the final entry.
+
+interface SuggestedAction {
+  text:      string;
+  urgency:   'urgent' | 'recommended' | 'maintenance';
+  timeframe: string;
+}
+
+function buildSuggestedActions(params: {
+  band:            Band;
+  proteinTargetG:  number;
+  proteinIntakeG:  number;
+  exerciseDaysWk:  number;
+  hydrationLitres: number;
+  fatigue:         number;
+  nausea:          number;
+  muscleWeakness:  number;
+  trendStatus:     string;
+  checkins:        Array<{ proteinAdherence: number | null; exerciseAdherence: number | null }>;
+  glp1Stage?:      string | null;
+}): SuggestedAction[] {
+  const {
+    band, proteinTargetG, proteinIntakeG, exerciseDaysWk,
+    hydrationLitres, fatigue, nausea, muscleWeakness,
+    trendStatus, checkins, glp1Stage,
+  } = params;
+
+  const proteinDeficit = proteinTargetG - proteinIntakeG;
+  const symptomAvg     = (fatigue + nausea + muscleWeakness) / 3;
+
+  // ── Compute adherence averages from check-ins ────────────────────────────────
+  const withProtein  = checkins.filter(c => c.proteinAdherence  != null);
+  const withExercise = checkins.filter(c => c.exerciseAdherence != null);
+  const avgProteinAdh  = withProtein.length
+    ? Math.round(withProtein.reduce((s, c) => s + c.proteinAdherence!, 0) / withProtein.length)
+    : null;
+  const avgExerciseAdh = withExercise.length
+    ? Math.round(withExercise.reduce((s, c) => s + c.exerciseAdherence!, 0) / withExercise.length)
+    : null;
+
+  // ── Build a prioritised pool of clinical candidates ──────────────────────────
+  // Each candidate carries a numeric priority (lower = higher priority).
+  // Up to 2 clinical candidates are selected; the reassessment anchor is always
+  // appended last, giving a 1–3 total output range.
+
+  type Candidate = { priority: number; action: SuggestedAction };
+  const candidates: Candidate[] = [];
+
+  // 1. Symptom burden — gates adherence; highest priority when severe
+  if (symptomAvg > 6) {
+    candidates.push({
+      priority: 1,
+      action: {
+        urgency:   'urgent',
+        timeframe: 'Immediate',
+        text: `Review GLP-1 dosing schedule. Severe symptom burden (fatigue ${fatigue}/10, muscle weakness ${muscleWeakness}/10, nausea ${nausea}/10) is likely impairing protocol adherence. Consider dose adjustment, antiemetic support, or temporary titration pause.`,
+      },
+    });
+  } else if (symptomAvg > 3) {
+    candidates.push({
+      priority: 6,
+      action: {
+        urgency:   'recommended',
+        timeframe: 'At next visit',
+        text: 'Review GI management strategies (small frequent meals, protein timing around doses) to reduce symptom impact on dietary adherence.',
+      },
+    });
+  }
+
+  // 2. Protein deficit — primary anabolic driver
+  if (proteinDeficit > 30) {
+    candidates.push({
+      priority: 2,
+      action: {
+        urgency:   'urgent',
+        timeframe: 'Immediate',
+        text: `Increase daily protein intake to the protocol target of ${Math.round(proteinTargetG)} g/day (current reported intake: ${Math.round(proteinIntakeG)} g/day; deficit: −${Math.round(proteinDeficit)} g/day). Consider referral to a registered dietitian for structured supplementation planning.`,
+      },
+    });
+  } else if (proteinDeficit > 10) {
+    candidates.push({
+      priority: 3,
+      action: {
+        urgency:   'recommended',
+        timeframe: 'Within 7 days',
+        text: `Increase daily protein intake toward the ${Math.round(proteinTargetG)} g/day protocol target. Meal timing optimisation and whey protein supplementation (20–40 g/serving post-exercise) may address the current gap of −${Math.round(proteinDeficit)} g/day.`,
+      },
+    });
+  }
+
+  // 3. Exercise frequency — myoprotective stimulus
+  if (exerciseDaysWk < 2) {
+    candidates.push({
+      priority: 2,
+      action: {
+        urgency:   'urgent',
+        timeframe: 'Immediate',
+        text: 'Prescribe a structured resistance training programme: minimum 2 sessions/week incorporating compound movements (squat, hip hinge, press, row) to counter GLP-1-associated sarcopenic change.',
+      },
+    });
+  } else if (exerciseDaysWk < 4) {
+    candidates.push({
+      priority: 5,
+      action: {
+        urgency:   'recommended',
+        timeframe: 'Within 14 days',
+        text: `Encourage progression from ${exerciseDaysWk} to ≥4 resistance training sessions/week. A written exercise prescription or physiotherapy referral may improve adherence and provide appropriate progressive overload.`,
+      },
+    });
+  }
+
+  // 4. Hydration deficit
+  if (hydrationLitres < 1.5) {
+    candidates.push({
+      priority: 7,
+      action: {
+        urgency:   'recommended',
+        timeframe: 'Within 7 days',
+        text: `Advise incremental increase in fluid intake toward ≥2.0 L/day (currently ${hydrationLitres} L/day). Electrolyte supplementation may be warranted given GLP-1-related GI symptoms affecting fluid retention.`,
+      },
+    });
+  }
+
+  // 5. Adherence-based action (only when explicit check-in data confirms low adherence)
+  if (avgProteinAdh !== null && avgProteinAdh < 50 && proteinDeficit <= 10) {
+    // Low adherence even when intake target is technically within range — habitual deficit
+    candidates.push({
+      priority: 4,
+      action: {
+        urgency:   'recommended',
+        timeframe: 'Within 7 days',
+        text: `Protein adherence is averaging ${avgProteinAdh}% over recent check-ins. Consider a behavioural coaching session or app-based meal tracking to improve consistency with the ${Math.round(proteinTargetG)} g/day target.`,
+      },
+    });
+  }
+
+  // 6. Dose escalation phase monitoring
+  if (glp1Stage === 'DOSE_ESCALATION') {
+    candidates.push({
+      priority: 8,
+      action: {
+        urgency:   'recommended',
+        timeframe: 'Bi-weekly until stable',
+        text: 'Schedule bi-weekly MyoGuard check-ins during active dose escalation to detect early sarcopenic change before it becomes clinically significant.',
+      },
+    });
+  }
+
+  // Select top 2 clinical candidates by priority
+  candidates.sort((a, b) => a.priority - b.priority);
+  const selected = candidates.slice(0, 2).map(c => c.action);
+
+  // ── Reassessment anchor (always appended last) ───────────────────────────────
+  const REASSESS: Record<Band, { days: number; urgency: SuggestedAction['urgency'] }> = {
+    CRITICAL: { days:  7, urgency: 'urgent'      },
+    HIGH:     { days: 14, urgency: 'urgent'      },
+    MODERATE: { days: 21, urgency: 'recommended' },
+    LOW:      { days: 30, urgency: 'maintenance' },
+  };
+  const { days: reassessDays, urgency: reassessUrgency } = REASSESS[band];
+  const decliningNote = trendStatus === 'declining'
+    ? ' Score is on a declining trajectory — prompt follow-up is essential.'
+    : '';
+
+  const reassessAction: SuggestedAction = {
+    urgency:   reassessUrgency,
+    timeframe: band === 'LOW' ? 'Monthly' : `Within ${reassessDays} days`,
+    text:
+      band === 'LOW'
+        ? 'Continue monthly MyoGuard assessments to maintain low-risk classification. No immediate intervention required — sustain current protocol.'
+        : `Reassess MyoGuard score within ${reassessDays} days following protocol adjustment to confirm adequate clinical response.${decliningNote}`,
+  };
+
+  // If no clinical issues were detected, return the reassessment action alone
+  return selected.length === 0 ? [reassessAction] : [...selected, reassessAction];
+}
 
 function longDate(d: Date): string {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -91,10 +478,12 @@ export default async function ReportPage() {
         orderBy: { weekStart: 'desc' },
         take:    4,
         select: {
-          weekStart:    true,
-          avgProteinG:  true,
-          totalWorkouts: true,
-          avgHydration: true,
+          weekStart:          true,
+          avgProteinG:        true,
+          totalWorkouts:      true,
+          avgHydration:       true,
+          proteinAdherence:   true,
+          exerciseAdherence:  true,
         },
       },
     },
@@ -135,6 +524,29 @@ export default async function ReportPage() {
 
   const generatedAt = new Date();
 
+  // ── Clinical interpretation + suggested actions (pure, server-side) ──────────
+  const sharedSignals = {
+    band,
+    proteinTargetG:  ms.proteinTargetG,
+    proteinIntakeG:  latestAssessment.proteinGrams,
+    exerciseDaysWk:  latestAssessment.exerciseDaysWk,
+    hydrationLitres: latestAssessment.hydrationLitres,
+    fatigue:         latestAssessment.fatigue,
+    nausea:          latestAssessment.nausea,
+    muscleWeakness:  latestAssessment.muscleWeakness,
+    trendStatus:     digest?.trendStatus ?? 'insufficient',
+    checkins:        user.weeklyCheckins,
+    glp1Stage:       user.profile?.glp1Stage ?? null,
+  };
+
+  const interp  = buildInterpretation({ leanLossEstPct: ms.leanLossEstPct, ...sharedSignals });
+  const actions = buildSuggestedActions(sharedSignals);
+
+  // Suggested PDF filename: MyoGuard-Report-Firstname-YYYY-MM-DD
+  const firstName      = (user.fullName ?? 'Patient').split(' ')[0];
+  const dateStamp      = generatedAt.toISOString().slice(0, 10);           // YYYY-MM-DD
+  const pdfFilename    = `MyoGuard-Report-${firstName}-${dateStamp}`;
+
   return (
     <main className="min-h-screen bg-slate-100 font-sans">
 
@@ -158,6 +570,7 @@ export default async function ReportPage() {
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <PrintButton />
+          <DownloadPDFButton filename={pdfFilename} />
           <ShareButton />
         </div>
       </div>
@@ -281,6 +694,209 @@ export default async function ReportPage() {
                 </div>
               </div>
             </div>
+          </section>
+
+          {/* ══════════════════════════════════════════════════════════════════ */}
+          {/* ── CLINICAL INTERPRETATION ── */}
+          {/* ══════════════════════════════════════════════════════════════════ */}
+          <section>
+            <h2 className="text-[10px] font-bold text-teal-700 uppercase tracking-[0.18em] mb-3">
+              Clinical Interpretation
+            </h2>
+
+            <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100">
+
+              {/* ── Row 1: Risk Category + 30-day projection ── */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 sm:divide-x divide-slate-100">
+
+                {/* Risk category */}
+                <div className="px-5 py-4">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2.5">
+                    Risk Category
+                  </p>
+                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border mb-2 ${meta.bg} ${meta.border} ${meta.colour}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />
+                    {interp.riskCategory.label}
+                  </span>
+                  <p className="text-xs text-slate-600 leading-relaxed mt-1.5">
+                    {interp.riskCategory.detail}
+                  </p>
+                </div>
+
+                {/* 30-day lean mass projection */}
+                <div className="px-5 py-4">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2.5">
+                    30-Day Lean Mass Projection
+                  </p>
+                  <p className={`text-2xl font-black tabular-nums leading-tight mb-1 ${meta.colour}`}>
+                    {ms.leanLossEstPct}%
+                    <span className="text-sm font-normal text-slate-500 ml-1">lean loss risk</span>
+                  </p>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    {interp.leanMassProjection.split('. ').slice(1).join('. ')}
+                  </p>
+                </div>
+              </div>
+
+              {/* ── Row 2: Key Risk Drivers + Protocol Adherence ── */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 sm:divide-x divide-slate-100">
+
+                {/* Key risk drivers */}
+                <div className="px-5 py-4">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-3">
+                    Key Risk Drivers
+                  </p>
+                  <ul className="space-y-2">
+                    {interp.keyDrivers.map((driver, i) => (
+                      <li key={i} className="flex items-start gap-2.5">
+                        {/* Severity pill */}
+                        <span className={`flex-shrink-0 mt-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-black ${
+                          driver.severity === 'concern'
+                            ? 'bg-red-100 text-red-700'
+                            : driver.severity === 'caution'
+                            ? 'bg-amber-100 text-amber-700'
+                            : 'bg-emerald-100 text-emerald-700'
+                        }`}>
+                          {driver.severity === 'concern' ? '!' : driver.severity === 'caution' ? '~' : '✓'}
+                        </span>
+                        <span className={`text-[11px] leading-snug ${
+                          driver.severity === 'concern'
+                            ? 'text-red-800'
+                            : driver.severity === 'caution'
+                            ? 'text-amber-800'
+                            : 'text-slate-500'
+                        }`}>
+                          {driver.text}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Protocol adherence signal */}
+                <div className="px-5 py-4">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-3">
+                    Protocol Adherence Signal
+                  </p>
+                  {interp.adherenceSignal.lines.length > 0 ? (
+                    <ul className="space-y-2">
+                      {interp.adherenceSignal.lines.map((line, i) => {
+                        // Colour-code by adherence keyword embedded in the line
+                        const isHigh = line.includes('High') || line.includes('Consistent') || line.includes('Strong');
+                        const isLow  = line.includes('Low') || line.includes('Poor') || line.includes('Poor');
+                        return (
+                          <li key={i} className={`text-[11px] leading-snug ${
+                            isHigh ? 'text-emerald-700' : isLow ? 'text-red-700' : 'text-slate-700'
+                          }`}>
+                            {line}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : (
+                    <p className="text-xs text-slate-500 italic leading-relaxed">
+                      {interp.adherenceSignal.summary}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+            </div>
+          </section>
+
+          {/* ══════════════════════════════════════════════════════════════════ */}
+          {/* ── SUGGESTED PHYSICIAN ACTIONS ── */}
+          {/* ══════════════════════════════════════════════════════════════════ */}
+          <section>
+            <h2 className="text-[10px] font-bold text-teal-700 uppercase tracking-[0.18em] mb-3">
+              Suggested Physician Actions
+            </h2>
+
+            <ol className="space-y-2.5">
+              {actions.map((action, i) => {
+                // Per-urgency visual tokens
+                const urgencyTokens = {
+                  urgent: {
+                    cardBorder:  'border-red-200',
+                    cardBg:      'bg-red-50/60',
+                    numBg:       'bg-red-100 text-red-700',
+                    badgeBg:     'bg-red-100 text-red-700 border-red-200',
+                    timeBg:      'bg-red-100/70 text-red-600',
+                    label:       'Urgent',
+                  },
+                  recommended: {
+                    cardBorder:  'border-amber-200',
+                    cardBg:      'bg-amber-50/40',
+                    numBg:       'bg-amber-100 text-amber-700',
+                    badgeBg:     'bg-amber-100 text-amber-700 border-amber-200',
+                    timeBg:      'bg-amber-100/70 text-amber-600',
+                    label:       'Recommended',
+                  },
+                  maintenance: {
+                    cardBorder:  'border-emerald-200',
+                    cardBg:      'bg-emerald-50/40',
+                    numBg:       'bg-emerald-100 text-emerald-700',
+                    badgeBg:     'bg-emerald-100 text-emerald-700 border-emerald-200',
+                    timeBg:      'bg-emerald-100/70 text-emerald-600',
+                    label:       'Maintenance',
+                  },
+                }[action.urgency];
+
+                return (
+                  <li
+                    key={i}
+                    className={`rounded-xl border px-4 py-3.5 flex items-start gap-3.5 ${urgencyTokens.cardBorder} ${urgencyTokens.cardBg}`}
+                  >
+                    {/* Step number */}
+                    <span className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black mt-0.5 ${urgencyTokens.numBg}`}>
+                      {i + 1}
+                    </span>
+
+                    <div className="flex-1 min-w-0 space-y-1.5">
+                      {/* Badge row */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wide ${urgencyTokens.badgeBg}`}>
+                          {action.urgency === 'urgent'      && (
+                            <svg className="w-2.5 h-2.5 flex-shrink-0" fill="none" viewBox="0 0 10 10" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 2v3m0 2.5v.5" />
+                            </svg>
+                          )}
+                          {action.urgency === 'recommended' && (
+                            <svg className="w-2.5 h-2.5 flex-shrink-0" fill="none" viewBox="0 0 10 10" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 1a4 4 0 100 8A4 4 0 005 1zm0 2v2.5l1.5 1" />
+                            </svg>
+                          )}
+                          {action.urgency === 'maintenance' && (
+                            <svg className="w-2.5 h-2.5 flex-shrink-0" fill="none" viewBox="0 0 10 10" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M2 5l2.5 2.5 3.5-3.5" />
+                            </svg>
+                          )}
+                          {urgencyTokens.label}
+                        </span>
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${urgencyTokens.timeBg}`}>
+                          {action.timeframe}
+                        </span>
+                      </div>
+
+                      {/* Action text */}
+                      <p className="text-xs text-slate-700 leading-relaxed">
+                        {action.text}
+                      </p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+          </section>
+
+          {/* ══════════════════════════════════════════════════════════════════ */}
+          {/* ── PHYSICIAN FEEDBACK ── */}
+          {/* ══════════════════════════════════════════════════════════════════ */}
+          <section>
+            <h2 className="text-[10px] font-bold text-teal-700 uppercase tracking-[0.18em] mb-3">
+              Physician Review
+            </h2>
+            <PhysicianFeedback />
           </section>
 
           {/* ══════════════════════════════════════════════════════════════════ */}

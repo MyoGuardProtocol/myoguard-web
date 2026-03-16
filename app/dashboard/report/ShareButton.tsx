@@ -7,16 +7,33 @@ import QRCode from 'react-qr-code';
 const PREFILL =
   'My MyoGuard muscle preservation report. Please review before my next GLP-1 dose.';
 
+// ─── sessionStorage key for consent (persists within the browser tab session) ─
+const CONSENT_KEY = 'myoguard_share_consent';
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Stage = 'idle' | 'loading' | 'open' | 'error';
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function ShareButton() {
-  const [stage, setStage]       = useState<Stage>('idle');
-  const [shareUrl, setShareUrl] = useState('');
-  const [copied, setCopied]     = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
-  const closeBtnRef             = useRef<HTMLButtonElement>(null);
+  const [stage, setStage]         = useState<Stage>('idle');
+  const [shareUrl, setShareUrl]   = useState('');
+  const [copied, setCopied]       = useState(false);
+  const [errorMsg, setErrorMsg]   = useState('');
+  const [consented, setConsented] = useState(false);
+  const closeBtnRef               = useRef<HTMLButtonElement>(null);
+
+  // ── Restore consent from sessionStorage after mount (avoids hydration mismatch)
+  useEffect(() => {
+    setConsented(sessionStorage.getItem(CONSENT_KEY) === 'true');
+  }, []);
+
+  const toggleConsent = () => {
+    setConsented(prev => {
+      const next = !prev;
+      sessionStorage.setItem(CONSENT_KEY, String(next));
+      return next;
+    });
+  };
 
   // ── Fetch share token + open modal ─────────────────────────────────────────
   const open = async () => {
@@ -58,17 +75,20 @@ export default function ShareButton() {
 
   // ── Share actions ───────────────────────────────────────────────────────────
   const copy = async () => {
+    if (!consented) return;
     await navigator.clipboard.writeText(shareUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
   };
 
   const shareWhatsApp = () => {
+    if (!consented) return;
     const text = encodeURIComponent(`${PREFILL}\n\n${shareUrl}`);
     window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener,noreferrer');
   };
 
   const shareEmail = () => {
+    if (!consented) return;
     const subject = encodeURIComponent('MyoGuard Physician Report');
     const body    = encodeURIComponent(`${PREFILL}\n\n${shareUrl}`);
     window.location.href = `mailto:?subject=${subject}&body=${body}`;
@@ -140,14 +160,29 @@ export default function ShareButton() {
 
               {/* ── QR code ── */}
               <div className="flex flex-col items-center gap-2">
-                <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-inner inline-block">
-                  <QRCode
-                    value={shareUrl}
-                    size={192}
-                    bgColor="#ffffff"
-                    fgColor="#0f172a"
-                    level="M"
-                  />
+                {/* QR is blurred + overlaid with a lock when consent has not been given */}
+                <div className="relative bg-white p-3.5 rounded-xl border border-slate-200 shadow-inner inline-block">
+                  <div className={`transition-all duration-300 ${consented ? '' : 'blur-sm select-none pointer-events-none'}`}>
+                    <QRCode
+                      value={shareUrl}
+                      size={192}
+                      bgColor="#ffffff"
+                      fgColor="#0f172a"
+                      level="M"
+                    />
+                  </div>
+                  {!consented && (
+                    <div className="absolute inset-0 flex items-center justify-center rounded-xl">
+                      <div className="bg-white/95 rounded-xl px-3 py-2 flex flex-col items-center gap-1 shadow border border-slate-200">
+                        <svg className="w-5 h-5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                        </svg>
+                        <p className="text-[11px] font-semibold text-slate-600 text-center">
+                          Consent required
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <p className="text-xs text-slate-400 text-center">
                   Physician scans with phone camera — no app needed
@@ -164,6 +199,53 @@ export default function ShareButton() {
                 </p>
               </div>
 
+              {/* ── Consent checkbox ── */}
+              {/*
+                Uses a custom <button aria-pressed> instead of <input type="checkbox">
+                because globals.css applies -webkit-appearance: none to all inputs,
+                which makes native checkboxes invisible on iOS Safari.
+              */}
+              <button
+                type="button"
+                onClick={toggleConsent}
+                aria-pressed={consented}
+                className={`w-full flex items-start gap-3 rounded-xl border p-4 text-left transition-colors ${
+                  consented
+                    ? 'border-teal-400 bg-teal-50'
+                    : 'border-slate-200 bg-slate-50 hover:border-slate-300'
+                }`}
+              >
+                {/* Custom checkbox tick box */}
+                <span
+                  aria-hidden="true"
+                  className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                    consented
+                      ? 'bg-teal-600 border-teal-600'
+                      : 'bg-white border-slate-400'
+                  }`}
+                >
+                  {consented && (
+                    <svg
+                      className="w-3 h-3 text-white"
+                      fill="none"
+                      viewBox="0 0 12 12"
+                      stroke="currentColor"
+                      strokeWidth={2.5}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M2 6l3 3 5-5" />
+                    </svg>
+                  )}
+                </span>
+                <span className="text-xs text-slate-700 leading-relaxed">
+                  I consent to sharing this clinical report with my physician.
+                  {consented && (
+                    <span className="ml-1.5 font-semibold text-teal-700">✓ Sharing enabled</span>
+                  )}
+                </span>
+              </button>
+
               {/* ── Share actions ── */}
               <div className="space-y-2">
 
@@ -171,7 +253,9 @@ export default function ShareButton() {
                 <button
                   type="button"
                   onClick={copy}
-                  className="w-full flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3 hover:bg-slate-50 active:bg-slate-100 transition-colors text-left"
+                  disabled={!consented}
+                  aria-disabled={!consented}
+                  className="w-full flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3 transition-colors text-left disabled:opacity-40 disabled:cursor-not-allowed enabled:hover:bg-slate-50 enabled:active:bg-slate-100"
                 >
                   <span className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-lg bg-slate-100 text-slate-600">
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
@@ -185,7 +269,7 @@ export default function ShareButton() {
                   <span className={`flex-shrink-0 text-xs font-bold px-2.5 py-1 rounded-lg transition-colors ${
                     copied
                       ? 'bg-emerald-100 text-emerald-700'
-                      : 'bg-teal-50 text-teal-600 hover:bg-teal-100'
+                      : 'bg-teal-50 text-teal-600'
                   }`}>
                     {copied ? '✓ Copied' : 'Copy'}
                   </span>
@@ -195,7 +279,9 @@ export default function ShareButton() {
                 <button
                   type="button"
                   onClick={shareWhatsApp}
-                  className="w-full flex items-center gap-3 bg-[#f0fdf4] border border-[#bbf7d0] rounded-xl px-4 py-3 hover:bg-[#dcfce7] active:bg-[#bbf7d0] transition-colors text-left"
+                  disabled={!consented}
+                  aria-disabled={!consented}
+                  className="w-full flex items-center gap-3 bg-[#f0fdf4] border border-[#bbf7d0] rounded-xl px-4 py-3 transition-colors text-left disabled:opacity-40 disabled:cursor-not-allowed enabled:hover:bg-[#dcfce7] enabled:active:bg-[#bbf7d0]"
                 >
                   <span className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-lg bg-[#25D366]">
                     {/* WhatsApp logo SVG */}
@@ -210,7 +296,9 @@ export default function ShareButton() {
                 <button
                   type="button"
                   onClick={shareEmail}
-                  className="w-full flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 hover:bg-slate-100 active:bg-slate-200 transition-colors text-left"
+                  disabled={!consented}
+                  aria-disabled={!consented}
+                  className="w-full flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 transition-colors text-left disabled:opacity-40 disabled:cursor-not-allowed enabled:hover:bg-slate-100 enabled:active:bg-slate-200"
                 >
                   <span className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-lg bg-slate-200">
                     <svg className="w-4 h-4 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
