@@ -1,92 +1,418 @@
-'use client'
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+'use client';
 
-const SYMPTOMS = ["Nausea", "Vomiting", "Diarrhoea", "Constipation", "Fatigue", "Muscle weakness", "None"]
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { z } from 'zod';
 
+// ─── Symptoms list (mirrors main form + protocol engine) ──────────────────────
+const SYMPTOMS = [
+  'Constipation',
+  'Nausea',
+  'Muscle weakness',
+  'Fatigue',
+  'Reduced appetite',
+  'Bloating',
+];
+
+// ─── Client-side validation schema ───────────────────────────────────────────
+const FormSchema = z.object({
+  weightKg: z
+    .string()
+    .min(1, 'Weight is required')
+    .refine(
+      v => { const n = parseFloat(v); return !isNaN(n) && n >= 30 && n <= 250; },
+      'Please enter a weight between 30 and 250 kg',
+    ),
+  medication: z.enum(['semaglutide', 'tirzepatide'], {
+    errorMap: () => ({ message: 'Please select your medication' }),
+  }),
+  doseMg: z
+    .string()
+    .min(1, 'Dose is required')
+    .refine(
+      v => { const n = parseFloat(v); return !isNaN(n) && n > 0; },
+      'Please enter a valid weekly dose (e.g. 1.0)',
+    ),
+  exerciseDaysWk: z
+    .string()
+    .min(1, 'Please enter a number between 0 and 7')
+    .refine(
+      v => { const n = Number(v); return Number.isInteger(n) && n >= 0 && n <= 7; },
+      'Please enter a number between 0 and 7',
+    ),
+  hydrationLitres: z
+    .string()
+    .min(1, 'Please enter your average daily water intake')
+    .refine(
+      v => { const n = parseFloat(v); return !isNaN(n) && n >= 0.1 && n <= 15; },
+      'Please enter a value between 0.1 and 15 litres (e.g. 2.5)',
+    ),
+});
+
+type FormData = {
+  weightKg:        string;
+  medication:      'semaglutide' | 'tirzepatide';
+  doseMg:          string;
+  exerciseDaysWk:  string;
+  hydrationLitres: string;
+  symptoms:        string[];
+};
+
+type FieldErrors = Partial<Record<keyof Omit<FormData, 'symptoms'>, string>>;
+
+/** Map exercise days → activityLevel enum expected by AssessmentInputSchema */
+function daysToActivity(days: number): 'sedentary' | 'moderate' | 'active' {
+  if (days >= 5) return 'active';
+  if (days >= 2) return 'moderate';
+  return 'sedentary';
+}
+
+// ─── Shared input class builders ──────────────────────────────────────────────
+const baseInput =
+  'w-full border rounded-lg px-4 py-3 text-sm text-slate-800 bg-white ' +
+  'placeholder-slate-400 focus:outline-none focus:ring-2 transition-colors';
+
+function inputCls(hasError: boolean) {
+  return `${baseInput} ${
+    hasError
+      ? 'border-red-400 focus:ring-red-300 bg-red-50/30'
+      : 'border-slate-300 focus:ring-teal-400'
+  }`;
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
 export default function AssessmentPage() {
-  const router = useRouter()
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
-  const [form, setForm] = useState({
-    weightKg: "", proteinGrams: "", exerciseDaysWk: "",
-    hydrationLitres: "", symptoms: [] as string[],
-    fatigue: "3", nausea: "1", muscleWeakness: "1",
-  })
+  const router = useRouter();
 
-  const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }))
+  const [form, setForm] = useState<FormData>({
+    weightKg:        '',
+    medication:      'semaglutide',
+    doseMg:          '',
+    exerciseDaysWk:  '',
+    hydrationLitres: '',
+    symptoms:        [],
+  });
 
-  function toggleSymptom(s: string) {
-    setForm(p => ({ ...p, symptoms: p.symptoms.includes(s) ? p.symptoms.filter(x=>x!==s) : [...p.symptoms, s] }))
-  }
+  // fieldErrors appear after first submit attempt; revalidate on every change after that
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [serverError, setServerError] = useState('');
 
-  async function submit() {
-    setLoading(true)
-    setError("")
-    try {
-      const res = await fetch("/api/assessment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          weightKg: parseFloat(form.weightKg),
-          proteinGrams: parseFloat(form.proteinGrams),
-          exerciseDaysWk: parseInt(form.exerciseDaysWk),
-          hydrationLitres: parseFloat(form.hydrationLitres),
-          symptoms: form.symptoms,
-          fatigue: parseInt(form.fatigue),
-          nausea: parseInt(form.nausea),
-          muscleWeakness: parseInt(form.muscleWeakness),
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Failed")
-      router.push("/dashboard/results/" + data.assessmentId)
-    } catch (e: any) {
-      setError(e.message || "Something went wrong.")
-    } finally {
-      setLoading(false)
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  const setField = <K extends keyof FormData>(key: K, value: FormData[K]) => {
+    const next = { ...form, [key]: value };
+    setForm(next);
+
+    // Live-revalidate once the user has attempted submission
+    if (submitAttempted && key !== 'symptoms') {
+      const partial = FormSchema.shape[key as keyof typeof FormSchema.shape];
+      const result  = partial.safeParse(value);
+      setFieldErrors(prev => ({
+        ...prev,
+        [key]: result.success ? undefined : result.error.errors[0]?.message,
+      }));
     }
-  }
+  };
 
-  const inp = { width:"100%", border:"1px solid #e5e7eb", borderRadius:"8px", padding:"12px", fontSize:"14px" }
-  const lab = { display:"block", fontSize:"14px", fontWeight:"500", color:"#374151", marginBottom:"4px" }
+  const toggleSymptom = (s: string) => {
+    setForm(prev => ({
+      ...prev,
+      symptoms: prev.symptoms.includes(s)
+        ? prev.symptoms.filter(x => x !== s)
+        : [...prev.symptoms, s],
+    }));
+  };
 
+  // ── Validate all fields, return errors map ─────────────────────────────────
+  const validate = (): FieldErrors => {
+    const result = FormSchema.safeParse(form);
+    if (result.success) return {};
+    const errs: FieldErrors = {};
+    for (const issue of result.error.issues) {
+      const key = issue.path[0] as keyof FieldErrors;
+      if (!errs[key]) errs[key] = issue.message;
+    }
+    return errs;
+  };
+
+  // ── Submit ─────────────────────────────────────────────────────────────────
+  const handleSubmit = async () => {
+    setSubmitAttempted(true);
+    setServerError('');
+
+    const errs = validate();
+    setFieldErrors(errs);
+    if (Object.keys(errs).length > 0) return; // stop — show inline errors
+
+    setLoading(true);
+    try {
+      const days = parseInt(form.exerciseDaysWk, 10);
+
+      // Build payload that matches AssessmentInputSchema
+      const payload = {
+        weight:        form.weightKg,           // API expects string
+        unit:          'kg' as const,
+        medication:    form.medication,
+        doseMg:        parseFloat(form.doseMg),
+        activityLevel: daysToActivity(days),    // maps 0-7 days → sedentary/moderate/active
+        symptoms:      form.symptoms,
+      };
+
+      const res  = await fetch('/api/assessment', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Something went wrong. Please try again.');
+
+      router.push('/dashboard/results/' + data.assessmentId);
+    } catch (e) {
+      setServerError(e instanceof Error ? e.message : 'Something went wrong. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const hasErrors = Object.values(fieldErrors).some(Boolean);
+
+  // ─── JSX ──────────────────────────────────────────────────────────────────
   return (
-    <div style={{ minHeight:"100vh", backgroundColor:"#f9fafb", padding:"40px 20px" }}>
-      <div style={{ maxWidth:"560px", margin:"0 auto", backgroundColor:"white", borderRadius:"16px", padding:"40px", boxShadow:"0 1px 3px rgba(0,0,0,0.1)" }}>
-        <h1 style={{ color:"#0d9488", fontSize:"22px", fontWeight:"bold", marginBottom:"4px" }}>MyoGuard Assessment</h1>
-        <p style={{ color:"#6b7280", fontSize:"14px", marginBottom:"32px" }}>Enter your current measurements to calculate your muscle protection score.</p>
-        <div style={{ display:"flex", flexDirection:"column", gap:"20px" }}>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"12px" }}>
-            <div><label style={lab as any}>Current Weight (kg)</label><input style={inp as any} type="number" value={form.weightKg} onChange={e=>set("weightKg",e.target.value)} placeholder="e.g. 89" /></div>
-            <div><label style={lab as any}>Daily Protein (g)</label><input style={inp as any} type="number" value={form.proteinGrams} onChange={e=>set("proteinGrams",e.target.value)} placeholder="e.g. 80" /></div>
-          </div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"12px" }}>
-            <div><label style={lab as any}>Exercise Days/Week</label><input style={inp as any} type="number" min="0" max="7" value={form.exerciseDaysWk} onChange={e=>set("exerciseDaysWk",e.target.value)} placeholder="e.g. 3" /></div>
-            <div><label style={lab as any}>Water (litres/day)</label><input style={inp as any} type="number" step="0.1" value={form.hydrationLitres} onChange={e=>set("hydrationLitres",e.target.value)} placeholder="e.g. 2.5" /></div>
-          </div>
+    <main className="min-h-screen bg-slate-50 font-sans">
+
+      {/* Header */}
+      <header className="bg-white border-b border-slate-200 px-5 py-4">
+        <div className="max-w-xl mx-auto flex items-center justify-between">
+          <Link href="/" className="text-xl font-bold text-slate-800 tracking-tight hover:opacity-80 transition-opacity">
+            Myo<span className="text-teal-600">Guard</span>
+          </Link>
+          <Link href="/dashboard" className="text-xs font-medium text-teal-600 hover:underline">
+            ← Dashboard
+          </Link>
+        </div>
+      </header>
+
+      <div className="max-w-xl mx-auto px-5 py-8">
+
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-slate-800">
+            New <span className="text-teal-600">Assessment</span>
+          </h1>
+          <p className="mt-1.5 text-sm text-slate-500 leading-relaxed">
+            Enter your current details to generate a fresh MyoGuard Score and muscle-protection protocol.
+          </p>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-6">
+
+          {/* ── Weight ── */}
           <div>
-            <label style={lab as any}>Symptoms (select all that apply)</label>
-            <div style={{ display:"flex", flexWrap:"wrap", gap:"8px" }}>
-              {SYMPTOMS.map(s=><button key={s} onClick={()=>toggleSymptom(s)} style={{ padding:"8px 16px", borderRadius:"999px", border:"1px solid", borderColor:form.symptoms.includes(s)?"#0d9488":"#e5e7eb", backgroundColor:form.symptoms.includes(s)?"#f0fdfa":"white", color:form.symptoms.includes(s)?"#0d9488":"#374151", fontSize:"13px", cursor:"pointer" }}>{s}</button>)}
+            <label htmlFor="weightKg" className="block text-sm font-semibold text-slate-700 mb-1.5">
+              Current Body Weight (kg)
+            </label>
+            <input
+              id="weightKg"
+              type="number"
+              inputMode="decimal"
+              placeholder="e.g. 89"
+              min={30}
+              max={250}
+              value={form.weightKg}
+              onChange={e => setField('weightKg', e.target.value)}
+              className={inputCls(!!fieldErrors.weightKg)}
+            />
+            {fieldErrors.weightKg && (
+              <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
+                <span aria-hidden>⚠</span> {fieldErrors.weightKg}
+              </p>
+            )}
+          </div>
+
+          {/* ── Medication ── */}
+          <div>
+            <label htmlFor="medication" className="block text-sm font-semibold text-slate-700 mb-1.5">
+              GLP-1 Medication
+            </label>
+            <select
+              id="medication"
+              value={form.medication}
+              onChange={e => setField('medication', e.target.value as FormData['medication'])}
+              className={inputCls(!!fieldErrors.medication)}
+            >
+              <option value="semaglutide">Semaglutide (Ozempic / Wegovy)</option>
+              <option value="tirzepatide">Tirzepatide (Zepbound / Mounjaro)</option>
+            </select>
+            {fieldErrors.medication && (
+              <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
+                <span aria-hidden>⚠</span> {fieldErrors.medication}
+              </p>
+            )}
+          </div>
+
+          {/* ── Weekly dose ── */}
+          <div>
+            <label htmlFor="doseMg" className="block text-sm font-semibold text-slate-700 mb-1.5">
+              Current Weekly Dose (mg)
+            </label>
+            <input
+              id="doseMg"
+              type="number"
+              inputMode="decimal"
+              placeholder="e.g. 1.0"
+              min={0.1}
+              step={0.25}
+              value={form.doseMg}
+              onChange={e => setField('doseMg', e.target.value)}
+              className={inputCls(!!fieldErrors.doseMg)}
+            />
+            {fieldErrors.doseMg && (
+              <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
+                <span aria-hidden>⚠</span> {fieldErrors.doseMg}
+              </p>
+            )}
+          </div>
+
+          {/* ── Exercise days + Hydration (side by side on ≥sm) ── */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+
+            {/* Exercise days */}
+            <div>
+              <label htmlFor="exerciseDaysWk" className="block text-sm font-semibold text-slate-700 mb-1.5">
+                Exercise Days / Week
+              </label>
+              <input
+                id="exerciseDaysWk"
+                type="number"
+                inputMode="numeric"
+                placeholder="e.g. 3"
+                min={0}
+                max={7}
+                step={1}
+                value={form.exerciseDaysWk}
+                onChange={e => setField('exerciseDaysWk', e.target.value)}
+                className={inputCls(!!fieldErrors.exerciseDaysWk)}
+              />
+              {fieldErrors.exerciseDaysWk ? (
+                <p className="mt-1.5 text-xs text-red-500 flex items-start gap-1">
+                  <span aria-hidden className="mt-px">⚠</span> {fieldErrors.exerciseDaysWk}
+                </p>
+              ) : (
+                <p className="mt-1.5 text-xs text-slate-400">Enter a whole number between 0 and 7</p>
+              )}
+            </div>
+
+            {/* Hydration */}
+            <div>
+              <label htmlFor="hydrationLitres" className="block text-sm font-semibold text-slate-700 mb-1.5">
+                Water Intake (litres / day)
+              </label>
+              <input
+                id="hydrationLitres"
+                type="number"
+                inputMode="decimal"
+                placeholder="e.g. 2.5"
+                min={0.1}
+                max={15}
+                step={0.1}
+                value={form.hydrationLitres}
+                onChange={e => setField('hydrationLitres', e.target.value)}
+                className={inputCls(!!fieldErrors.hydrationLitres)}
+              />
+              {fieldErrors.hydrationLitres ? (
+                <p className="mt-1.5 text-xs text-red-500 flex items-start gap-1">
+                  <span aria-hidden className="mt-px">⚠</span> {fieldErrors.hydrationLitres}
+                </p>
+              ) : (
+                <p className="mt-1.5 text-xs text-slate-400">Decimals accepted (e.g. 1.5 L)</p>
+              )}
             </div>
           </div>
+
+          {/* ── Symptoms ── */}
           <div>
-            <label style={lab as any}>Fatigue Level: {form.fatigue}/5</label>
-            <input type="range" min="1" max="5" value={form.fatigue} onChange={e=>set("fatigue",e.target.value)} style={{ width:"100%" }} />
-            <div style={{ display:"flex", justifyContent:"space-between", fontSize:"12px", color:"#9ca3af" }}><span>None</span><span>Severe</span></div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">
+              Current Symptoms{' '}
+              <span className="text-slate-400 font-normal">(select all that apply)</span>
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {SYMPTOMS.map(s => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => toggleSymptom(s)}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
+                    form.symptoms.includes(s)
+                      ? 'bg-teal-600 border-teal-600 text-white'
+                      : 'bg-white border-slate-300 text-slate-600 hover:border-teal-400'
+                  }`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
           </div>
-          <div>
-            <label style={lab as any}>Nausea Level: {form.nausea}/5</label>
-            <input type="range" min="1" max="5" value={form.nausea} onChange={e=>set("nausea",e.target.value)} style={{ width:"100%" }} />
-            <div style={{ display:"flex", justifyContent:"space-between", fontSize:"12px", color:"#9ca3af" }}><span>None</span><span>Severe</span></div>
-          </div>
-          {error && <p style={{ color:"#dc2626", fontSize:"14px" }}>{error}</p>}
-          <button onClick={submit} disabled={loading} style={{ width:"100%", padding:"14px", backgroundColor:loading?"#9ca3af":"#0d9488", color:"white", border:"none", borderRadius:"8px", fontSize:"15px", fontWeight:"600", cursor:loading?"not-allowed":"pointer" }}>
-            {loading ? "Calculating your score..." : "Calculate My MyoGuard Score"}
+
+          {/* ── Activity level hint ── */}
+          {form.exerciseDaysWk !== '' && !fieldErrors.exerciseDaysWk && (
+            <div className="flex items-center gap-2 bg-teal-50 border border-teal-200 rounded-xl px-4 py-3">
+              <span className="text-sm">🏋️</span>
+              <p className="text-xs text-teal-700">
+                <span className="font-semibold">
+                  {daysToActivity(parseInt(form.exerciseDaysWk, 10)) === 'active'
+                    ? 'Active'
+                    : daysToActivity(parseInt(form.exerciseDaysWk, 10)) === 'moderate'
+                    ? 'Moderately active'
+                    : 'Sedentary'}
+                </span>{' '}
+                — used to calibrate your muscle-protection protocol
+              </p>
+            </div>
+          )}
+
+          {/* ── Server error ── */}
+          {serverError && (
+            <div className="flex items-start gap-2 rounded-xl bg-red-50 border border-red-200 px-4 py-3">
+              <span className="text-red-500 mt-0.5 flex-shrink-0">⚠</span>
+              <p className="text-sm text-red-700">{serverError}</p>
+            </div>
+          )}
+
+          {/* ── Field summary hint on failed submit ── */}
+          {submitAttempted && hasErrors && !serverError && (
+            <p className="text-xs text-slate-500 text-center">
+              Please fix the highlighted fields above before continuing.
+            </p>
+          )}
+
+          {/* ── Submit ── */}
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={loading}
+            className={`w-full py-3.5 rounded-xl font-semibold text-sm transition-all ${
+              loading
+                ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                : 'bg-teal-600 hover:bg-teal-700 text-white shadow-sm'
+            }`}
+          >
+            {loading ? 'Calculating your score…' : 'Generate My Muscle Protection Plan →'}
           </button>
+
         </div>
+
+        <p className="mt-6 text-xs text-slate-400 text-center leading-relaxed">
+          This tool generates educational nutritional reference data only. It does not constitute
+          a physician–patient relationship or individualised medical advice. Review all recommendations
+          with your prescribing physician.{' '}
+          <Link href="/privacy" className="underline hover:text-slate-600 transition-colors">
+            Privacy Policy
+          </Link>
+        </p>
+
       </div>
-    </div>
-  )
+    </main>
+  );
 }
