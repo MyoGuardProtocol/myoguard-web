@@ -601,6 +601,29 @@ export default async function JourneyPage() {
               </p>
             </div>
           )}
+
+          {/* ── Protein target row ── */}
+          <div className="mt-3 flex items-center justify-between bg-slate-700/30 rounded-xl px-4 py-3 border border-slate-700/50">
+            <div className="flex items-center gap-2.5">
+              <span className="text-base leading-none">🥩</span>
+              <p className="text-xs text-slate-400 font-medium">
+                Daily protein target
+              </p>
+            </div>
+            {proteinTarget != null ? (
+              <span className="text-sm font-extrabold text-white tabular-nums">
+                {Math.round(proteinTarget)}
+                <span className="text-xs font-semibold text-slate-400 ml-0.5">g/day</span>
+              </span>
+            ) : (
+              <Link
+                href="/"
+                className="text-xs font-semibold text-teal-400 hover:text-teal-300 transition-colors"
+              >
+                Set your target →
+              </Link>
+            )}
+          </div>
         </div>
 
         {/* ══════════════════════════════════════════════════════════════════════ */}
