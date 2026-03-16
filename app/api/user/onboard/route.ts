@@ -4,6 +4,8 @@ import { auth } from "@clerk/nextjs/server"
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/app/lib/prisma"
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://myoguard.health';
+
 export async function POST(req: NextRequest) {
   try {
     const { userId: clerkId } = await auth()
@@ -32,8 +34,8 @@ export async function POST(req: NextRequest) {
         user: { connect: { id: user.id } },
       },
     })
-    // Send welcome email (fire and forget)
-    fetch(process.env.NEXT_PUBLIC_APP_URL + "/api/email", {
+    // Send welcome email (fire and forget — never blocks the response)
+    fetch(`${APP_URL}/api/email`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: user.email, firstName: body.fullName.split(" ")[0] }),

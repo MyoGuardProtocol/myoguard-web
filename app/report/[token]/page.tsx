@@ -10,6 +10,10 @@
  *   • Clinical Interpretation  — from buildInterpretation()
  *   • Suggested Physician Actions — from buildSuggestedActions()
  *   • Physician Review         — static display of saved PhysicianReview record
+ *
+ * Error handling:
+ *   • Invalid / unknown token  → notFound() → 404
+ *   • DB unavailable           → ServiceUnavailable component → user-friendly 503
  */
 
 import { notFound }             from 'next/navigation';
@@ -59,6 +63,29 @@ function shortDate(d: Date): string {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+// ─── Service-unavailable fallback ─────────────────────────────────────────────
+
+function ServiceUnavailable() {
+  return (
+    <main className="min-h-screen bg-slate-50 font-sans flex items-center justify-center px-5">
+      <div className="max-w-sm w-full text-center space-y-4">
+        <p className="text-4xl font-black text-slate-200">503</p>
+        <h1 className="text-lg font-bold text-slate-800">Report temporarily unavailable</h1>
+        <p className="text-sm text-slate-500 leading-relaxed">
+          We were unable to load this report right now. Please try again in a few minutes.
+          If the problem persists, ask the patient to re-share the link.
+        </p>
+        <Link
+          href="/"
+          className="inline-block text-sm text-teal-600 hover:text-teal-700 font-semibold underline"
+        >
+          ← Back to MyoGuard
+        </Link>
+      </div>
+    </main>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function PublicReportPage({
@@ -68,58 +95,28 @@ export default async function PublicReportPage({
 }) {
   const { token } = await params;
 
-  // Resolve share token → userId
-  const card = await prisma.shareCard.findUnique({
-    where:  { shareToken: token },
-    select: { userId: true, createdAt: true },
-  });
+  // ── Resolve share token → patient data ────────────────────────────────────
+  // Wrap ALL Prisma calls: DB errors return a user-friendly 503, not a raw 500.
+  // Token-not-found still returns proper 404 via notFound().
+  let card: { userId: string; createdAt: Date } | null;
+  try {
+    card = await prisma.shareCard.findUnique({
+      where:  { shareToken: token },
+      select: { userId: true, createdAt: true },
+    });
+  } catch {
+    return <ServiceUnavailable />;
+  }
 
   if (!card) notFound();
 
   // Fetch the patient's data using their internal userId
-  const user = await prisma.user.findUnique({
-    where:  { id: card.userId },
-    select: {
-      id:       true,
-      fullName: true,
-      profile:  {
-        select: {
-          age:            true,
-          sex:            true,
-          glp1Medication: true,
-          glp1DoseMg:     true,
-          glp1Stage:      true,
-        },
-      },
-      assessments: {
-        orderBy: { assessmentDate: 'desc' },
-        take:    5,
-        include: {
-          muscleScore: {
-            select: {
-              score:          true,
-              riskBand:       true,
-              leanLossEstPct: true,
-              proteinTargetG: true,
-              explanation:    true,
-            },
-          },
-        },
-      },
-      weeklyCheckins: {
-        orderBy: { weekStart: 'desc' },
-        take:    4,
-        select: {
-          weekStart:          true,
-          avgProteinG:        true,
-          totalWorkouts:      true,
-          avgHydration:       true,
-          proteinAdherence:   true,
-          exerciseAdherence:  true,
-        },
-      },
-    },
-  });
+  let user: Awaited<ReturnType<typeof fetchUser>> | null;
+  try {
+    user = await fetchUser(card.userId);
+  } catch {
+    return <ServiceUnavailable />;
+  }
 
   if (!user || !user.assessments[0]?.muscleScore) notFound();
 
@@ -130,10 +127,33 @@ export default async function PublicReportPage({
   const meta             = BAND_LIGHT[band];
   const pointsToLow      = score < 80 ? 80 - score : null;
 
-  const digest    = await generateWeeklyDigest(user.id);
-  const trendCfg  = TREND_LABEL[digest?.trendStatus ?? 'insufficient'];
+  // digest and savedReview are non-critical — failures are swallowed gracefully
+  let digest: Awaited<ReturnType<typeof generateWeeklyDigest>> = null;
+  try {
+    digest = await generateWeeklyDigest(user.id);
+  } catch { /* non-critical */ }
+
+  const trendCfg   = TREND_LABEL[digest?.trendStatus ?? 'insufficient'];
   const historyAsc = [...user.assessments].reverse();
   const generatedAt = new Date();
+
+  let savedReview: {
+    overallImpression: string | null;
+    followUpDays:      number | null;
+    note:              string | null;
+    reviewedAt:        Date;
+  } | null = null;
+  try {
+    savedReview = await prisma.physicianReview.findUnique({
+      where:  { assessmentId: latestAssessment.id },
+      select: {
+        overallImpression: true,
+        followUpDays:      true,
+        note:              true,
+        reviewedAt:        true,
+      },
+    });
+  } catch { /* non-critical — review section simply won't render */ }
 
   // ── Clinical intelligence — same signals as /dashboard/report ────────────────
   const sharedSignals = {
@@ -161,17 +181,6 @@ export default async function PublicReportPage({
     hydrationLitres: latestAssessment.hydrationLitres,
     leanLossEstPct:  ms.leanLossEstPct,
     trendStatus:     digest?.trendStatus ?? 'insufficient',
-  });
-
-  // ── Saved physician review (read-only on public page) ────────────────────────
-  const savedReview = await prisma.physicianReview.findUnique({
-    where:  { assessmentId: latestAssessment.id },
-    select: {
-      overallImpression: true,
-      followUpDays:      true,
-      note:              true,
-      reviewedAt:        true,
-    },
   });
 
   return (
@@ -769,4 +778,52 @@ export default async function PublicReportPage({
       </article>
     </main>
   );
+}
+
+// ─── Data fetcher (extracted for type inference) ──────────────────────────────
+
+async function fetchUser(userId: string) {
+  return prisma.user.findUnique({
+    where:  { id: userId },
+    select: {
+      id:       true,
+      fullName: true,
+      profile:  {
+        select: {
+          age:            true,
+          sex:            true,
+          glp1Medication: true,
+          glp1DoseMg:     true,
+          glp1Stage:      true,
+        },
+      },
+      assessments: {
+        orderBy: { assessmentDate: 'desc' },
+        take:    5,
+        include: {
+          muscleScore: {
+            select: {
+              score:          true,
+              riskBand:       true,
+              leanLossEstPct: true,
+              proteinTargetG: true,
+              explanation:    true,
+            },
+          },
+        },
+      },
+      weeklyCheckins: {
+        orderBy: { weekStart: 'desc' },
+        take:    4,
+        select: {
+          weekStart:         true,
+          avgProteinG:       true,
+          totalWorkouts:     true,
+          avgHydration:      true,
+          proteinAdherence:  true,
+          exerciseAdherence: true,
+        },
+      },
+    },
+  });
 }
