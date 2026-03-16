@@ -102,7 +102,7 @@ export default function ShareButton() {
           type="button"
           onClick={open}
           disabled={stage === 'loading'}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-teal-300 bg-teal-50 hover:bg-teal-100 text-sm font-semibold text-teal-700 transition-colors shadow-sm disabled:opacity-60"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-teal-400 bg-teal-600 hover:bg-teal-700 text-sm font-semibold text-white transition-colors shadow-sm disabled:opacity-60"
         >
           {/* Share icon */}
           <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>

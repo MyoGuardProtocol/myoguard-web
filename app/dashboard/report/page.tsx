@@ -3,7 +3,6 @@ import { redirect }              from 'next/navigation';
 import Link                      from 'next/link';
 import { prisma }                from '@/src/lib/prisma';
 import { generateWeeklyDigest }  from '@/src/lib/weeklyDigest';
-import PrintButton               from './PrintButton';
 import ShareButton               from './ShareButton';
 import DownloadPDFButton         from './DownloadPDFButton';
 import PhysicianFeedback         from './PhysicianFeedback';
@@ -542,6 +541,53 @@ function shortDate(d: Date): string {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+// ─── Phase 1 QA Checklist ────────────────────────────────────────────────────
+//
+// Verify each item in a real browser session before shipping Phase 1.
+//
+// SHARE FLOW
+// □ "Share With My Physician" opens the modal (requires live auth session)
+// □ Closing with ESC key or backdrop click works cleanly
+// □ Body scroll is locked while modal open; restored on close
+// □ QR code is blurred until consent checkbox is checked
+// □ Consent persists within the tab session (sessionStorage key: myoguard_share_consent)
+// □ Copy link, WhatsApp, and Email disabled until consented
+// □ QR code scans correctly and opens /report/[token] without login required
+// □ Generating the link twice returns the same stable URL
+//
+// PHYSICIAN FEEDBACK — SAVE / RELOAD
+// □ No saved review → locked button + "Select an impression…" helper text visible
+// □ Selecting any field enables the Save button
+// □ Save transitions: idle → saving (spinner) → saved (tick + "Physician review saved") → idle (4 s)
+// □ After save: "Last reviewed [date]" clock appears in panel header
+// □ After save: summary strip shows impression badge, follow-up days, reviewed date
+// □ Reloading the page pre-populates all three saved fields correctly
+// □ Editing any field after save → button enables; "Unsaved changes" indicator appears
+// □ AuditLog row written on every save — verify in Supabase dashboard (action: PHYSICIAN_REVIEW_SAVED)
+//
+// DIRTY-STATE WARNING
+// □ Edit any field without saving → navigate away / refresh → browser "Leave site?" dialog shown
+// □ After saving successfully → navigating away does NOT trigger the dialog
+//
+// PRINT / PDF OUTPUT
+// □ window.print() shows only clinical content — no buttons, modals, nav, action bar, or status strip
+// □ Escalation alert prints with colour (print-color-adjust: exact set in globals.css)
+// □ Physician review section prints saved values only (not editing UI, not transient states)
+// □ If no review saved → print shows blank annotation lines + blank signature/date fields
+// □ PDF filename defaults to MyoGuard-Report-[Firstname]-[YYYY-MM-DD]
+//
+// MOBILE RESPONSIVENESS
+// □ Action bar buttons wrap cleanly at < 420 px viewport width
+// □ Report status strip items wrap without horizontal overflow on narrow screens
+// □ Physician review impression cards stack vertically on mobile (grid-cols-1 sm:grid-cols-3)
+// □ Score hero layout stays readable at 375 px width
+// □ Share modal fits on-screen with overflow-y-auto scroll on small devices
+//
+// EMPTY / PARTIAL STATES
+// □ /dashboard/report with no assessment → nav header present, clean empty-state card, CTA to assessment
+// □ /dashboard/report with assessment but no physician review → feedback panel shows locked state
+// □ Report status strip shows correct live state for all three indicators on first load
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function ReportPage() {
@@ -597,18 +643,36 @@ export default async function ReportPage() {
 
   const latestAssessment = user.assessments[0];
   if (!latestAssessment?.muscleScore) {
-    // No scored assessment yet — prompt them to do one
+    // No scored assessment yet — show a navigable empty state rather than a
+    // dead-end card. Nav header is included so users can return to the dashboard.
     return (
-      <main className="min-h-screen bg-slate-50 font-sans flex items-center justify-center px-5">
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 max-w-sm text-center">
-          <p className="text-2xl mb-3">📋</p>
-          <p className="text-slate-800 font-semibold mb-2">No assessment yet</p>
-          <p className="text-sm text-slate-500 mb-5 leading-relaxed">
-            Complete an assessment first to generate your physician report.
-          </p>
-          <Link href="/" className="bg-teal-600 text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-teal-700 transition-colors inline-block">
-            Start Assessment →
-          </Link>
+      <main className="min-h-screen bg-slate-50 font-sans">
+        {/* Nav stays present so the user is never stranded */}
+        <header className="bg-white border-b border-slate-200 px-5 py-4">
+          <div className="max-w-3xl mx-auto flex items-center justify-between">
+            <Link href="/" className="text-xl font-bold text-slate-800 tracking-tight">
+              Myo<span className="text-teal-600">Guard</span>
+            </Link>
+            <Link href="/dashboard" className="text-xs font-medium text-teal-600 hover:underline">
+              ← Dashboard
+            </Link>
+          </div>
+        </header>
+        <div className="flex items-center justify-center px-5 py-20">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 max-w-sm w-full text-center">
+            <p className="text-2xl mb-3">📋</p>
+            <p className="text-slate-800 font-semibold mb-2">No assessment on record</p>
+            <p className="text-sm text-slate-500 mb-5 leading-relaxed">
+              A physician report is generated automatically after your first MyoGuard
+              assessment is scored. It only takes a few minutes.
+            </p>
+            <Link
+              href="/"
+              className="bg-teal-600 text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-teal-700 transition-colors inline-block"
+            >
+              Start Your Assessment →
+            </Link>
+          </div>
         </div>
       </main>
     );
@@ -685,6 +749,14 @@ export default async function ReportPage() {
       }
     : null;
 
+  // ── Report status indicators — fetched once at render time ─────────────────
+  // Used by the screen-only status strip. Not rendered in print/PDF.
+  const existingShareCard = await prisma.shareCard.findFirst({
+    where:  { userId: user.id },
+    select: { id: true },
+  });
+  const shareCardExists = existingShareCard !== null;
+
   // Suggested PDF filename: MyoGuard-Report-Firstname-YYYY-MM-DD
   const firstName      = (user.fullName ?? 'Patient').split(' ')[0];
   const dateStamp      = generatedAt.toISOString().slice(0, 10);           // YYYY-MM-DD
@@ -706,15 +778,68 @@ export default async function ReportPage() {
       </header>
 
       {/* ── Screen-only action bar ── */}
-      <div className="print:hidden max-w-3xl mx-auto px-5 py-4 flex flex-wrap items-center gap-3">
-        <div>
-          <p className="text-sm font-bold text-slate-800">Physician Report</p>
-          <p className="text-xs text-slate-500">Print or share with your doctor</p>
+      {/*
+        Hierarchy: Share (primary — teal outline) | Download PDF (secondary — teal solid).
+        PrintButton is intentionally omitted — DownloadPDFButton already triggers the
+        browser print dialog with the correct filename hint, covering both use-cases.
+        flex-wrap ensures the two buttons collapse to a second line on narrow viewports
+        without any horizontal overflow.
+      */}
+      <div className="print:hidden max-w-3xl mx-auto px-5 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-bold text-slate-800">Physician Report</p>
+            <p className="text-xs text-slate-500">Download or share with your physician</p>
+          </div>
+          {/* Primary action first in DOM order matches visual left-to-right reading */}
+          <div className="flex flex-wrap items-center gap-2">
+            <ShareButton />
+            <DownloadPDFButton filename={pdfFilename} />
+          </div>
         </div>
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          <PrintButton />
-          <DownloadPDFButton filename={pdfFilename} />
-          <ShareButton />
+      </div>
+
+      {/* ── Report status strip (screen-only, informational) ── */}
+      {/*
+        Shows the live state of the three key workflow milestones at a glance.
+        Intentionally NOT rendered in print/PDF — it is transient screen state,
+        not clinical content. Never redesign this into an interactive surface.
+      */}
+      <div className="print:hidden max-w-3xl mx-auto px-5 pb-3">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
+
+          {/* ① Report generated */}
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" aria-hidden="true" />
+            <span className="text-[11px] text-slate-500 truncate">
+              Report generated {shortDate(generatedAt)}
+            </span>
+          </div>
+
+          {/* ② Share link */}
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span
+              className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${shareCardExists ? 'bg-emerald-500' : 'bg-slate-300'}`}
+              aria-hidden="true"
+            />
+            <span className="text-[11px] text-slate-500 truncate">
+              {shareCardExists ? 'Share link created' : 'Share link not yet created'}
+            </span>
+          </div>
+
+          {/* ③ Physician review */}
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span
+              className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${savedReview ? 'bg-emerald-500' : 'bg-slate-300'}`}
+              aria-hidden="true"
+            />
+            <span className="text-[11px] text-slate-500 truncate">
+              {savedReview
+                ? `Physician review saved ${shortDate(savedReview.reviewedAt)}`
+                : 'Physician review not yet saved'}
+            </span>
+          </div>
+
         </div>
       </div>
 

@@ -27,7 +27,7 @@ export default function DownloadPDFButton({ filename }: Props) {
     <button
       type="button"
       onClick={handleDownload}
-      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-teal-400 bg-teal-600 hover:bg-teal-700 text-sm font-semibold text-white transition-colors shadow-sm"
+      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-sm font-semibold text-slate-700 transition-colors shadow-sm"
     >
       {/* Download / arrow-down icon */}
       <svg
