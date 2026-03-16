@@ -244,7 +244,7 @@ export default async function DashboardPage() {
                 const score = a.muscleScore?.score;
                 const rm    = band ? (RISK_META[band] ?? RISK_META.HIGH) : null;
                 return (
-                  <div key={a.id} className="flex items-center justify-between px-5 py-3">
+                  <Link key={a.id} href={`/dashboard/results/${a.id}`} className="flex items-center justify-between px-5 py-3 hover:bg-slate-50 transition-colors">
                     <div>
                       <p className="text-sm font-medium text-slate-700">
                         {formatDate(a.assessmentDate)}
@@ -265,7 +265,7 @@ export default async function DashboardPage() {
                         </span>
                       )}
                     </div>
-                  </div>
+                  </Link>
                 );
               })}
               {user.assessments.length > 5 && (
