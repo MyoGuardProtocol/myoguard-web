@@ -430,6 +430,110 @@ function buildSuggestedActions(params: {
   return selected.length === 0 ? [reassessAction] : [...selected, reassessAction];
 }
 
+// ─── Physician escalation trigger ────────────────────────────────────────────
+//
+// Deterministic, independent layer of clinical intelligence. Evaluates six
+// raw signal inputs against absolute thresholds. Produces a single structured
+// output consumed by the alert panel rendered above Clinical Interpretation.
+// Does NOT modify or depend on buildInterpretation() or buildSuggestedActions().
+
+interface EscalationSignal {
+  escalate: boolean;
+  reason:   string;
+  urgency:  'urgent' | 'monitor' | 'none';
+}
+
+function buildEscalationSignal(params: {
+  riskBand:        Band;
+  symptomAvg:      number;
+  proteinDeficit:  number;
+  exerciseDaysWk:  number;
+  hydrationLitres: number;
+  leanLossEstPct:  number;
+  trendStatus:     string;
+}): EscalationSignal {
+  const {
+    riskBand, symptomAvg, proteinDeficit, exerciseDaysWk,
+    hydrationLitres, leanLossEstPct, trendStatus,
+  } = params;
+
+  type TriggerLevel = 'urgent' | 'monitor';
+  const triggers: Array<{ level: TriggerLevel; text: string }> = [];
+
+  // ── Evaluate each criterion independently ─────────────────────────────────
+
+  // 1. Severe symptom burden — gates all adherence downstream
+  if (symptomAvg > 6) {
+    triggers.push({
+      level: 'urgent',
+      text:  `Severe symptom burden (avg ${symptomAvg.toFixed(1)}/10) indicating likely GLP-1 intolerance and significant adherence impairment`,
+    });
+  }
+
+  // 2. Critical protein deficit — primary sarcopenic driver
+  if (proteinDeficit > 30) {
+    triggers.push({
+      level: 'urgent',
+      text:  `Critical protein deficit (−${Math.round(proteinDeficit)} g/day) — anabolic stimulus severely insufficient for muscle preservation during GLP-1 therapy`,
+    });
+  }
+
+  // 3. Critically low exercise — unmitigated sarcopenic risk
+  if (exerciseDaysWk < 2) {
+    triggers.push({
+      level: 'urgent',
+      text:  `Critically low resistance exercise stimulus (${exerciseDaysWk} day${exerciseDaysWk !== 1 ? 's' : ''}/week) — sarcopenic risk is currently unmitigated by mechanical loading`,
+    });
+  }
+
+  // 4. Rapid lean mass loss — threshold of >5% estimated loss
+  if (leanLossEstPct > 5) {
+    triggers.push({
+      level: 'urgent',
+      text:  `Rapid estimated lean mass loss (${leanLossEstPct}%) — exceeds the acceptable threshold for standard GLP-1 monitoring protocol`,
+    });
+  }
+
+  // 5. Declining score trajectory — progressive deterioration
+  if (trendStatus === 'declining') {
+    triggers.push({
+      level: 'urgent',
+      text:  'MyoGuard score on a declining trajectory — progressive deterioration detected across recent assessment cycles',
+    });
+  }
+
+  // 6. Inadequate hydration — compounds catabolism; lower urgency
+  if (hydrationLitres < 1.5) {
+    triggers.push({
+      level: 'monitor',
+      text:  `Inadequate hydration (${hydrationLitres} L/day) — may compound catabolism risk and impair renal protein metabolism`,
+    });
+  }
+
+  // ── No triggers ────────────────────────────────────────────────────────────
+  if (triggers.length === 0) {
+    return { escalate: false, reason: '', urgency: 'none' };
+  }
+
+  // ── Determine overall urgency ──────────────────────────────────────────────
+  const hasUrgent = triggers.some(t => t.level === 'urgent');
+  const urgency: 'urgent' | 'monitor' = hasUrgent ? 'urgent' : 'monitor';
+
+  // ── Build a single reason string ───────────────────────────────────────────
+  // Urgent criteria are listed first; monitor-level appended after.
+  const ordered = [
+    ...triggers.filter(t => t.level === 'urgent'),
+    ...triggers.filter(t => t.level === 'monitor'),
+  ];
+
+  const reason =
+    ordered.length === 1
+      ? `${ordered[0].text}.`
+      : `Multiple escalation criteria identified: ${ordered.map(t => t.text).join('; ')}.`;
+
+  return { escalate: true, reason, urgency };
+}
+
 function longDate(d: Date): string {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 }
@@ -541,6 +645,17 @@ export default async function ReportPage() {
 
   const interp  = buildInterpretation({ leanLossEstPct: ms.leanLossEstPct, ...sharedSignals });
   const actions = buildSuggestedActions(sharedSignals);
+
+  // Escalation signal — evaluated independently from interpretation + actions
+  const signal = buildEscalationSignal({
+    riskBand:        band,
+    symptomAvg:      (latestAssessment.fatigue + latestAssessment.nausea + latestAssessment.muscleWeakness) / 3,
+    proteinDeficit:  ms.proteinTargetG - latestAssessment.proteinGrams,
+    exerciseDaysWk:  latestAssessment.exerciseDaysWk,
+    hydrationLitres: latestAssessment.hydrationLitres,
+    leanLossEstPct:  ms.leanLossEstPct,
+    trendStatus:     digest?.trendStatus ?? 'insufficient',
+  });
 
   // Suggested PDF filename: MyoGuard-Report-Firstname-YYYY-MM-DD
   const firstName      = (user.fullName ?? 'Patient').split(' ')[0];
@@ -695,6 +810,71 @@ export default async function ReportPage() {
               </div>
             </div>
           </section>
+
+          {/* ══════════════════════════════════════════════════════════════════ */}
+          {/* ── ESCALATION ALERT (conditional) ── */}
+          {/* Rendered only when buildEscalationSignal() detects triggered       */}
+          {/* criteria. Appears above Clinical Interpretation for maximum        */}
+          {/* physician visibility. Prints cleanly with print-color-adjust.      */}
+          {/* ══════════════════════════════════════════════════════════════════ */}
+          {signal.escalate && (
+            <section aria-live="assertive">
+              <div className={`rounded-xl border-2 px-5 py-4 space-y-2.5 ${
+                signal.urgency === 'urgent'
+                  ? 'border-red-400 bg-red-50'
+                  : 'border-amber-400 bg-amber-50'
+              }`}>
+
+                {/* ── Header row ── */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    {/* Exclamation icon */}
+                    <span className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ${
+                      signal.urgency === 'urgent' ? 'bg-red-100' : 'bg-amber-100'
+                    }`}>
+                      <svg
+                        className={`w-4.5 h-4.5 ${signal.urgency === 'urgent' ? 'text-red-700' : 'text-amber-700'}`}
+                        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round"
+                          d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
+                        />
+                      </svg>
+                    </span>
+                    <p className={`text-sm font-black tracking-tight ${
+                      signal.urgency === 'urgent' ? 'text-red-900' : 'text-amber-900'
+                    }`}>
+                      Physician Escalation Alert
+                    </p>
+                  </div>
+
+                  {/* Urgency badge */}
+                  <span className={`flex-shrink-0 text-[10px] font-black uppercase tracking-[0.15em] px-2.5 py-1 rounded border ${
+                    signal.urgency === 'urgent'
+                      ? 'bg-red-100 text-red-700 border-red-300'
+                      : 'bg-amber-100 text-amber-700 border-amber-300'
+                  }`}>
+                    {signal.urgency === 'urgent' ? 'Urgent' : 'Monitor'}
+                  </span>
+                </div>
+
+                {/* ── Reason ── */}
+                <p className={`text-xs leading-relaxed ${
+                  signal.urgency === 'urgent' ? 'text-red-800' : 'text-amber-800'
+                }`}>
+                  {signal.reason}
+                </p>
+
+                {/* ── Call to action ── */}
+                <p className={`text-[11px] font-semibold ${
+                  signal.urgency === 'urgent' ? 'text-red-700' : 'text-amber-700'
+                }`}>
+                  Consider reassessment or intervention.
+                </p>
+
+              </div>
+            </section>
+          )}
 
           {/* ══════════════════════════════════════════════════════════════════ */}
           {/* ── CLINICAL INTERPRETATION ── */}
