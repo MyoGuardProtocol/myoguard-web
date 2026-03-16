@@ -184,3 +184,18 @@ textarea:-webkit-autofill:active {
   }
 
 }
+
+/* ─── Physician Report — print optimisation ─────────────────────────────────
+   Ensures coloured elements (risk badges, score bars) reproduce correctly
+   when the user prints or saves as PDF from any browser.
+   ─────────────────────────────────────────────────────────────────────────── */
+@media print {
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust:         exact !important;
+  }
+
+  @page {
+    margin: 15mm 18mm;
+  }
+}

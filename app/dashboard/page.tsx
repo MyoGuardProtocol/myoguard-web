@@ -228,6 +228,23 @@ export default async function DashboardPage() {
           </Link>
         </div>
 
+        {/* ── Physician Report CTA ── */}
+        {latestScore !== null && (
+          <Link
+            href="/dashboard/report"
+            className="flex items-center gap-4 bg-white border border-slate-200 rounded-2xl px-5 py-4 hover:border-teal-300 hover:shadow-sm transition-all"
+          >
+            <span className="text-2xl flex-shrink-0">🩺</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-slate-800">Physician Report</p>
+              <p className="text-xs text-slate-500 leading-snug mt-0.5">
+                Print or share a clinical summary with your doctor
+              </p>
+            </div>
+            <span className="text-xs font-semibold text-teal-600 flex-shrink-0">View →</span>
+          </Link>
+        )}
+
         {/* ════════════════════════════════════════════════════════════════════ */}
         {/* ── ASSESSMENT HISTORY ── */}
         {/* ════════════════════════════════════════════════════════════════════ */}
