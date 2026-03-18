@@ -14,6 +14,7 @@ const USER_SELECT = {
   id:                 true,
   fullName:           true,
   role:               true,
+  physicianId:        true,
   subscriptionStatus: true,
   // GLP-1 medication/dose data (set via /onboarding — may be null if skipped)
   profile: {
@@ -260,6 +261,31 @@ export default async function DashboardPage() {
     ? deriveFactors(latestAssessment, user.profile ?? null)
     : [];
 
+  // ── Connected physician display name (patients only) ─────────────────────
+  // user.physicianId is an informal FK to User.id (no Prisma @relation).
+  // Resolve: physician User → referralSlug → PhysicianProfile.displayName.
+  let connectedPhysicianName: string | null = null;
+  if (!isPhysician && user.physicianId) {
+    try {
+      const physicianUser = await prisma.user.findUnique({
+        where:  { id: user.physicianId },
+        select: { referralSlug: true, fullName: true },
+      });
+      if (physicianUser?.referralSlug) {
+        const profile = await prisma.physicianProfile.findUnique({
+          where:  { slug: physicianUser.referralSlug },
+          select: { displayName: true },
+        });
+        connectedPhysicianName = profile?.displayName ?? physicianUser.fullName ?? null;
+      } else {
+        connectedPhysicianName = physicianUser?.fullName ?? null;
+      }
+    } catch {
+      // Non-critical — omit the banner on DB error
+    }
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
   return (
     <main className="min-h-screen bg-slate-50 font-sans">
       {/* Silently syncs a pending guest assessment to the DB after first login */}
@@ -295,6 +321,24 @@ export default async function DashboardPage() {
             Your muscle-protection dashboard
           </p>
         </div>
+
+        {/* ── Connected physician banner (patients with a linked physician) ── */}
+        {connectedPhysicianName && (
+          <div className="flex items-center gap-3 bg-teal-50 border border-teal-100 rounded-2xl px-4 py-3">
+            <span className="text-lg flex-shrink-0">👨‍⚕️</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-semibold text-teal-700 uppercase tracking-wide">
+                Under Physician Care
+              </p>
+              <p className="text-sm font-medium text-teal-900 mt-0.5">
+                Connected to {connectedPhysicianName}
+              </p>
+            </div>
+            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2.5 py-1 flex-shrink-0 uppercase tracking-wide">
+              Active
+            </span>
+          </div>
+        )}
 
         {/* ════════════════════════════════════════════════════════════════════ */}
         {/* ── JOURNEY HERO ── primary CTA if they have a score */}
