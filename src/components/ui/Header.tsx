@@ -80,6 +80,17 @@ export default function Header({ physicianName, showNav = false }: HeaderProps) 
 
             {showNav && (
               <>
+                {/* Physician entry point — secondary, shown before patient nav */}
+                <Link
+                  href="/doctor"
+                  className="inline-flex items-center gap-1.5 text-xs border border-slate-200 text-slate-600 rounded-lg px-3 py-1.5 font-medium hover:border-teal-300 hover:text-teal-700 hover:bg-teal-50 transition-colors"
+                >
+                  <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                  </svg>
+                  <span className="hidden sm:inline">I&apos;m a Physician</span>
+                </Link>
+
                 <Link
                   href="/dashboard"
                   className="text-xs bg-teal-600 text-white rounded-lg px-3.5 py-1.5 font-semibold hover:bg-teal-700 transition-colors"
