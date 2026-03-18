@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { calculateProtocol } from '@/src/lib/protocolEngine';
 import type { AssessmentInput, ProtocolResult, PhysicianInfo } from '@/src/types';
 import Header from '@/src/components/ui/Header';
@@ -65,6 +66,32 @@ function CalculatorInner() {
           <>
             <ReferralBanner physician={physician} refSlug={refSlug} />
             <AssessmentForm onSubmit={handleFormSubmit} />
+
+            {/* ── For Healthcare Professionals ─────────────────────────────────
+                Secondary entry point shown at the bottom of the patient form.
+                Visible on all screen sizes — no hidden classes.
+            ─────────────────────────────────────────────────────────────── */}
+            <div className="mt-10 pt-8 border-t border-slate-200">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold text-teal-600 uppercase tracking-wide mb-1">
+                    For Healthcare Professionals
+                  </p>
+                  <p className="text-slate-600 text-sm leading-relaxed">
+                    Monitor and protect your patients&apos; muscle health.
+                  </p>
+                </div>
+                <Link
+                  href="/doctor"
+                  className="w-full sm:w-auto flex-shrink-0 inline-flex items-center justify-center gap-2 bg-white border border-slate-200 text-slate-700 text-sm font-semibold px-5 py-3 rounded-xl hover:border-teal-300 hover:text-teal-700 hover:bg-teal-50 transition-colors shadow-sm"
+                >
+                  Get Started as a Physician
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                  </svg>
+                </Link>
+              </div>
+            </div>
           </>
         ) : results && formData ? (
           <ProtocolResults
@@ -98,7 +125,6 @@ export default function Home() {
                 Myo<span className="text-teal-600">Guard</span> Protocol
               </span>
               <p className="text-[11px] text-slate-400 mt-0.5 tracking-wide">Protect Your Muscle During GLP-1 Therapy</p>
-              <p className="text-[11px] text-slate-400 mt-0.5 tracking-wide">Preserve lean mass, optimise outcomes, and stay strong while losing weight.</p>
             </div>
           </header>
           <div className="max-w-3xl mx-auto px-6 py-10">
