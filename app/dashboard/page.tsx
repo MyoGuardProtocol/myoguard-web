@@ -4,6 +4,7 @@ import { prisma } from '@/src/lib/prisma';
 import Link from 'next/link';
 import PostAuthSync from '@/src/components/ui/PostAuthSync';
 import AssessmentHeroPlaceholder from '@/src/components/ui/AssessmentHeroPlaceholder';
+import ContributingFactors, { type Factor, type ImpactLevel } from '@/src/components/ui/ContributingFactors';
 
 // ─── Module-level DB helper ───────────────────────────────────────────────────
 // Defined at module scope so TypeScript can infer the return type via
@@ -14,10 +15,30 @@ const USER_SELECT = {
   fullName:           true,
   role:               true,
   subscriptionStatus: true,
+  // GLP-1 medication/dose data (set via /onboarding — may be null if skipped)
+  profile: {
+    select: {
+      glp1Medication: true,
+      glp1DoseMg:     true,
+      glp1Stage:      true,
+    },
+  },
   assessments: {
     orderBy: { assessmentDate: 'desc' as const },
     take:    10,
-    include: { muscleScore: { select: { score: true, riskBand: true } } },
+    // include returns ALL Assessment scalar fields (weightKg, proteinGrams,
+    // exerciseDaysWk, hydrationLitres, symptoms, fatigue, muscleWeakness, nausea)
+    // plus the selected relation fields below.
+    include: {
+      muscleScore: {
+        select: {
+          score:          true,
+          riskBand:       true,
+          leanLossEstPct: true,
+          proteinTargetG: true,
+        },
+      },
+    },
   },
   weeklyCheckins: {
     orderBy: { weekStart: 'desc' as const },
@@ -59,6 +80,114 @@ const SCORE_TRACK: Record<string, string> = {
 function formatDate(d: Date) {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
+
+// ─── Contributing-factor derivation ──────────────────────────────────────────
+// Translates raw DB fields from the latest Assessment + UserProfile into the
+// five Factor objects rendered by <ContributingFactors />.
+
+type LatestAssessment = NonNullable<DashboardUser['assessments'][number]>;
+type UserProfile      = NonNullable<DashboardUser['profile']>;
+
+function deriveFactors(
+  a:       LatestAssessment,
+  profile: UserProfile | null,
+): Factor[] {
+  // ── 1. Protein ────────────────────────────────────────────────────────────
+  const proteinMin = Math.round(a.weightKg * 1.4);   // standard muscle-protective floor
+  const gapG       = Math.round(a.proteinGrams - proteinMin);
+  const gapPct     = a.proteinGrams / proteinMin;
+
+  const proteinImpact: ImpactLevel =
+    gapPct >= 1.0 ? 'LOW' : gapPct >= 0.9 ? 'MODERATE' : 'HIGH';
+
+  const proteinState = gapPct >= 1.0
+    ? `${Math.round(a.proteinGrams)}g / day · +${gapG}g above minimum`
+    : `${Math.round(a.proteinGrams)}g / day · ${gapG}g below minimum`;
+
+  const proteinDetail = gapPct >= 1.0
+    ? `Your protein target meets the muscle-protective minimum of ${proteinMin}g/day for your body weight. Keep it up.`
+    : `Your current protein intake is below the ${proteinMin}g/day minimum needed to protect muscle during GLP-1 therapy. Prioritise protein at every meal.`;
+
+  // ── 2. Activity ───────────────────────────────────────────────────────────
+  const activityDays   = a.exerciseDaysWk;
+  const activityLevel  = activityDays >= 5 ? 'active' : activityDays >= 3 ? 'moderate' : 'sedentary';
+  const activityLabel  = activityLevel === 'active'    ? 'Active (5+ days / week)'
+                       : activityLevel === 'moderate'  ? 'Moderately Active (3–4 days / week)'
+                       : 'Sedentary (< 2 days / week)';
+  const activityImpact: ImpactLevel = activityLevel === 'active' ? 'LOW'
+                                    : activityLevel === 'moderate' ? 'MODERATE'
+                                    : 'HIGH';
+  const activityDetail = activityLevel === 'active'
+    ? 'Your exercise frequency is the strongest protective factor against GLP-1-associated muscle loss. Maintain or increase resistance training.'
+    : activityLevel === 'moderate'
+    ? 'Moderate activity provides good muscle protection. Adding 1–2 more resistance sessions per week can meaningfully reduce your lean mass risk.'
+    : 'Sedentary activity is the biggest single driver of muscle loss during GLP-1 therapy. Starting with 2× weekly resistance sessions has the highest impact on your score.';
+
+  // ── 3. GLP-1 Dose ────────────────────────────────────────────────────────
+  const HIGH_DOSE_THRESHOLDS: Record<string, number> = {
+    semaglutide: 1.0, tirzepatide: 5.0,
+  };
+
+  let glp1State:  string;
+  let glp1Impact: ImpactLevel;
+  let glp1Detail: string;
+
+  if (!profile || !profile.glp1Medication || !profile.glp1DoseMg) {
+    glp1State  = 'Profile not set up';
+    glp1Impact = 'MODERATE';
+    glp1Detail = 'Complete your profile to get a personalised GLP-1 dose risk analysis.';
+  } else {
+    const medName     = profile.glp1Medication.includes('tirzepatide') ? 'Tirzepatide' : 'Semaglutide';
+    const medKey      = medName.toLowerCase() as 'semaglutide' | 'tirzepatide';
+    const threshold   = HIGH_DOSE_THRESHOLDS[medKey] ?? 1.0;
+    const isHighDose  = profile.glp1DoseMg > threshold;
+    const stage       = profile.glp1Stage ?? '';
+    const stageLabel  = stage === 'MAINTENANCE' ? 'maintenance phase'
+                      : stage === 'DOSE_ESCALATION' ? 'dose-escalation phase'
+                      : stage === 'INITIATION' ? 'initiation phase'
+                      : 'active treatment';
+
+    glp1State  = `${medName} ${profile.glp1DoseMg}mg · ${stageLabel}`;
+    glp1Impact = isHighDose ? 'HIGH' : 'MODERATE';
+    glp1Detail = isHighDose
+      ? `At ${profile.glp1DoseMg}mg, ${medName} significantly suppresses appetite, making it harder to hit protein targets. Extra focus on high-protein, low-volume foods is essential.`
+      : `At ${profile.glp1DoseMg}mg, ${medName} provides moderate appetite suppression. Hitting your protein target is achievable with consistent meal planning.`;
+  }
+
+  // ── 4. Symptoms ──────────────────────────────────────────────────────────
+  const musculoSymptoms = ['Muscle weakness', 'Fatigue'];
+  const giSymptoms      = ['Nausea', 'Constipation', 'Bloating', 'Reduced appetite'];
+
+  const hasMusculo = a.symptoms.some(s => musculoSymptoms.includes(s));
+  const hasGI      = a.symptoms.some(s => giSymptoms.includes(s));
+
+  const symptomsImpact: ImpactLevel = hasMusculo ? 'HIGH' : hasGI ? 'MODERATE' : 'LOW';
+
+  const topSymptoms = a.symptoms.slice(0, 3);
+  const symptomsState = topSymptoms.length
+    ? topSymptoms.join(' · ')
+    : 'None reported';
+
+  const symptomsDetail = hasMusculo
+    ? 'Fatigue and muscle weakness are early signs of sarcopenic change during GLP-1 therapy. Prioritising protein and resistance training is critical right now.'
+    : hasGI
+    ? 'GI symptoms like nausea and constipation can reduce your ability to eat enough protein. Smaller, high-protein meals and increased hydration can help.'
+    : 'No concerning symptoms reported. This positively supports your muscle-protection profile.';
+
+  // ── 5. Hydration ─────────────────────────────────────────────────────────
+  const hydrationState  = `${a.hydrationLitres.toFixed(1)}L / day target`;
+  const hydrationImpact: ImpactLevel = 'LOW';
+  const hydrationDetail = `Aim for ${a.hydrationLitres.toFixed(1)}L of water daily. Adequate hydration supports muscle protein synthesis and reduces GLP-1 GI side effects.`;
+
+  return [
+    { icon: '🍗', label: 'Protein Intake',  state: proteinState,   detail: proteinDetail,   impact: proteinImpact   },
+    { icon: '🏃', label: 'Activity Level',  state: activityLabel,  detail: activityDetail,  impact: activityImpact  },
+    { icon: '💊', label: 'GLP-1 Dose',      state: glp1State,      detail: glp1Detail,      impact: glp1Impact      },
+    { icon: '⚡', label: 'Symptoms',        state: symptomsState,  detail: symptomsDetail,  impact: symptomsImpact  },
+    { icon: '💧', label: 'Hydration',       state: hydrationState, detail: hydrationDetail, impact: hydrationImpact },
+  ];
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default async function DashboardPage() {
   const { userId } = await auth();
@@ -124,8 +253,12 @@ export default async function DashboardPage() {
     : null;
   const isPremium        = user.subscriptionStatus === 'ACTIVE';
   const firstName        = user.fullName?.split(' ')[0] ?? null;
+  const isPhysician      = user.role === 'PHYSICIAN';
 
-  const isPhysician = user.role === 'PHYSICIAN';
+  // Derive factors only when an assessment exists
+  const factors = latestAssessment
+    ? deriveFactors(latestAssessment, user.profile ?? null)
+    : [];
 
   return (
     <main className="min-h-screen bg-slate-50 font-sans">
@@ -235,6 +368,11 @@ export default async function DashboardPage() {
              between skeleton (pending sync) and the true empty state.       */
           <AssessmentHeroPlaceholder />
         )}
+
+        {/* ════════════════════════════════════════════════════════════════════ */}
+        {/* ── CONTRIBUTING FACTORS ── only when a score exists */}
+        {/* ════════════════════════════════════════════════════════════════════ */}
+        {factors.length > 0 && <ContributingFactors factors={factors} />}
 
         {/* ════════════════════════════════════════════════════════════════════ */}
         {/* ── QUICK ACTIONS ── */}
