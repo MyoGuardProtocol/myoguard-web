@@ -58,7 +58,10 @@ export default function Header({ physicianName, showNav = false }: HeaderProps) 
                 <span className="text-slate-400 font-light text-sm ml-0.5">Protocol</span>
               </div>
               <p className="text-[11px] text-slate-400 mt-0.5 tracking-wide">
-                Muscle Protection · GLP-1 Therapy
+                Protect Your Muscle During GLP-1 Therapy
+              </p>
+              <p className="text-[11px] text-slate-400 mt-0.5 tracking-wide">
+                Preserve lean mass, optimise outcomes, and stay strong while losing weight.
               </p>
             </div>
           </div>
