@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { prisma } from '@/src/lib/prisma';
 import Link from 'next/link';
 import PostAuthSync from '@/src/components/ui/PostAuthSync';
+import AssessmentHeroPlaceholder from '@/src/components/ui/AssessmentHeroPlaceholder';
 
 // ─── Module-level DB helper ───────────────────────────────────────────────────
 // Defined at module scope so TypeScript can infer the return type via
@@ -230,20 +231,9 @@ export default async function DashboardPage() {
             </div>
           </Link>
         ) : (
-          /* No score yet */
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 text-center">
-            <p className="text-2xl mb-2">📊</p>
-            <p className="text-slate-700 font-semibold mb-1">No assessment yet</p>
-            <p className="text-sm text-slate-500 mb-4 leading-relaxed">
-              Complete the protocol calculator to generate your first MyoGuard Score.
-            </p>
-            <Link
-              href="/"
-              className="bg-teal-600 text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-teal-700 transition-colors inline-block"
-            >
-              Start Assessment →
-            </Link>
-          </div>
+          /* No score yet — client component reads sessionStorage to decide
+             between skeleton (pending sync) and the true empty state.       */
+          <AssessmentHeroPlaceholder />
         )}
 
         {/* ════════════════════════════════════════════════════════════════════ */}
