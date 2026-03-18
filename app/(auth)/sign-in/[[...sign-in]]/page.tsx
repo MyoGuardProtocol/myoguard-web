@@ -22,8 +22,8 @@ export default function SignInPage() {
         </div>
       </div>
 
-      {/* Clerk sign-in widget */}
-      <SignIn />
+      {/* Clerk sign-in widget — fallbackRedirectUrl is the v6-correct prop */}
+      <SignIn fallbackRedirectUrl="/dashboard" />
 
       {/* Guest fallback */}
       <Link

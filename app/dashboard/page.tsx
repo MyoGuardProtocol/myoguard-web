@@ -4,6 +4,37 @@ import { prisma } from '@/src/lib/prisma';
 import Link from 'next/link';
 import PostAuthSync from '@/src/components/ui/PostAuthSync';
 
+// ─── Module-level DB helper ───────────────────────────────────────────────────
+// Defined at module scope so TypeScript can infer the return type via
+// Awaited<ReturnType<typeof fetchDashboardUser>>.
+
+const USER_SELECT = {
+  id:                 true,
+  fullName:           true,
+  role:               true,
+  subscriptionStatus: true,
+  assessments: {
+    orderBy: { assessmentDate: 'desc' as const },
+    take:    10,
+    include: { muscleScore: { select: { score: true, riskBand: true } } },
+  },
+  weeklyCheckins: {
+    orderBy: { weekStart: 'desc' as const },
+    take:    1,
+    select:  { id: true, weekStart: true },
+  },
+} as const;
+
+async function fetchDashboardUser(clerkId: string) {
+  return prisma.user.findUnique({
+    where:  { clerkId },
+    select: USER_SELECT,
+  });
+}
+
+type DashboardUser = NonNullable<Awaited<ReturnType<typeof fetchDashboardUser>>>;
+// ─────────────────────────────────────────────────────────────────────────────
+
 const RISK_META: Record<string, {
   label:   string;
   colour:  string;
@@ -32,49 +63,55 @@ export default async function DashboardPage() {
   const { userId } = await auth();
   if (!userId) redirect('/sign-in');
 
-  // Shared select shape — used by both the initial lookup and the upsert fallback.
-  const USER_SELECT = {
-    id:                 true,
-    fullName:           true,
-    role:               true,
-    subscriptionStatus: true,
-    assessments: {
-      orderBy: { assessmentDate: 'desc' as const },
-      take:    10,
-      include: { muscleScore: { select: { score: true, riskBand: true } } },
-    },
-    weeklyCheckins: {
-      orderBy: { weekStart: 'desc' as const },
-      take:    1,
-      select:  { id: true, weekStart: true },
-    },
-  } as const;
+  // ── Fetch user — wrapped in try/catch so a DB timeout (e.g. Supabase port
+  // blocked on corporate network) renders a friendly 503 instead of a hard 500.
+  let user: DashboardUser | null = null;
 
-  // Try the fast path first — user already exists in DB.
-  let user = await prisma.user.findUnique({
-    where:  { clerkId: userId },
-    select: USER_SELECT,
-  });
+  try {
+    user = await fetchDashboardUser(userId);
 
-  // If the Clerk webhook hasn't fired yet (race condition on first sign-up or
-  // cold-start), auto-provision the row from Clerk's currentUser() so the
-  // dashboard loads immediately. The webhook upsert will become a no-op when
-  // it eventually arrives.
+    // Webhook race-condition guard: if the Clerk webhook hasn't fired yet on
+    // first sign-up, provision the row immediately from currentUser() so the
+    // dashboard loads without blocking. The eventual webhook upsert is a no-op.
+    if (!user) {
+      const clerkUser = await currentUser();
+      if (!clerkUser) redirect('/sign-in');
+
+      const email     = clerkUser.emailAddresses[0]?.emailAddress ?? '';
+      const firstName = clerkUser.firstName ?? '';
+      const lastName  = clerkUser.lastName  ?? '';
+      const fullName  = [firstName, lastName].filter(Boolean).join(' ') || 'MyoGuard User';
+
+      user = await prisma.user.upsert({
+        where:  { clerkId: userId },
+        update: {},
+        create: { clerkId: userId, email, fullName, role: 'PATIENT', subscriptionStatus: 'FREE' },
+        select: USER_SELECT,
+      });
+    }
+  } catch (err) {
+    console.error('[dashboard] DB unreachable:', err);
+  }
+
+  // ── DB unavailable fallback ─────────────────────────────────────────────
   if (!user) {
-    const clerkUser = await currentUser();
-    if (!clerkUser) redirect('/sign-in');
-
-    const email     = clerkUser.emailAddresses[0]?.emailAddress ?? '';
-    const firstName = clerkUser.firstName ?? '';
-    const lastName  = clerkUser.lastName  ?? '';
-    const fullName  = [firstName, lastName].filter(Boolean).join(' ') || 'MyoGuard User';
-
-    user = await prisma.user.upsert({
-      where:  { clerkId: userId },
-      update: {},
-      create: { clerkId: userId, email, fullName, role: 'PATIENT', subscriptionStatus: 'FREE' },
-      select: USER_SELECT,
-    });
+    return (
+      <main className="min-h-screen bg-slate-50 font-sans flex items-center justify-center px-5">
+        <div className="max-w-sm w-full text-center space-y-4">
+          <p className="text-4xl font-black text-slate-200">503</p>
+          <h1 className="text-lg font-bold text-slate-800">Dashboard temporarily unavailable</h1>
+          <p className="text-sm text-slate-500 leading-relaxed">
+            We could not reach our servers right now. Please try again in a moment.
+          </p>
+          <a
+            href="/dashboard"
+            className="inline-block text-sm text-teal-600 hover:text-teal-700 font-semibold underline"
+          >
+            ↻ Retry
+          </a>
+        </div>
+      </main>
+    );
   }
 
   const latestAssessment = user.assessments[0];

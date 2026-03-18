@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 
@@ -12,13 +12,17 @@ import { useRouter } from 'next/navigation';
  * This component detects that, POSTs it to /api/assessment, clears the key,
  * then refreshes the dashboard so the newly-saved assessment is visible.
  *
- * It is safe to include on every dashboard render — it does nothing if the key
- * is absent or the user was already signed in when they ran the assessment.
+ * While syncing, renders a subtle toast so the user knows something is
+ * happening and the "No assessment yet" state isn't a dead-end.
+ *
+ * It is safe to include on every dashboard render — it does nothing if the
+ * key is absent or the user was already signed in when they ran the assessment.
  */
 export default function PostAuthSync() {
   const { isSignedIn, isLoaded } = useUser();
-  const router    = useRouter();
-  const didSync   = useRef(false);   // prevents double-fire in StrictMode
+  const router   = useRouter();
+  const didSync  = useRef(false);           // prevents double-fire in StrictMode
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn || didSync.current) return;
@@ -27,7 +31,7 @@ export default function PostAuthSync() {
     try {
       pending = sessionStorage.getItem('myoguard_pending_assessment');
     } catch {
-      return; // sessionStorage unavailable
+      return; // sessionStorage unavailable (private browsing edge case)
     }
 
     if (!pending) return;
@@ -42,6 +46,8 @@ export default function PostAuthSync() {
       return;
     }
 
+    setSyncing(true);
+
     fetch('/api/assessment', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -53,9 +59,31 @@ export default function PostAuthSync() {
         router.refresh();
       })
       .catch(() => {
+        // Silently discard — the user can always re-run the assessment.
         sessionStorage.removeItem('myoguard_pending_assessment');
+        setSyncing(false);
       });
   }, [isLoaded, isSignedIn, router]);
 
-  return null;
+  if (!syncing) return null;
+
+  // Subtle fixed toast — visible only while the POST is in flight.
+  return (
+    <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 bg-slate-900 text-white text-xs font-medium px-4 py-2.5 rounded-full shadow-lg pointer-events-none">
+      {/* Spinner */}
+      <svg
+        className="w-3.5 h-3.5 animate-spin text-teal-400 flex-shrink-0"
+        viewBox="0 0 24 24"
+        fill="none"
+      >
+        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+        <path
+          className="opacity-75"
+          fill="currentColor"
+          d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+        />
+      </svg>
+      Saving your assessment…
+    </div>
+  );
 }
