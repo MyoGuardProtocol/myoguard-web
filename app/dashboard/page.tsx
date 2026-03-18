@@ -2,6 +2,7 @@ import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/src/lib/prisma';
 import Link from 'next/link';
+import PostAuthSync from '@/src/components/ui/PostAuthSync';
 
 const RISK_META: Record<string, {
   label:   string;
@@ -36,6 +37,7 @@ export default async function DashboardPage() {
     select: {
       id:                 true,
       fullName:           true,
+      role:               true,
       subscriptionStatus: true,
       assessments: {
         orderBy: { assessmentDate: 'desc' },
@@ -80,8 +82,12 @@ export default async function DashboardPage() {
   const isPremium        = user.subscriptionStatus === 'ACTIVE';
   const firstName        = user.fullName?.split(' ')[0] ?? null;
 
+  const isPhysician = user.role === 'PHYSICIAN';
+
   return (
     <main className="min-h-screen bg-slate-50 font-sans">
+      {/* Silently syncs a pending guest assessment to the DB after first login */}
+      <PostAuthSync />
 
       {/* ── Header ── */}
       <header className="bg-white border-b border-slate-200 px-6 py-4">
@@ -227,6 +233,23 @@ export default async function DashboardPage() {
             </p>
           </Link>
         </div>
+
+        {/* ── Physician Portal CTA (physicians only) ── */}
+        {isPhysician && (
+          <Link
+            href="/doctor/start"
+            className="flex items-center gap-4 bg-teal-50 border border-teal-200 rounded-2xl px-5 py-4 hover:border-teal-400 hover:shadow-sm transition-all"
+          >
+            <span className="text-2xl flex-shrink-0">👨‍⚕️</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-teal-800">Physician Portal</p>
+              <p className="text-xs text-teal-600 leading-snug mt-0.5">
+                View your referral link, patient activity, and practice tools
+              </p>
+            </div>
+            <span className="text-xs font-semibold text-teal-600 flex-shrink-0">Open →</span>
+          </Link>
+        )}
 
         {/* ── Physician Report CTA ── */}
         {latestScore !== null && (

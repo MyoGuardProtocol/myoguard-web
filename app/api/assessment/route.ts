@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/src/lib/prisma';
 import { calculateProtocol } from '@/src/lib/protocolEngine';
@@ -33,14 +33,31 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Resolve internal user ID from Clerk ID
-  const user = await prisma.user.findUnique({
+  // Resolve internal user ID from Clerk ID.
+  // If the Clerk webhook hasn't fired yet (race condition on first sign-up),
+  // auto-provision the user row using Clerk's currentUser() so the assessment
+  // is never silently dropped.
+  let user = await prisma.user.findUnique({
     where: { clerkId: userId },
     select: { id: true },
   });
 
   if (!user) {
-    return NextResponse.json({ error: 'User not found — complete onboarding first' }, { status: 404 });
+    const clerkUser = await currentUser();
+    if (!clerkUser) {
+      return NextResponse.json({ error: 'Unauthorised' }, { status: 401 });
+    }
+    const email     = clerkUser.emailAddresses[0]?.emailAddress ?? '';
+    const firstName = clerkUser.firstName ?? '';
+    const lastName  = clerkUser.lastName  ?? '';
+    const fullName  = [firstName, lastName].filter(Boolean).join(' ') || 'MyoGuard User';
+
+    user = await prisma.user.upsert({
+      where:  { clerkId: userId },
+      update: {},
+      create: { clerkId: userId, email, fullName, role: 'PATIENT', subscriptionStatus: 'FREE' },
+      select: { id: true },
+    });
   }
 
   const input = parsed.data;

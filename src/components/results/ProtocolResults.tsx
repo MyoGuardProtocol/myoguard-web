@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useUser } from '@clerk/nextjs';
 import type { ProtocolResult, AssessmentInput, PhysicianInfo } from '@/src/types';
 import ClinicalSummary from './ClinicalSummary';
@@ -36,6 +36,20 @@ export default function ProtocolResults({
 
   const medLabel        = formData.medication === 'semaglutide' ? 'Semaglutide' : 'Tirzepatide';
   const hasConstipation = formData.symptoms.includes('Constipation');
+
+  // Persist formData to sessionStorage so PostAuthSync can save it after login.
+  // Cleared by PostAuthSync once successfully written to the database.
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        'myoguard_pending_assessment',
+        JSON.stringify({ formData }),
+      );
+    } catch {
+      /* sessionStorage unavailable (private browsing edge case) — safe to ignore */
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Show gate when: Clerk loaded, user is NOT signed in, and hasn't chosen guest yet
   const showGate = isLoaded && !isSignedIn && !guestMode;
