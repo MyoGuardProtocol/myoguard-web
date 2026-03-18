@@ -197,7 +197,9 @@ export default async function PatientDetailPage({
     where:  { clerkId },
     select: { role: true, referralSlug: true, fullName: true },
   });
-  if (!physician || physician.role !== 'PHYSICIAN') redirect('/dashboard');
+  if (!physician) redirect('/dashboard');
+  if (physician.role === 'PHYSICIAN_PENDING') redirect('/doctor/dashboard');
+  if (physician.role !== 'PHYSICIAN') redirect('/dashboard');
 
   // Resolve physician display name
   const physicianSlug = physician.referralSlug;

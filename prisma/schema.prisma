@@ -10,6 +10,7 @@ datasource db {
 enum Role {
   PATIENT
   PHYSICIAN
+  PHYSICIAN_PENDING
   ADMIN
 }
 
@@ -74,17 +75,18 @@ model User {
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 
-  profile        UserProfile?
-  assessments    Assessment[]
-  muscleScores   MuscleScore[]
-  protocolPlans  ProtocolPlan[]
-  progressLogs   ProgressLog[]
-  weeklyCheckins WeeklyCheckin[]
-  shareCards        ShareCard[]
-  notifications     Notification[]
-  physicianReviews  PhysicianReview[]
-  referredBy        User?             @relation("Referrals", fields: [referredById], references: [id])
-  referrals         User[]            @relation("Referrals")
+  profile               UserProfile?
+  assessments           Assessment[]
+  muscleScores          MuscleScore[]
+  protocolPlans         ProtocolPlan[]
+  progressLogs          ProgressLog[]
+  weeklyCheckins        WeeklyCheckin[]
+  shareCards            ShareCard[]
+  notifications         Notification[]
+  physicianReviews      PhysicianReview[]
+  physicianOnboarding   PhysicianOnboarding?
+  referredBy            User?               @relation("Referrals", fields: [referredById], references: [id])
+  referrals             User[]              @relation("Referrals")
 }
 
 model PhysicianProfile {
@@ -268,4 +270,17 @@ model AuditLog {
   targetId   String?
   metadata   Json?
   createdAt  DateTime @default(now())
+}
+
+// Stores self-reported onboarding data submitted during physician sign-up.
+// Created at PHYSICIAN_PENDING stage; retained after promotion to PHYSICIAN.
+model PhysicianOnboarding {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  country       String
+  specialty     String?
+  licenseNumber String?
+  submittedAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

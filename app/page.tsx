@@ -97,7 +97,8 @@ export default function Home() {
               <span className="text-xl font-bold text-slate-800 tracking-tight">
                 Myo<span className="text-teal-600">Guard</span> Protocol
               </span>
-              <p className="text-xs text-slate-500 mt-0.5">Physician-Formulated · Data-Driven Muscle Protection</p>
+              <p className="text-[11px] text-slate-400 mt-0.5 tracking-wide">Protect Your Muscle During GLP-1 Therapy</p>
+              <p className="text-[11px] text-slate-400 mt-0.5 tracking-wide">Preserve lean mass, optimise outcomes, and stay strong while losing weight.</p>
             </div>
           </header>
           <div className="max-w-3xl mx-auto px-6 py-10">

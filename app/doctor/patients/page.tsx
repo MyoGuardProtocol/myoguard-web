@@ -115,7 +115,10 @@ export default async function PatientListPage() {
     where:  { clerkId: userId },
     select: { role: true, referralSlug: true, fullName: true },
   });
-  if (!physician || physician.role !== 'PHYSICIAN') redirect('/dashboard');
+  // PHYSICIAN_PENDING gets the holding screen, not the full list
+  if (!physician) redirect('/dashboard');
+  if (physician.role === 'PHYSICIAN_PENDING') redirect('/doctor/dashboard');
+  if (physician.role !== 'PHYSICIAN') redirect('/dashboard');
 
   // Resolve physician profile for display name
   const physicianSlug = physician.referralSlug;

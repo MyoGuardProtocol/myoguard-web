@@ -16,10 +16,10 @@ export default async function DoctorStartPage() {
     select: { role: true, referralSlug: true, fullName: true },
   });
 
-  // Redirect non-physicians to dashboard
-  if (!user || user.role !== 'PHYSICIAN') {
-    redirect('/dashboard');
-  }
+  // Role routing — PHYSICIAN_PENDING gets the holding screen
+  if (!user) redirect('/dashboard');
+  if (user.role === 'PHYSICIAN_PENDING') redirect('/doctor/dashboard');
+  if (user.role !== 'PHYSICIAN') redirect('/dashboard');
 
   const slug = user.referralSlug;
   const referralUrl = slug ? `${APP_URL}/?ref=${slug}` : null;
