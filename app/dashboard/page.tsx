@@ -1,4 +1,4 @@
-import { auth } from '@clerk/nextjs/server';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/src/lib/prisma';
 import Link from 'next/link';
@@ -32,44 +32,49 @@ export default async function DashboardPage() {
   const { userId } = await auth();
   if (!userId) redirect('/sign-in');
 
-  const user = await prisma.user.findUnique({
-    where: { clerkId: userId },
-    select: {
-      id:                 true,
-      fullName:           true,
-      role:               true,
-      subscriptionStatus: true,
-      assessments: {
-        orderBy: { assessmentDate: 'desc' },
-        take:    10,
-        include: { muscleScore: { select: { score: true, riskBand: true } } },
-      },
-      weeklyCheckins: {
-        orderBy: { weekStart: 'desc' },
-        take:    1,
-        select:  { id: true, weekStart: true },
-      },
+  // Shared select shape — used by both the initial lookup and the upsert fallback.
+  const USER_SELECT = {
+    id:                 true,
+    fullName:           true,
+    role:               true,
+    subscriptionStatus: true,
+    assessments: {
+      orderBy: { assessmentDate: 'desc' as const },
+      take:    10,
+      include: { muscleScore: { select: { score: true, riskBand: true } } },
     },
+    weeklyCheckins: {
+      orderBy: { weekStart: 'desc' as const },
+      take:    1,
+      select:  { id: true, weekStart: true },
+    },
+  } as const;
+
+  // Try the fast path first — user already exists in DB.
+  let user = await prisma.user.findUnique({
+    where:  { clerkId: userId },
+    select: USER_SELECT,
   });
 
-  // User exists in Clerk but not yet synced to DB
+  // If the Clerk webhook hasn't fired yet (race condition on first sign-up or
+  // cold-start), auto-provision the row from Clerk's currentUser() so the
+  // dashboard loads immediately. The webhook upsert will become a no-op when
+  // it eventually arrives.
   if (!user) {
-    return (
-      <main className="min-h-screen bg-slate-50 font-sans flex items-center justify-center">
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 max-w-md text-center">
-          <p className="text-slate-800 font-semibold mb-2">Account setup in progress</p>
-          <p className="text-sm text-slate-500 mb-4">
-            Your account is being provisioned. Please try again in a moment.
-          </p>
-          <Link
-            href="/"
-            className="bg-teal-600 text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-teal-700 transition-colors inline-block"
-          >
-            Back to Calculator
-          </Link>
-        </div>
-      </main>
-    );
+    const clerkUser = await currentUser();
+    if (!clerkUser) redirect('/sign-in');
+
+    const email     = clerkUser.emailAddresses[0]?.emailAddress ?? '';
+    const firstName = clerkUser.firstName ?? '';
+    const lastName  = clerkUser.lastName  ?? '';
+    const fullName  = [firstName, lastName].filter(Boolean).join(' ') || 'MyoGuard User';
+
+    user = await prisma.user.upsert({
+      where:  { clerkId: userId },
+      update: {},
+      create: { clerkId: userId, email, fullName, role: 'PATIENT', subscriptionStatus: 'FREE' },
+      select: USER_SELECT,
+    });
   }
 
   const latestAssessment = user.assessments[0];
