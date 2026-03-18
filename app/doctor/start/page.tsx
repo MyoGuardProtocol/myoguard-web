@@ -148,13 +148,18 @@ export default async function DoctorStartPage() {
           </div>
         )}
 
-        {/* Patient Panel placeholder */}
+        {/* Patient Panel */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-          <p className="text-xs font-semibold text-teal-600 uppercase tracking-wide mb-3">Patient Activity</p>
-          <div className="text-center py-6">
-            <p className="text-sm text-slate-500">Patient panel coming in Phase 2.</p>
-            <p className="text-xs text-slate-400 mt-1">Assessment completions and score distributions will appear here once your patients complete assessments via your referral link.</p>
-          </div>
+          <p className="text-xs font-semibold text-teal-600 uppercase tracking-wide mb-3">Patient Overview</p>
+          <p className="text-sm text-slate-500 leading-relaxed mb-4">
+            View all your attributed patients, sorted by highest muscle-protection risk. Each patient card shows their latest MyoGuard Score, risk band, and key clinical flags.
+          </p>
+          <Link
+            href="/doctor/patients"
+            className="inline-flex items-center gap-2 bg-teal-600 text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-teal-700 transition-colors"
+          >
+            View Patient List →
+          </Link>
         </div>
 
         {/* Nav */}
