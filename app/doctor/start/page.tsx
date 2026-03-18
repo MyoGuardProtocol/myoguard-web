@@ -28,7 +28,7 @@ export default async function DoctorStartPage() {
   if (slug) {
     physician = await prisma.physicianProfile.findUnique({
       where: { slug },
-      select: { displayName: true, clinicName: true, specialty: true, slug: true },
+      select: { displayName: true, clinicName: true, specialty: true, slug: true, referralCode: true },
     });
   }
 
@@ -81,6 +81,47 @@ export default async function DoctorStartPage() {
             </div>
           )}
         </div>
+
+        {/* ── Patient Code + Join Link ── */}
+        {physician?.referralCode ? (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+            <p className="text-xs font-semibold text-teal-600 uppercase tracking-wide mb-3">Patient Access Code</p>
+
+            {/* The code itself */}
+            <div className="flex items-center gap-3 bg-teal-50 border border-teal-100 rounded-xl px-4 py-3 mb-3">
+              <code className="text-xl font-black text-teal-800 tracking-widest flex-1 select-all">
+                {physician.referralCode}
+              </code>
+              <CopyButton text={physician.referralCode} />
+            </div>
+            <p className="text-xs text-slate-500 mb-4">
+              Share this code with patients. They enter it during MyoGuard sign-up to automatically link their account to yours.
+            </p>
+
+            {/* Join link */}
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Or share the direct join link</p>
+            <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5">
+              <code className="text-xs text-slate-600 flex-1 break-all">
+                {APP_URL}/join?ref={physician.referralCode}
+              </code>
+              <CopyButton text={`${APP_URL}/join?ref=${physician.referralCode}`} />
+            </div>
+            <p className="text-xs text-slate-400 mt-2">
+              Patients who click this link will see your name and be guided through sign-up automatically.
+            </p>
+          </div>
+        ) : slug ? (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+            <p className="text-xs font-semibold text-teal-600 uppercase tracking-wide mb-3">Patient Access Code</p>
+            <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+              <p className="text-sm text-amber-700 font-medium">Code not yet generated</p>
+              <p className="text-xs text-amber-600 mt-1">
+                Your patient access code will appear here after your account is fully activated.
+                Contact <a href="mailto:hello@myoguard.health" className="underline">hello@myoguard.health</a> if this persists.
+              </p>
+            </div>
+          </div>
+        ) : null}
 
         {/* How It Works */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">

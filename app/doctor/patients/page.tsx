@@ -110,10 +110,10 @@ export default async function PatientListPage() {
   const { userId } = await auth();
   if (!userId) redirect('/sign-in');
 
-  // Physician auth guard
+  // Physician auth guard — fetch id for secure patient queries
   const physician = await prisma.user.findUnique({
     where:  { clerkId: userId },
-    select: { role: true, referralSlug: true, fullName: true },
+    select: { id: true, role: true, referralSlug: true, fullName: true },
   });
   // PHYSICIAN_PENDING gets the holding screen, not the full list
   if (!physician) redirect('/dashboard');
@@ -135,23 +135,27 @@ export default async function PatientListPage() {
   /**
    * Patient query strategy:
    *
-   * Primary: patients whose User.referralSlug matches this physician's slug
-   * (set when a patient signs up via the physician's referral link).
+   * Primary:  User.physicianId = this physician's DB User.id
+   *           (set when a patient enters the physician's code during onboarding)
    *
-   * Fallback: if no referral-attributed patients exist yet (e.g. early stage
-   * before attribution is wired), fall back to ALL patients who have completed
-   * at least one assessment. This keeps the page useful during rollout.
+   * Legacy:   User.referralSlug = this physician's referralSlug
+   *           (patients who linked via the ?ref=slug URL before physicianId existed)
+   *
+   * Both are scoped to this physician — no patient can appear on another
+   * physician's list.
    */
-  const whereClause = physicianSlug
-    ? {
-        role:        'PATIENT' as const,
-        referralSlug: physicianSlug,
-        assessments: { some: {} },
-      }
-    : {
-        role:        'PATIENT' as const,
-        assessments: { some: {} },
-      };
+  const orClauses: Record<string, unknown>[] = [
+    { physicianId: physician.id },
+  ];
+  if (physicianSlug) {
+    orClauses.push({ referralSlug: physicianSlug });
+  }
+
+  const whereClause = {
+    role:        'PATIENT' as const,
+    assessments: { some: {} },
+    OR:          orClauses,
+  };
 
   const rawPatients = await prisma.user.findMany({
     where:  whereClause,
@@ -226,8 +230,7 @@ export default async function PatientListPage() {
           <div>
             <h1 className="text-xl font-bold text-slate-800">Patient Overview</h1>
             <p className="text-sm text-slate-500 mt-0.5">
-              Sorted by highest risk first · {patients.length} patient{patients.length !== 1 ? 's' : ''}
-              {physicianSlug ? ` attributed to /${physicianSlug}` : ' in system'}
+              Sorted by highest risk first · {patients.length} linked patient{patients.length !== 1 ? 's' : ''}
             </p>
           </div>
           <Link

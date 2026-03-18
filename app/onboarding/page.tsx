@@ -1,5 +1,5 @@
 'use client'
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useUser } from "@clerk/nextjs"
 
@@ -13,13 +13,50 @@ export default function OnboardingPage() {
   const [step, setStep] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [codeStatus, setCodeStatus] = useState<'idle' | 'validating' | 'valid' | 'invalid'>('idle')
+  const [physicianName, setPhysicianName] = useState("")
   const [form, setForm] = useState({
     fullName: "", age: "", sex: "", heightCm: "", weightKg: "",
     goalWeightKg: "", activityLevel: "", glp1Medication: "",
     glp1DoseMg: "", glp1Stage: "", treatmentStart: "",
     baselineProtein: "", researchConsent: false,
+    physicianCode: "",
   })
   const set = (k: string, v: string | boolean) => setForm(p => ({ ...p, [k]: v }))
+
+  // Pre-fill physician code from /join page sessionStorage
+  useEffect(() => {
+    const stored = sessionStorage.getItem('myoguard_physician_code')
+    if (stored) {
+      set('physicianCode', stored)
+      // Auto-validate the pre-filled code
+      validateCode(stored)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  async function validateCode(rawCode: string) {
+    const code = rawCode.trim().toUpperCase()
+    if (!code) {
+      setCodeStatus('idle')
+      setPhysicianName("")
+      return
+    }
+    setCodeStatus('validating')
+    try {
+      const res = await fetch(`/api/physician/validate-code?code=${encodeURIComponent(code)}`)
+      const data = await res.json() as { ok: boolean; displayName?: string }
+      if (data.ok && data.displayName) {
+        setCodeStatus('valid')
+        setPhysicianName(data.displayName)
+      } else {
+        setCodeStatus('invalid')
+        setPhysicianName("")
+      }
+    } catch {
+      setCodeStatus('idle')
+    }
+  }
 
   async function submit() {
     setLoading(true)
@@ -37,9 +74,12 @@ export default function OnboardingPage() {
           glp1DoseMg: parseFloat(form.glp1DoseMg),
           baselineProtein: form.baselineProtein ? parseFloat(form.baselineProtein) : undefined,
           email: user?.primaryEmailAddress?.emailAddress || "",
+          physicianCode: form.physicianCode.trim().toUpperCase() || undefined,
         }),
       })
       if (!res.ok) throw new Error("Failed")
+      // Clear stored physician code after successful onboarding
+      sessionStorage.removeItem('myoguard_physician_code')
       router.push("/dashboard/assessment")
     } catch {
       setError("Something went wrong. Please try again.")
@@ -61,6 +101,55 @@ export default function OnboardingPage() {
           <div style={{ display:"flex", flexDirection:"column", gap:"16px" }}>
             <div><label style={{ display:"block", fontSize:"14px", fontWeight:"500", color:"#374151", marginBottom:"4px" }}>Full Name</label>
             <input style={{ width:"100%", border:"1px solid #e5e7eb", borderRadius:"8px", padding:"12px", fontSize:"14px" }} value={form.fullName} onChange={e=>set("fullName",e.target.value)} placeholder="Your full name" /></div>
+
+            {/* ── Physician Code (optional) ── */}
+            <div>
+              <label style={{ display:"block", fontSize:"14px", fontWeight:"500", color:"#374151", marginBottom:"4px" }}>
+                Physician Code <span style={{ color:"#9ca3af", fontWeight:"normal" }}>(optional)</span>
+              </label>
+              <div style={{ position:"relative" }}>
+                <input
+                  style={{
+                    width:"100%", border:"1px solid",
+                    borderColor: codeStatus === 'valid' ? '#10b981' : codeStatus === 'invalid' ? '#ef4444' : '#e5e7eb',
+                    borderRadius:"8px", padding:"12px", paddingRight:"40px",
+                    fontSize:"14px", fontFamily:"monospace", letterSpacing:"0.05em",
+                    textTransform:"uppercase", boxSizing:"border-box"
+                  }}
+                  value={form.physicianCode}
+                  onChange={e => {
+                    set("physicianCode", e.target.value)
+                    if (e.target.value.length >= 6) {
+                      validateCode(e.target.value)
+                    } else if (!e.target.value) {
+                      setCodeStatus('idle')
+                      setPhysicianName("")
+                    }
+                  }}
+                  placeholder="e.g. DR-OKPALA-472"
+                  autoCapitalize="characters"
+                />
+                {codeStatus === 'validating' && (
+                  <span style={{ position:"absolute", right:"12px", top:"50%", transform:"translateY(-50%)", color:"#9ca3af", fontSize:"12px" }}>…</span>
+                )}
+                {codeStatus === 'valid' && (
+                  <span style={{ position:"absolute", right:"12px", top:"50%", transform:"translateY(-50%)", color:"#10b981" }}>✓</span>
+                )}
+                {codeStatus === 'invalid' && (
+                  <span style={{ position:"absolute", right:"12px", top:"50%", transform:"translateY(-50%)", color:"#ef4444" }}>✗</span>
+                )}
+              </div>
+              {codeStatus === 'valid' && physicianName && (
+                <p style={{ fontSize:"12px", color:"#059669", marginTop:"4px" }}>Linked to {physicianName}</p>
+              )}
+              {codeStatus === 'invalid' && (
+                <p style={{ fontSize:"12px", color:"#dc2626", marginTop:"4px" }}>Code not recognised — you can continue without one.</p>
+              )}
+              {codeStatus === 'idle' && (
+                <p style={{ fontSize:"12px", color:"#9ca3af", marginTop:"4px" }}>Enter the code your doctor gave you to link your account.</p>
+              )}
+            </div>
+
             <div><label style={{ display:"block", fontSize:"14px", fontWeight:"500", color:"#374151", marginBottom:"4px" }}>Age</label>
             <input style={{ width:"100%", border:"1px solid #e5e7eb", borderRadius:"8px", padding:"12px", fontSize:"14px" }} type="number" value={form.age} onChange={e=>set("age",e.target.value)} placeholder="e.g. 48" /></div>
             <div><label style={{ display:"block", fontSize:"14px", fontWeight:"500", color:"#374151", marginBottom:"4px" }}>Sex</label>

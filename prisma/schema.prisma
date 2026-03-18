@@ -95,6 +95,9 @@ model PhysicianProfile {
   displayName   String
   clinicName    String?
   specialty     String?
+  /// Human-readable code shared with patients: e.g. DR-OKPALA-472
+  /// Patients enter this during onboarding to link their account.
+  referralCode  String?  @unique
   startSheetUrl String?
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())

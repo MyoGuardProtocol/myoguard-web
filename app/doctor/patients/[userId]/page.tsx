@@ -192,10 +192,10 @@ export default async function PatientDetailPage({
   const { userId: clerkId } = await auth();
   if (!clerkId) redirect('/sign-in');
 
-  // Physician guard
+  // Physician guard — fetch id for ownership verification
   const physician = await prisma.user.findUnique({
     where:  { clerkId },
-    select: { role: true, referralSlug: true, fullName: true },
+    select: { id: true, role: true, referralSlug: true, fullName: true },
   });
   if (!physician) redirect('/dashboard');
   if (physician.role === 'PHYSICIAN_PENDING') redirect('/doctor/dashboard');
@@ -214,6 +214,24 @@ export default async function PatientDetailPage({
 
   // Fetch the patient
   const { userId: patientId } = await params;
+
+  // ── Security: verify this patient is linked to this physician ─────────────
+  // Check at DB level to prevent IDOR — physicians can only view patients who
+  // are explicitly linked to them via physicianId (new) or referralSlug (legacy).
+  const ownershipCheck = await prisma.user.findFirst({
+    where: {
+      id:   patientId,
+      role: 'PATIENT',
+      OR: [
+        { physicianId: physician.id },
+        ...(physicianSlug ? [{ referralSlug: physicianSlug }] : []),
+      ],
+    },
+    select: { id: true },
+  });
+  if (!ownershipCheck) redirect('/doctor/patients');
+  // ─────────────────────────────────────────────────────────────────────────
+
   const patient = await fetchPatient(patientId);
 
   if (!patient) notFound();
