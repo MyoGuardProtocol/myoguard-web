@@ -1,10 +1,12 @@
 'use client';
 
 import Link from 'next/link';
+import { useUser } from '@clerk/nextjs';
+import UserDropdown from './UserDropdown';
 
 type HeaderProps = {
   physicianName?: string | null;
-  /** Show the physician entry + My Dashboard + Sign In nav links (calculator page) */
+  /** Show the physician entry + auth nav in the top-right (calculator page) */
   showNav?: boolean;
 };
 
@@ -16,12 +18,16 @@ type HeaderProps = {
  *   2. Main header row            — logo lockup | physician badge | nav actions
  *
  * Nav layout (showNav=true):
- *   Mobile  : "I'm a Physician"  +  "Sign In"           (2 items — fits any screen)
- *   sm+     : "I'm a Physician"  +  "My Dashboard"  +  "Sign In"
+ *   Signed out — Mobile  : "I'm a Physician" + "Sign In"
+ *   Signed out — sm+     : "I'm a Physician" + "My Dashboard" + "Sign In"
+ *   Signed in  — any     : "I'm a Physician" + <UserDropdown> (avatar + name)
  *
- * "I'm a Physician" always shows its full text label on every breakpoint.
+ * During Clerk's load phase the signed-out links are shown to avoid layout
+ * shift (most visitors are not signed in; the swap is instantaneous once
+ * isLoaded=true).
  */
 export default function Header({ physicianName, showNav = false }: HeaderProps) {
+  const { isSignedIn, isLoaded } = useUser();
   return (
     <header className="bg-white border-b border-slate-200 print:hidden">
 
@@ -84,7 +90,6 @@ export default function Header({ physicianName, showNav = false }: HeaderProps) 
               <>
                 {/* ── Physician entry point ──────────────────────────────────────
                     Always shows full "I'm a Physician" label — including on mobile.
-                    "My Dashboard" is hidden on xs to keep the nav from overflowing.
                 ─────────────────────────────────────────────────────────────── */}
                 <Link
                   href="/doctor"
@@ -96,20 +101,31 @@ export default function Header({ physicianName, showNav = false }: HeaderProps) 
                   I&apos;m a Physician
                 </Link>
 
-                {/* Hidden on xs — only useful once logged in */}
-                <Link
-                  href="/dashboard"
-                  className="hidden sm:inline-flex text-xs bg-teal-600 text-white rounded-lg px-3.5 py-1.5 font-semibold hover:bg-teal-700 transition-colors whitespace-nowrap"
-                >
-                  My Dashboard
-                </Link>
+                {/* ── Auth-aware right side ───────────────────────────────────
+                    Signed in  → avatar dropdown (UserDropdown)
+                    Signed out → "My Dashboard" (sm+) + "Sign In"
+                    Loading    → signed-out state (no layout shift for most visitors)
+                ─────────────────────────────────────────────────────────────── */}
+                {isLoaded && isSignedIn ? (
+                  <UserDropdown />
+                ) : (
+                  <>
+                    {/* Hidden on xs — only useful once signed in */}
+                    <Link
+                      href="/dashboard"
+                      className="hidden sm:inline-flex text-xs bg-teal-600 text-white rounded-lg px-3.5 py-1.5 font-semibold hover:bg-teal-700 transition-colors whitespace-nowrap"
+                    >
+                      My Dashboard
+                    </Link>
 
-                <Link
-                  href="/sign-in"
-                  className="text-xs border border-slate-200 text-slate-600 rounded-lg px-3 py-1.5 font-medium hover:bg-slate-50 transition-colors whitespace-nowrap"
-                >
-                  Sign In
-                </Link>
+                    <Link
+                      href="/sign-in"
+                      className="text-xs border border-slate-200 text-slate-600 rounded-lg px-3 py-1.5 font-medium hover:bg-slate-50 transition-colors whitespace-nowrap"
+                    >
+                      Sign In
+                    </Link>
+                  </>
+                )}
               </>
             )}
           </div>
