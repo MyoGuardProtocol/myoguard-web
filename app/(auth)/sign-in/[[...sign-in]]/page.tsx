@@ -28,7 +28,12 @@ export default function SignInPage() {
           handles sign-in ↔ sign-up switching internally (never navigates away),
           causing the loop.  With path routing Clerk emits real navigations so
           multi-step flows and "Create account" links go to the correct URLs. */}
-      <SignIn routing="path" path="/sign-in" fallbackRedirectUrl="/dashboard" />
+      <SignIn
+        routing="path"
+        path="/sign-in"
+        signUpUrl="/sign-up"
+        fallbackRedirectUrl="/dashboard"
+      />
 
       {/* Guest fallback */}
       <Link
