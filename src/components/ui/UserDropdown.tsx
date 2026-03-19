@@ -20,7 +20,6 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { useUser, useClerk } from '@clerk/nextjs';
 import Link from 'next/link';
-import Image from 'next/image';
 
 export default function UserDropdown() {
   const { user, isLoaded, isSignedIn } = useUser();
@@ -95,10 +94,15 @@ export default function UserDropdown() {
         aria-label="Account menu"
         className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 border border-transparent hover:border-slate-200 hover:bg-slate-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
       >
-        {/* Avatar */}
+        {/* Avatar
+            Using <img> (not next/image) intentionally — next/image throws at
+            render time if the src hostname isn't in remotePatterns, which would
+            silently crash this component.  A 28 px avatar gains nothing from
+            Next.js image optimisation, so <img> is the correct choice here. */}
         <div className="w-7 h-7 rounded-full overflow-hidden bg-teal-600 flex items-center justify-center flex-shrink-0 ring-1 ring-teal-500/20">
           {user.imageUrl ? (
-            <Image
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
               src={user.imageUrl}
               alt={displayName}
               width={28}
