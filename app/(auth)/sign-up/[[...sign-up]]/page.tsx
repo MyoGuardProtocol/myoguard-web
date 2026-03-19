@@ -34,8 +34,11 @@ export default function SignUpPage() {
         </div>
       </div>
 
-      {/* Clerk sign-up widget — fallbackRedirectUrl is the v6-correct prop */}
-      <SignUp fallbackRedirectUrl="/dashboard" />
+      {/* Clerk sign-up widget
+          routing="path" + path="/sign-up" mirror the sign-in fix above.
+          Clerk needs to know its base URL to emit correct navigations for
+          multi-step flows and to point its "Sign in" link at /sign-in. */}
+      <SignUp routing="path" path="/sign-up" fallbackRedirectUrl="/dashboard" />
 
       {/* Guest fallback */}
       <Link

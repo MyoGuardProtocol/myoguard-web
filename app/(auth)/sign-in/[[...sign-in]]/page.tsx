@@ -22,8 +22,13 @@ export default function SignInPage() {
         </div>
       </div>
 
-      {/* Clerk sign-in widget — fallbackRedirectUrl is the v6-correct prop */}
-      <SignIn fallbackRedirectUrl="/dashboard" />
+      {/* Clerk sign-in widget
+          routing="path" + path="/sign-in" are required when using [[...sign-in]]
+          catch-all routes.  Without them Clerk defaults to virtual routing and
+          handles sign-in ↔ sign-up switching internally (never navigates away),
+          causing the loop.  With path routing Clerk emits real navigations so
+          multi-step flows and "Create account" links go to the correct URLs. */}
+      <SignIn routing="path" path="/sign-in" fallbackRedirectUrl="/dashboard" />
 
       {/* Guest fallback */}
       <Link
