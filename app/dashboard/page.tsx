@@ -194,52 +194,137 @@ export default async function DashboardPage() {
   const { userId } = await auth();
   if (!userId) redirect('/sign-in');
 
-  // ── Fetch user — wrapped in try/catch so a DB timeout (e.g. Supabase port
-  // blocked on corporate network) renders a friendly 503 instead of a hard 500.
+  // ── Fetch user ─────────────────────────────────────────────────────────────
+  // Two-phase load:
+  //   1. fetchDashboardUser  — fast DB read (indexed by clerkId)
+  //   2. upsert fallback     — first-login / webhook-race guard: if no row yet,
+  //      provision one immediately from Clerk's currentUser() so the dashboard
+  //      never blocks on the webhook.
+  // Both phases are wrapped in try/catch with specific error logging.
+  // A DB timeout (ETIMEDOUT, ENOTFOUND) or missing row does NOT crash the
+  // page — we render a limited but functional dashboard shell instead of 503.
   let user: DashboardUser | null = null;
+  let dbError: string | null = null;
 
   try {
     user = await fetchDashboardUser(userId);
-
-    // Webhook race-condition guard: if the Clerk webhook hasn't fired yet on
-    // first sign-up, provision the row immediately from currentUser() so the
-    // dashboard loads without blocking. The eventual webhook upsert is a no-op.
-    if (!user) {
+    if (user) {
+      // Happy path — row exists
+    } else {
+      // No row yet (first login before webhook fires, or webhook missed).
+      // Provision the row synchronously so the dashboard loads immediately.
+      console.log('[dashboard] no user row — provisioning from currentUser()');
       const clerkUser = await currentUser();
-      if (!clerkUser) redirect('/sign-in');
+      if (!clerkUser) redirect('/sign-in-new');
 
       const email     = clerkUser.emailAddresses[0]?.emailAddress ?? '';
       const firstName = clerkUser.firstName ?? '';
       const lastName  = clerkUser.lastName  ?? '';
       const fullName  = [firstName, lastName].filter(Boolean).join(' ') || 'MyoGuard User';
 
-      user = await prisma.user.upsert({
-        where:  { clerkId: userId },
-        update: {},
-        create: { clerkId: userId, email, fullName, role: 'PATIENT', subscriptionStatus: 'FREE' },
-        select: USER_SELECT,
-      });
+      try {
+        user = await prisma.user.upsert({
+          where:  { clerkId: userId },
+          update: {},
+          create: { clerkId: userId, email, fullName, role: 'PATIENT', subscriptionStatus: 'FREE' },
+          select: USER_SELECT,
+        });
+        console.log('[dashboard] provisioned new user row for', email);
+      } catch (upsertErr: unknown) {
+        const msg = upsertErr instanceof Error ? upsertErr.message : String(upsertErr);
+        console.error('[dashboard] prisma.user.upsert FAILED:', msg);
+        dbError = msg;
+      }
     }
-  } catch (err) {
-    console.error('[dashboard] DB unreachable:', err);
+  } catch (fetchErr: unknown) {
+    const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+    console.error('[dashboard] fetchDashboardUser FAILED:', msg);
+    dbError = msg;
   }
 
-  // ── DB unavailable fallback ─────────────────────────────────────────────
+  // ── DB unavailable — render a limited but functional shell ───────────────
+  // We do NOT redirect away or show a hard 503. The user is authenticated and
+  // their session is valid; the DB being temporarily unreachable should not
+  // log them out or prevent them using the app at all.
   if (!user) {
+    // Decode a display name from the Clerk session if available (no DB needed)
+    let shellName: string | null = null;
+    try {
+      const clerkUser = await currentUser();
+      shellName = clerkUser?.firstName ?? null;
+    } catch { /* ignore */ }
+
+    const isTimeout = dbError?.includes('ETIMEDOUT') || dbError?.includes('timeout') || dbError?.includes('ENOTFOUND');
+
     return (
-      <main className="min-h-screen bg-slate-50 font-sans flex items-center justify-center px-5">
-        <div className="max-w-sm w-full text-center space-y-4">
-          <p className="text-4xl font-black text-slate-200">503</p>
-          <h1 className="text-lg font-bold text-slate-800">Dashboard temporarily unavailable</h1>
-          <p className="text-sm text-slate-500 leading-relaxed">
-            We could not reach our servers right now. Please try again in a moment.
-          </p>
-          <a
-            href="/dashboard"
-            className="inline-block text-sm text-teal-600 hover:text-teal-700 font-semibold underline"
-          >
-            ↻ Retry
-          </a>
+      <main className="min-h-screen bg-slate-50 font-sans">
+        <header className="bg-white border-b border-slate-200 px-6 py-4">
+          <div className="max-w-xl mx-auto flex items-center justify-between">
+            <div>
+              <Link href="/" className="text-xl font-bold text-slate-800 tracking-tight hover:opacity-80 transition-opacity">
+                Myo<span className="text-teal-600">Guard</span>
+              </Link>
+              <p className="text-xs text-slate-500 mt-0.5">Physician-Formulated · Data-Driven Muscle Protection</p>
+            </div>
+            <span className="text-xs border rounded-full px-3 py-1 font-medium bg-slate-100 text-slate-500 border-slate-200">
+              Free Plan
+            </span>
+          </div>
+        </header>
+
+        <div className="max-w-xl mx-auto px-5 py-8 space-y-4">
+          <div>
+            <h1 className="text-xl font-bold text-slate-800">
+              Welcome back{shellName ? `, ${shellName}` : ''}
+            </h1>
+            <p className="text-slate-500 text-sm mt-0.5">Your muscle-protection dashboard</p>
+          </div>
+
+          {/* DB unavailable notice — friendly, not a hard error */}
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4">
+            <p className="text-sm font-semibold text-amber-800 mb-1">
+              {isTimeout ? 'Database connection timed out' : 'Profile data temporarily unavailable'}
+            </p>
+            <p className="text-xs text-amber-700 leading-relaxed mb-3">
+              {isTimeout
+                ? 'We could not reach the database within 8 seconds. This usually means the Supabase project is paused (free tier auto-pauses after inactivity) or outbound port 6543 is blocked on this network.'
+                : 'Your assessment history and saved data could not be loaded right now. You can still take a new assessment.'}
+            </p>
+            <div className="flex items-center gap-3 flex-wrap">
+              <a
+                href="/dashboard"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-amber-800 bg-amber-100 hover:bg-amber-200 border border-amber-300 rounded-lg px-3 py-1.5 transition-colors"
+              >
+                ↻ Retry
+              </a>
+              <Link
+                href="/"
+                className="text-xs font-medium text-amber-700 hover:underline"
+              >
+                Take a new assessment →
+              </Link>
+            </div>
+          </div>
+
+          {/* Keep quick actions functional — don't block on DB */}
+          <div className="grid grid-cols-2 gap-3">
+            <Link
+              href="/checkin"
+              className="bg-white border border-slate-200 rounded-2xl p-4 hover:border-teal-300 hover:shadow-sm transition-all"
+            >
+              <span className="text-xl mb-2 block">📋</span>
+              <p className="text-sm font-semibold text-slate-800 mb-0.5">Weekly check-in</p>
+              <p className="text-xs text-slate-500 leading-snug">Log this week&apos;s metrics</p>
+            </Link>
+            <Link
+              href="/"
+              className="bg-white border border-slate-200 rounded-2xl p-4 hover:border-teal-300 hover:shadow-sm transition-all"
+            >
+              <span className="text-xl mb-2 block">🔄</span>
+              <p className="text-sm font-semibold text-slate-800 mb-0.5">New assessment</p>
+              <p className="text-xs text-slate-500 leading-snug">Run your first assessment</p>
+            </Link>
+          </div>
         </div>
       </main>
     );
