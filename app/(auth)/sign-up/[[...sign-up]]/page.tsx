@@ -34,16 +34,11 @@ export default function SignUpPage() {
         </div>
       </div>
 
-      {/* Clerk sign-up widget
-          routing="path" + path="/sign-up" mirror the sign-in fix above.
-          Clerk needs to know its base URL to emit correct navigations for
-          multi-step flows and to point its "Sign in" link at /sign-in. */}
-      <SignUp
-        routing="path"
-        path="/sign-up"
-        signInUrl="/sign-in"
-        fallbackRedirectUrl="/dashboard"
-      />
+      {/* Clerk sign-up widget.
+          No routing/path/signInUrl props — same reasoning as SignIn above.
+          Clerk v6 App Router auto-detects routing from the [[...sign-up]]
+          catch-all convention. signInUrl is set on ClerkProvider in layout.tsx. */}
+      <SignUp fallbackRedirectUrl="/dashboard" />
 
       {/* Guest fallback */}
       <Link

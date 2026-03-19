@@ -22,18 +22,14 @@ export default function SignInPage() {
         </div>
       </div>
 
-      {/* Clerk sign-in widget
-          routing="path" + path="/sign-in" are required when using [[...sign-in]]
-          catch-all routes.  Without them Clerk defaults to virtual routing and
-          handles sign-in ↔ sign-up switching internally (never navigates away),
-          causing the loop.  With path routing Clerk emits real navigations so
-          multi-step flows and "Create account" links go to the correct URLs. */}
-      <SignIn
-        routing="path"
-        path="/sign-in"
-        signUpUrl="/sign-up"
-        fallbackRedirectUrl="/dashboard"
-      />
+      {/* Clerk sign-in widget.
+          No routing/path/signUpUrl props — Clerk v6 App Router auto-detects
+          path routing from the [[...sign-in]] catch-all segment convention.
+          Explicit routing props conflict with Next.js 16 / React 19 concurrent
+          rendering and caused the sign-in ↔ sign-up visible loop.
+          signUpUrl and signInUrl are controlled via ClerkProvider in layout.tsx
+          and NEXT_PUBLIC_CLERK_SIGN_IN_URL / SIGN_UP_URL env vars. */}
+      <SignIn fallbackRedirectUrl="/dashboard" />
 
       {/* Guest fallback */}
       <Link
