@@ -44,7 +44,20 @@ export default function RootLayout({
   }
 
   return (
-    <ClerkProvider publishableKey={clerkPublishableKey}>
+    /*
+     * signInUrl / signUpUrl are set explicitly here (in addition to the
+     * NEXT_PUBLIC_CLERK_SIGN_IN_URL / SIGN_UP_URL env vars) so that Clerk's
+     * provider-level navigation config is unambiguous.  Without these props
+     * Clerk relies solely on env var hydration timing, which can be late on
+     * the client and cause the widget to loop instead of navigating.
+     */
+    <ClerkProvider
+      publishableKey={clerkPublishableKey}
+      signInUrl="/sign-in-new"
+      signUpUrl="/sign-up-new"
+      afterSignInUrl="/dashboard"
+      afterSignUpUrl="/dashboard"
+    >
       {body}
     </ClerkProvider>
   );

@@ -85,6 +85,35 @@ textarea::placeholder {
   }
 }
 
+/* ─── Clerk OTP / verification code field fix ───────────────────────────────
+   The global rules above (appearance:none, bg-white, font-size:16px) use
+   !important which overrides Clerk's component CSS.  This breaks the OTP
+   character inputs in three ways:
+     1. appearance:none removes the browser's intrinsic width/height,
+        collapsing individual digit boxes to near-zero and making all
+        keystrokes land in the first (only visible) input.
+     2. background-color:white overrides Clerk's transparent/themed
+        background, hiding the digit-slot styling.
+     3. font-size:16px on mobile misaligns Clerk's character grid.
+
+   Fix: restore browser defaults specifically for inputs inside Clerk's
+   OTP field container (.cl-otpCodeField) so the character boxes render
+   and receive focus correctly. All other inputs are unaffected.
+   ─────────────────────────────────────────────────────────────────────────── */
+.cl-otpCodeField input,
+.cl-otpCodeField input[type="text"] {
+  -webkit-appearance: auto !important;
+  appearance:         auto !important;
+  background-color:   transparent !important;
+}
+
+@media (max-width: 768px) {
+  .cl-otpCodeField input,
+  .cl-otpCodeField input[type="text"] {
+    font-size: inherit !important;
+  }
+}
+
 /* ─── Autofill override ─────────────────────────────────────────────────────
    iOS Safari and Chrome replace the background with a coloured tint when
    autofill activates. The inset box-shadow trick is the only cross-browser

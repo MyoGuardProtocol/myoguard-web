@@ -22,7 +22,13 @@ export default function SignInPage() {
         </div>
       </div>
 
-      {/* Clerk sign-in widget — fallbackRedirectUrl is the v6-correct prop */}
+      {/* Clerk sign-in widget.
+          No routing/path/signUpUrl props — Clerk v6 App Router auto-detects
+          path routing from the [[...sign-in]] catch-all segment convention.
+          Explicit routing props conflict with Next.js 16 / React 19 concurrent
+          rendering and caused the sign-in ↔ sign-up visible loop.
+          signUpUrl and signInUrl are controlled via ClerkProvider in layout.tsx
+          and NEXT_PUBLIC_CLERK_SIGN_IN_URL / SIGN_UP_URL env vars. */}
       <SignIn fallbackRedirectUrl="/dashboard" />
 
       {/* Guest fallback */}
