@@ -195,25 +195,34 @@ export default async function DashboardPage() {
   if (!userId) redirect('/sign-in');
 
   // ── Fetch user ─────────────────────────────────────────────────────────────
-  // Two-phase load:
-  //   1. fetchDashboardUser  — fast DB read (indexed by clerkId)
-  //   2. upsert fallback     — first-login / webhook-race guard: if no row yet,
-  //      provision one immediately from Clerk's currentUser() so the dashboard
-  //      never blocks on the webhook.
-  // Both phases are wrapped in try/catch with specific error logging.
-  // A DB timeout (ETIMEDOUT, ENOTFOUND) or missing row does NOT crash the
-  // page — we render a limited but functional dashboard shell instead of 503.
+  // Three-phase load — handles every first-login race condition safely:
+  //
+  //   Phase 1 — fetchDashboardUser (findUnique by clerkId, indexed)
+  //     Happy path: row exists and is up-to-date. Done.
+  //
+  //   Phase 2a — findUnique by email
+  //     The Clerk webhook may have already created the row using the email
+  //     as the primary key before the clerkId was attached (or the row was
+  //     seeded manually). If so, UPDATE that row to stamp the current clerkId
+  //     so Phase 1 works on every subsequent visit.
+  //     This is the fix for: "Unique constraint failed on the fields: (email)"
+  //     — the old upsert(where:{clerkId}) always fell through to CREATE when
+  //     Phase 1 missed, hitting the unique email constraint on the existing row.
+  //
+  //   Phase 2b — create
+  //     Neither clerkId nor email exists in the DB. Truly new user.
+  //
+  // All phases are wrapped in try/catch. A DB error does NOT crash the page;
+  // we render a limited but functional dashboard shell instead of 503.
   let user: DashboardUser | null = null;
   let dbError: string | null = null;
 
   try {
     user = await fetchDashboardUser(userId);
-    if (user) {
-      // Happy path — row exists
-    } else {
-      // No row yet (first login before webhook fires, or webhook missed).
-      // Provision the row synchronously so the dashboard loads immediately.
-      console.log('[dashboard] no user row — provisioning from currentUser()');
+
+    if (!user) {
+      // Phases 2a/2b — need the Clerk identity to resolve email + display name
+      console.log('[dashboard] no row by clerkId — checking email / provisioning');
       const clerkUser = await currentUser();
       if (!clerkUser) redirect('/sign-in-new');
 
@@ -223,16 +232,32 @@ export default async function DashboardPage() {
       const fullName  = [firstName, lastName].filter(Boolean).join(' ') || 'MyoGuard User';
 
       try {
-        user = await prisma.user.upsert({
-          where:  { clerkId: userId },
-          update: {},
-          create: { clerkId: userId, email, fullName, role: 'PATIENT', subscriptionStatus: 'FREE' },
-          select: USER_SELECT,
+        // Phase 2a — does a row already exist for this email?
+        const byEmail = await prisma.user.findUnique({
+          where:  { email },
+          select: { id: true },
         });
-        console.log('[dashboard] provisioned new user row for', email);
-      } catch (upsertErr: unknown) {
-        const msg = upsertErr instanceof Error ? upsertErr.message : String(upsertErr);
-        console.error('[dashboard] prisma.user.upsert FAILED:', msg);
+
+        if (byEmail) {
+          // Row exists (created by webhook or seed) but lacks this clerkId.
+          // Attach the clerkId so future lookups hit Phase 1 directly.
+          console.log('[dashboard] found row by email — attaching clerkId for', email);
+          user = await prisma.user.update({
+            where:  { id: byEmail.id },
+            data:   { clerkId: userId },
+            select: USER_SELECT,
+          });
+        } else {
+          // Phase 2b — no row by clerkId, no row by email: safe to create.
+          console.log('[dashboard] provisioning new user row for', email);
+          user = await prisma.user.create({
+            data:   { clerkId: userId, email, fullName, role: 'PATIENT', subscriptionStatus: 'FREE' },
+            select: USER_SELECT,
+          });
+        }
+      } catch (provisionErr: unknown) {
+        const msg = provisionErr instanceof Error ? provisionErr.message : String(provisionErr);
+        console.error('[dashboard] user provisioning FAILED:', msg);
         dbError = msg;
       }
     }
