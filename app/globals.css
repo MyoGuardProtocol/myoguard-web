@@ -1,5 +1,22 @@
-@layer clerk;
 @import "tailwindcss";
+
+/* ─── Layer priority declaration ──────────────────────────────────────────────
+   @layer clerk must be declared AFTER @import "tailwindcss" so that Clerk's
+   component CSS (injected at runtime into @layer clerk) has HIGHER priority
+   than Tailwind's built-in layers (@layer base, @layer utilities, etc.).
+
+   Why this matters for OTP:
+     Tailwind's @layer base preflight includes `* { border-width: 0 }` and
+     `input { border-radius: 0 }`.  If @layer clerk is declared BEFORE
+     Tailwind, those preflight rules win over Clerk's explicit border and
+     border-radius on the OTP character boxes, collapsing them visually.
+
+   With @layer clerk declared here (after Tailwind), the layer priority order
+   is:  @layer base  <  @layer utilities  <  @layer clerk  <  (unlayered)
+   Clerk's borders, border-radius, and dimensions apply correctly.  Our own
+   unlayered globals.css rules still override everything (unlayered > any layer).
+   ─────────────────────────────────────────────────────────────────────────── */
+@layer clerk;
 
 /* ─── Colour tokens ──────────────────────────────────────────────────────────
    Force light mode only. color-scheme: light tells WebKit/iOS to keep all
@@ -44,17 +61,26 @@ body {
       pill shape so Tailwind border-radius and border-color render cleanly.
    5. font-size: 16px on mobile             — prevents iOS Safari auto-zoom on
       focus (triggered whenever an input's computed font-size is < 16px).
+
+   IMPORTANT — Clerk widget exclusion:
+   All Clerk-rendered inputs carry class names prefixed with "cl-" (e.g.
+   cl-formFieldInput, cl-otpCodeFieldInput).  The :not([class*="cl-"]) guard
+   below prevents every rule in this block from touching ANY Clerk input,
+   including the OTP character boxes.  This is safer than the previous
+   approach of applying the rules globally and then overriding them with a
+   separate Clerk-specific block — that approach broke when Clerk changed its
+   OTP DOM structure or added new input variants.
    ─────────────────────────────────────────────────────────────────────────── */
-input,
-input[type="text"],
-input[type="number"],
-input[type="email"],
-input[type="tel"],
-input[type="password"],
-input[type="search"],
-input[type="url"],
-select,
-textarea {
+input:not([class*="cl-"]),
+input[type="text"]:not([class*="cl-"]),
+input[type="number"]:not([class*="cl-"]),
+input[type="email"]:not([class*="cl-"]),
+input[type="tel"]:not([class*="cl-"]),
+input[type="password"]:not([class*="cl-"]),
+input[type="search"]:not([class*="cl-"]),
+input[type="url"]:not([class*="cl-"]),
+select:not([class*="cl-"]),
+textarea:not([class*="cl-"]) {
   background-color: #ffffff !important;
   color: #111827 !important;
   color-scheme: light;
@@ -63,55 +89,59 @@ textarea {
 }
 
 /* Placeholder contrast — lighter than input text, clearly readable */
-input::placeholder,
-textarea::placeholder {
+input:not([class*="cl-"])::placeholder,
+textarea:not([class*="cl-"])::placeholder {
   color: #9ca3af !important; /* gray-400 */
   opacity: 1;                /* Firefox reduces opacity by default */
 }
 
 /* ─── Mobile font-size (prevents iOS auto-zoom on focus) ────────────────── */
 @media (max-width: 768px) {
-  input,
-  input[type="text"],
-  input[type="number"],
-  input[type="email"],
-  input[type="tel"],
-  input[type="password"],
-  input[type="search"],
-  input[type="url"],
-  select,
-  textarea {
+  input:not([class*="cl-"]),
+  input[type="text"]:not([class*="cl-"]),
+  input[type="number"]:not([class*="cl-"]),
+  input[type="email"]:not([class*="cl-"]),
+  input[type="tel"]:not([class*="cl-"]),
+  input[type="password"]:not([class*="cl-"]),
+  input[type="search"]:not([class*="cl-"]),
+  input[type="url"]:not([class*="cl-"]),
+  select:not([class*="cl-"]),
+  textarea:not([class*="cl-"]) {
     font-size: 16px !important;
   }
 }
 
-/* ─── Clerk OTP / verification code field fix ───────────────────────────────
-   The global rules above (appearance:none, bg-white, font-size:16px) use
-   !important which overrides Clerk's component CSS.  This breaks the OTP
-   character inputs in three ways:
-     1. appearance:none removes the browser's intrinsic width/height,
-        collapsing individual digit boxes to near-zero and making all
-        keystrokes land in the first (only visible) input.
-     2. background-color:white overrides Clerk's transparent/themed
-        background, hiding the digit-slot styling.
-     3. font-size:16px on mobile misaligns Clerk's character grid.
+/* ─── Clerk widget input reset (belt-and-suspenders) ────────────────────────
+   The :not([class*="cl-"]) guard above excludes inputs that carry a cl-
+   prefixed class on the <input> element itself.  However, Clerk's CDN-loaded
+   clerk-js (which may be a newer build than the npm package) sometimes renders
+   OTP inputs without a cl- class on the <input> element — the cl- class lives
+   only on the wrapper div (e.g. cl-otpCodeFieldInputContainer).  Those inputs
+   would still be matched by our global rules and get appearance:none applied,
+   collapsing their intrinsic size and causing digit-piling.
 
-   Fix: restore browser defaults specifically for inputs inside Clerk's
-   OTP field container (.cl-otpCodeField) so the character boxes render
-   and receive focus correctly. All other inputs are unaffected.
+   This block uses the PARENT container selector instead: any input that is a
+   descendant of an element whose class contains "cl-" gets browser defaults
+   restored explicitly, with !important to beat our global !important rules.
+   This works regardless of whether the <input> itself has a cl- class.
+
+   Properties reset:
+   • appearance: auto    — restores intrinsic size so each box has its own width
+   • background: transparent — lets Clerk's themed background show through
+   • color: inherit       — lets Clerk's themed text colour apply
+   • font-size: inherit   — prevents iOS auto-zoom override on OTP boxes
    ─────────────────────────────────────────────────────────────────────────── */
-.cl-otpCodeField input,
-.cl-otpCodeField input[type="text"] {
+[class*="cl-"] input,
+[class*="cl-"] input[type="text"],
+[class*="cl-"] input[type="email"],
+[class*="cl-"] input[type="password"],
+[class*="cl-"] input[type="number"],
+[class*="cl-"] input[type="tel"] {
   -webkit-appearance: auto !important;
   appearance:         auto !important;
   background-color:   transparent !important;
-}
-
-@media (max-width: 768px) {
-  .cl-otpCodeField input,
-  .cl-otpCodeField input[type="text"] {
-    font-size: inherit !important;
-  }
+  color:              inherit !important;
+  font-size:          inherit !important;
 }
 
 /* ─── Autofill override ─────────────────────────────────────────────────────

@@ -291,9 +291,15 @@ export default async function DashboardPage() {
               </Link>
               <p className="text-xs text-slate-500 mt-0.5">Physician-Formulated · Data-Driven Muscle Protection</p>
             </div>
-            <span className="text-xs border rounded-full px-3 py-1 font-medium bg-slate-100 text-slate-500 border-slate-200">
-              Free Plan
-            </span>
+            <form action="/api/stripe/checkout" method="POST">
+              <button
+                type="submit"
+                title="Upgrade to Premium"
+                className="text-xs border rounded-full px-3 py-1 font-medium bg-slate-100 text-slate-500 border-slate-200 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-300 transition-colors cursor-pointer"
+              >
+                Free Plan · Upgrade →
+              </button>
+            </form>
           </div>
         </header>
 
@@ -410,13 +416,23 @@ export default async function DashboardPage() {
             </Link>
             <p className="text-xs text-slate-500 mt-0.5">Physician-Formulated · Data-Driven Muscle Protection</p>
           </div>
-          <span className={`text-xs border rounded-full px-3 py-1 font-medium ${
-            isPremium
-              ? 'bg-teal-50 text-teal-700 border-teal-200'
-              : 'bg-slate-100 text-slate-500 border-slate-200'
-          }`}>
-            {isPremium ? '⭐ Premium' : 'Free Plan'}
-          </span>
+          {isPremium ? (
+            /* Premium — pure status badge, not interactive */
+            <span className="text-xs border rounded-full px-3 py-1 font-medium bg-teal-50 text-teal-700 border-teal-200 cursor-default select-none">
+              ⭐ Premium
+            </span>
+          ) : (
+            /* Free Plan — clicking triggers the Stripe upgrade checkout */
+            <form action="/api/stripe/checkout" method="POST">
+              <button
+                type="submit"
+                title="Upgrade to Premium"
+                className="text-xs border rounded-full px-3 py-1 font-medium bg-slate-100 text-slate-500 border-slate-200 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-300 transition-colors cursor-pointer"
+              >
+                Free Plan · Upgrade →
+              </button>
+            </form>
+          )}
         </div>
       </header>
 

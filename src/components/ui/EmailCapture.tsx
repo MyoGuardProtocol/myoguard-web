@@ -9,13 +9,16 @@ type EmailCaptureProps = {
   referralSlug?: string | null;
 };
 
-/**
- * Email capture block — verbatim JSX from app/page.tsx lines 332–368.
- * Now actually POSTs to /api/email-capture instead of console.log.
- */
+// What the /api/email-capture route returns
+type EmailCaptureResponse = {
+  ok:        boolean;
+  delivered: boolean; // true = Resend confirmed delivery; false = key missing or delivery error
+};
+
 export default function EmailCapture({ results, formData, referralSlug }: EmailCaptureProps) {
-  const [email, setEmail] = useState('');
-  const [emailSubmitted, setEmailSubmitted] = useState(false);
+  const [email, setEmail]           = useState('');
+  const [submitted, setSubmitted]   = useState(false);
+  const [delivered, setDelivered]   = useState(false);
   const [emailError, setEmailError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -29,28 +32,30 @@ export default function EmailCapture({ results, formData, referralSlug }: EmailC
 
     try {
       const res = await fetch('/api/email-capture', {
-        method: 'POST',
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email,
           protocolResult: results,
           formData: {
-            medication: formData.medication,
-            doseMg: formData.doseMg,
+            medication:    formData.medication,
+            doseMg:        formData.doseMg,
             activityLevel: formData.activityLevel,
-            symptoms: formData.symptoms,
-            referralSlug: referralSlug ?? undefined,
+            symptoms:      formData.symptoms,
+            referralSlug:  referralSlug ?? undefined,
           },
         }),
       });
 
       if (res.ok) {
-        setEmailSubmitted(true);
+        const data = await res.json() as EmailCaptureResponse;
+        setDelivered(data.delivered === true);
+        setSubmitted(true);
       } else {
         setEmailError('Something went wrong. Please try again.');
       }
     } catch {
-      setEmailError('Unable to send. Please try again.');
+      setEmailError('Unable to connect. Please check your internet and try again.');
     } finally {
       setSubmitting(false);
     }
@@ -64,13 +69,29 @@ export default function EmailCapture({ results, formData, referralSlug }: EmailC
         We will not send spam or share your information.
       </p>
 
-      {emailSubmitted ? (
-        <div className="flex items-center gap-3 bg-teal-50 border border-teal-200 rounded-lg px-4 py-3">
-          <span className="text-teal-600 text-lg">✓</span>
-          <p className="text-sm text-teal-700">
-            Protocol sent to <span className="font-semibold">{email}</span>. Check your inbox.
-          </p>
-        </div>
+      {submitted ? (
+        delivered ? (
+          /* ── Email was confirmed delivered by Resend ── */
+          <div className="flex items-center gap-3 bg-teal-50 border border-teal-200 rounded-lg px-4 py-3">
+            <span className="text-teal-600 text-lg flex-shrink-0">✓</span>
+            <p className="text-sm text-teal-700">
+              Protocol sent to <span className="font-semibold">{email}</span>. Check your inbox (and spam folder).
+            </p>
+          </div>
+        ) : (
+          /* ── Submission received but email was NOT delivered ──
+               This happens when RESEND_API_KEY is not configured, or Resend
+               returned an error. Be honest: don't say "check your inbox". */
+          <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+            <span className="text-amber-500 text-lg flex-shrink-0 mt-0.5">⚠</span>
+            <div>
+              <p className="text-sm font-semibold text-amber-800">Email delivery is not available right now</p>
+              <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
+                We received your address but could not send the email. Screenshot or bookmark this page to save your protocol. We are working on enabling email delivery.
+              </p>
+            </div>
+          </div>
+        )
       ) : (
         <>
           <div className="flex gap-2">

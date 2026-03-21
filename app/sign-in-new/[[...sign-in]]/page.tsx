@@ -28,15 +28,17 @@ export default function SignInPage() {
       </div>
 
       {/*
-        routing="path" + path="/sign-in-new" are REQUIRED here.
-        Without them Clerk cannot serve sub-paths like
-        /sign-in-new/verify-email-address (OTP step), returning 404.
-        The [[...sign-in]] catch-all folder handles those sub-paths.
-        signUpUrl points to the matching catch-all sign-up route.
+        Do NOT pass routing="path" or path props here.
+        Clerk v6 App Router auto-detects path routing from the [[...sign-in]]
+        catch-all directory convention — the catch-all is what allows
+        /sign-in-new/verify-email-address to resolve (not the routing prop).
+        Passing routing="path" activates Clerk's programmatic routing mode,
+        which re-evaluates step state on every OTP keypress and can remount
+        the OTP inputs mid-input, causing digits to land in the wrong boxes.
+        signUpUrl is set on ClerkProvider in app/layout.tsx; signUpUrl here
+        ensures the "sign up" link inside the widget goes to the right route.
       */}
       <SignIn
-        routing="path"
-        path="/sign-in-new"
         signUpUrl="/sign-up-new"
         fallbackRedirectUrl="/dashboard"
       />

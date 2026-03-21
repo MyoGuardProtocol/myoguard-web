@@ -34,11 +34,16 @@ export async function POST(req: NextRequest) {
   }
 
   // Resolve internal user ID from Clerk ID.
-  // If the Clerk webhook hasn't fired yet (race condition on first sign-up),
-  // auto-provision the user row using Clerk's currentUser() so the assessment
-  // is never silently dropped.
+  // Three-phase provisioning — mirrors dashboard/page.tsx — prevents the
+  // "Unique constraint failed on the fields: (email)" error that occurs when:
+  //   - The Clerk webhook already created a row with the user's email, AND
+  //   - The clerkId lookup misses for any reason (timing, ID format drift, etc.)
+  //
+  // Phase 1 — fast indexed lookup by clerkId (happy path, almost always hits)
+  // Phase 2a — if miss: look up by email; if found, stamp the current clerkId
+  // Phase 2b — if still no row: safe to create (neither clerkId nor email exists)
   let user = await prisma.user.findUnique({
-    where: { clerkId: userId },
+    where:  { clerkId: userId },
     select: { id: true },
   });
 
@@ -47,17 +52,29 @@ export async function POST(req: NextRequest) {
     if (!clerkUser) {
       return NextResponse.json({ error: 'Unauthorised' }, { status: 401 });
     }
-    const email     = clerkUser.emailAddresses[0]?.emailAddress ?? '';
-    const firstName = clerkUser.firstName ?? '';
-    const lastName  = clerkUser.lastName  ?? '';
-    const fullName  = [firstName, lastName].filter(Boolean).join(' ') || 'MyoGuard User';
+    const email    = clerkUser.emailAddresses[0]?.emailAddress ?? '';
+    const fullName = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(' ') || 'MyoGuard User';
 
-    user = await prisma.user.upsert({
-      where:  { clerkId: userId },
-      update: {},
-      create: { clerkId: userId, email, fullName, role: 'PATIENT', subscriptionStatus: 'FREE' },
+    // Phase 2a — row exists by email but clerkId not yet attached
+    const byEmail = await prisma.user.findUnique({
+      where:  { email },
       select: { id: true },
     });
+
+    if (byEmail) {
+      // Attach the current clerkId so Phase 1 succeeds on every future request.
+      user = await prisma.user.update({
+        where:  { id: byEmail.id },
+        data:   { clerkId: userId },
+        select: { id: true },
+      });
+    } else {
+      // Phase 2b — truly new user; safe to create.
+      user = await prisma.user.create({
+        data:   { clerkId: userId, email, fullName, role: 'PATIENT', subscriptionStatus: 'FREE' },
+        select: { id: true },
+      });
+    }
   }
 
   const input = parsed.data;

@@ -12,8 +12,8 @@ import { useRouter } from 'next/navigation';
  * This component detects that, POSTs it to /api/assessment, clears the key,
  * then refreshes the dashboard so the newly-saved assessment is visible.
  *
- * While syncing, renders a subtle toast so the user knows something is
- * happening and the "No assessment yet" state isn't a dead-end.
+ * On failure the sessionStorage key is PRESERVED so the user can retry.
+ * A visible error state is shown with a manual retry button.
  *
  * It is safe to include on every dashboard render — it does nothing if the
  * key is absent or the user was already signed in when they ran the assessment.
@@ -23,10 +23,9 @@ export default function PostAuthSync() {
   const router   = useRouter();
   const didSync  = useRef(false);           // prevents double-fire in StrictMode
   const [syncing, setSyncing] = useState(false);
+  const [failed,  setFailed]  = useState(false);
 
-  useEffect(() => {
-    if (!isLoaded || !isSignedIn || didSync.current) return;
-
+  function attemptSync() {
     let pending: string | null = null;
     try {
       pending = sessionStorage.getItem('myoguard_pending_assessment');
@@ -35,39 +34,81 @@ export default function PostAuthSync() {
     }
 
     if (!pending) return;
-    didSync.current = true;
 
     let formData: unknown;
     try {
       const parsed = JSON.parse(pending) as { formData: unknown };
       formData = parsed.formData;
     } catch {
+      // Corrupt data — nothing we can do; clear it
       sessionStorage.removeItem('myoguard_pending_assessment');
       return;
     }
 
     setSyncing(true);
+    setFailed(false);
 
     fetch('/api/assessment', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify(formData),
     })
-      .then(() => {
-        sessionStorage.removeItem('myoguard_pending_assessment');
-        // Refresh the server component so the newly saved assessment appears.
-        router.refresh();
-      })
-      .catch(() => {
-        // Silently discard — the user can always re-run the assessment.
+      .then(async (res) => {
+        if (!res.ok) {
+          // Server returned an error — log it but keep sessionStorage so the user can retry
+          const text = await res.text().catch(() => '(no body)');
+          console.error(
+            `[PostAuthSync] /api/assessment returned ${res.status}:`,
+            text,
+          );
+          setSyncing(false);
+          setFailed(true);
+          return;
+        }
+        // Success — clear state and pending data, then refresh dashboard data.
+        // setSyncing(false) must come BEFORE router.refresh():
+        // router.refresh() returns void and does not unmount this component,
+        // so without this call syncing stays true and the spinner hangs forever.
         sessionStorage.removeItem('myoguard_pending_assessment');
         setSyncing(false);
+        router.refresh();
+      })
+      .catch((err) => {
+        // Network error — keep sessionStorage intact so the user can retry
+        console.error('[PostAuthSync] fetch failed:', err);
+        setSyncing(false);
+        setFailed(true);
       });
-  }, [isLoaded, isSignedIn, router]);
+  }
 
-  if (!syncing) return null;
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn || didSync.current) return;
+    didSync.current = true;
+    attemptSync();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoaded, isSignedIn]);
 
-  // Subtle fixed toast — visible only while the POST is in flight.
+  // Nothing to show — no pending sync in progress or failed
+  if (!syncing && !failed) return null;
+
+  if (failed) {
+    return (
+      <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-red-900 text-white text-xs font-medium px-4 py-2.5 rounded-full shadow-lg">
+        <span>⚠ Could not save your assessment.</span>
+        <button
+          onClick={() => {
+            didSync.current = false; // allow re-attempt
+            attemptSync();
+          }}
+          className="underline hover:no-underline text-red-200 hover:text-white transition-colors"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  // Syncing in progress — subtle spinner toast
   return (
     <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 bg-slate-900 text-white text-xs font-medium px-4 py-2.5 rounded-full shadow-lg pointer-events-none">
       {/* Spinner */}

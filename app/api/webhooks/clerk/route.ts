@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Webhook } from 'svix';
 import { prisma } from '@/src/lib/prisma';
 
 /**
@@ -10,22 +11,39 @@ import { prisma } from '@/src/lib/prisma';
  *  - URL: https://myoguard.health/api/webhooks/clerk
  *  - Copy the Signing Secret into CLERK_WEBHOOK_SECRET
  *
- * Signature verification requires the `svix` package.
- * If svix is not installed / CLERK_WEBHOOK_SECRET is absent, the route
- * degrades gracefully and logs a warning.
+ * All requests are verified via svix HMAC signature before processing.
+ * Requests without a valid signature are rejected with 400.
  */
 export async function POST(req: NextRequest) {
   const webhookSecret = process.env.CLERK_WEBHOOK_SECRET;
 
+  // Reject immediately if the secret is not configured — do not process unverified payloads.
   if (!webhookSecret) {
-    console.warn('[clerk/webhook] CLERK_WEBHOOK_SECRET not set — skipping verification');
+    console.error('[clerk/webhook] CLERK_WEBHOOK_SECRET is not set — rejecting request');
+    return NextResponse.json(
+      { error: 'Webhook not configured on this server' },
+      { status: 500 },
+    );
   }
+
+  // Read the raw body (required for HMAC verification — must not be parsed first).
+  const rawBody = await req.text();
+
+  const svixId        = req.headers.get('svix-id')        ?? '';
+  const svixTimestamp = req.headers.get('svix-timestamp') ?? '';
+  const svixSignature = req.headers.get('svix-signature') ?? '';
 
   let payload: Record<string, unknown>;
   try {
-    payload = await req.json();
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+    const wh = new Webhook(webhookSecret);
+    payload = wh.verify(rawBody, {
+      'svix-id':        svixId,
+      'svix-timestamp': svixTimestamp,
+      'svix-signature': svixSignature,
+    }) as Record<string, unknown>;
+  } catch (err) {
+    console.error('[clerk/webhook] Signature verification failed', err);
+    return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 400 });
   }
 
   const eventType = payload.type as string | undefined;

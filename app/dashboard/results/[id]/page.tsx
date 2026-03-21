@@ -2,6 +2,7 @@ import { auth } from '@clerk/nextjs/server';
 import { redirect, notFound } from 'next/navigation';
 import { prisma } from '@/src/lib/prisma';
 import Link from 'next/link';
+import UserDropdown from '@/src/components/ui/UserDropdown';
 
 // ─── Band config ───────────────────────────────────────────────────────────────
 type Band = 'CRITICAL' | 'HIGH' | 'MODERATE' | 'LOW';
@@ -103,12 +104,16 @@ export default async function ResultsPage({
           <Link href="/" className="text-lg font-bold text-white tracking-tight">
             Myo<span className="text-teal-400">Guard</span>
           </Link>
-          <Link
-            href="/dashboard"
-            className="text-xs text-slate-400 hover:text-white transition-colors font-medium"
-          >
-            ← Dashboard
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/dashboard"
+              className="text-xs text-slate-400 hover:text-white transition-colors font-medium"
+            >
+              ← Dashboard
+            </Link>
+            {/* Client component — handles its own auth guard (returns null when signed out) */}
+            <UserDropdown />
+          </div>
         </div>
       </header>
 

@@ -35,8 +35,18 @@ export async function POST(req: NextRequest) {
   // ── 1. Resend email delivery ─────────────────────────────────────────────
   const resendKey = process.env.RESEND_API_KEY;
 
+  // Track whether the email was actually delivered so the UI can show an
+  // honest confirmation vs. a "not configured" fallback message.
+  let delivered = false;
+
   if (!resendKey) {
-    console.warn('[email-capture] RESEND_API_KEY not set — skipping email delivery');
+    // Key is absent — log clearly so the operator knows why email is missing.
+    // Return ok:true so the request doesn't error, but delivered:false so the
+    // UI can tell the user the email was NOT sent (rather than lying to them).
+    console.warn(
+      '[email-capture] RESEND_API_KEY is not set. ' +
+      'Add it to .env to enable email delivery. Email NOT sent to:', email,
+    );
   } else {
     try {
       const html = buildProtocolEmail({ email, protocolResult, formData });
@@ -58,15 +68,15 @@ export async function POST(req: NextRequest) {
       if (resendRes.ok) {
         const result = await resendRes.json() as { id?: string };
         console.log('[email-capture] Resend delivered — id:', result.id, 'to:', email);
+        delivered = true;
       } else {
         const errText = await resendRes.text();
         console.error('[email-capture] Resend error', resendRes.status, errText);
-        // Do NOT return an error — the user already submitted their email.
-        // Log it and continue so the UI shows the success confirmation.
+        // delivered stays false — UI will show a delivery-failed message.
       }
     } catch (err) {
       console.error('[email-capture] Resend fetch threw', err);
-      // Same rationale — non-fatal, continue to return 200.
+      // delivered stays false — transient network failure, UI shows error state.
     }
   }
 
@@ -102,7 +112,9 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true });
+  // Always return 200 — the form submission itself succeeded even if email
+  // delivery did not. The `delivered` flag lets the UI differentiate.
+  return NextResponse.json({ ok: true, delivered });
 }
 
 // ─── Email template ──────────────────────────────────────────────────────────

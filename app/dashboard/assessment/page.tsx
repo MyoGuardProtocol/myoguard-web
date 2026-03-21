@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { z } from 'zod';
+import { useUser } from '@clerk/nextjs';
+import UserDropdown from '@/src/components/ui/UserDropdown';
 
 // ─── Symptoms list (mirrors main form + protocol engine) ──────────────────────
 const SYMPTOMS = [
@@ -84,6 +86,7 @@ function inputCls(hasError: boolean) {
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function AssessmentPage() {
   const router = useRouter();
+  const { isSignedIn, isLoaded } = useUser();
 
   const [form, setForm] = useState<FormData>({
     weightKg:        '',
@@ -189,9 +192,13 @@ export default function AssessmentPage() {
           <Link href="/" className="text-xl font-bold text-slate-800 tracking-tight hover:opacity-80 transition-opacity">
             Myo<span className="text-teal-600">Guard</span>
           </Link>
-          <Link href="/dashboard" className="text-xs font-medium text-teal-600 hover:underline">
-            ← Dashboard
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link href="/dashboard" className="text-xs font-medium text-teal-600 hover:underline">
+              ← Dashboard
+            </Link>
+            {/* UserDropdown returns null when not signed in — safe to render unconditionally */}
+            {isLoaded && isSignedIn && <UserDropdown />}
+          </div>
         </div>
       </header>
 
