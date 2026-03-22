@@ -62,6 +62,7 @@ export async function POST(req: NextRequest) {
           to:      email,
           subject: 'Your MyoGuard Muscle Protection Plan',
           html,
+          reply_to: "myoguardprotocol@gmail.com"
         }),
       });
 
