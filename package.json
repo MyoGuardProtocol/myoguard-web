@@ -10,7 +10,8 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
-    "db:seed": "node seed.js"
+    "db:seed": "node seed.js",
+    "test:css": "node tests/otp-css-audit.mjs"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.12.12",

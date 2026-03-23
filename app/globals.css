@@ -111,26 +111,48 @@ textarea:not([class*="cl-"])::placeholder {
   }
 }
 
-/* ─── Clerk widget input reset (belt-and-suspenders) ────────────────────────
-   The :not([class*="cl-"]) guard above excludes inputs that carry a cl-
-   prefixed class on the <input> element itself.  However, Clerk's CDN-loaded
-   clerk-js (which may be a newer build than the npm package) sometimes renders
-   OTP inputs without a cl- class on the <input> element — the cl- class lives
-   only on the wrapper div (e.g. cl-otpCodeFieldInputContainer).  Those inputs
-   would still be matched by our global rules and get appearance:none applied,
-   collapsing their intrinsic size and causing digit-piling.
+/* ─── Clerk widget input reset ───────────────────────────────────────────────
+   Defense-in-depth: three independent selector strategies so no single point
+   of failure can re-introduce the OTP digit-piling / wrong-box regression.
 
-   This block uses the PARENT container selector instead: any input that is a
-   descendant of an element whose class contains "cl-" gets browser defaults
-   restored explicitly, with !important to beat our global !important rules.
-   This works regardless of whether the <input> itself has a cl- class.
+   STRATEGY 1 — exact Clerk OTP container class selectors (most reliable)
+     These are plain class selectors and are NEVER altered by Lightning CSS or
+     Tailwind v4's PostCSS pipeline.  They mirror the selectors used in
+     commit 0448ad3 ("Restore Clerk OTP character box rendering"), which was
+     the first confirmed working fix.  If Clerk renames these containers they
+     remain safe because strategies 2 and 3 still cover the new names.
 
-   Properties reset:
-   • appearance: auto    — restores intrinsic size so each box has its own width
-   • background: transparent — lets Clerk's themed background show through
-   • color: inherit       — lets Clerk's themed text colour apply
-   • font-size: inherit   — prevents iOS auto-zoom override on OTP boxes
+   STRATEGY 2 — Clerk input element class selector
+     Clerk v5 attaches cl-otpCodeFieldInput directly to each <input>.
+     Targeting it directly has higher specificity than the container approach
+     and acts as a per-element override.
+
+   STRATEGY 3 — attribute-value belt-and-suspenders
+     Covers any Clerk input inside ANY element whose class contains "cl-",
+     regardless of how Clerk restructures its DOM in future CDN updates.
+     This is the weakest strategy alone (Lightning CSS may normalise it in
+     certain PostCSS configs) but is safe as a third layer behind strategies
+     1 and 2 which use plain class selectors.
+
+   WHY !important on appearance, background-color, color:
+     The global rule above (`input:not([class*="cl-"])`) applies those three
+     properties with !important for iOS dark-mode correctness on app inputs.
+     For inputs that escape the :not() guard (e.g. Clerk CDN renders without
+     a cl- class on the <input>), they would inherit those !important values.
+     Only an equally-weighted or stronger !important rule can override them,
+     so we match the weight here and win by document order (this block is later).
+
+   font-size: inherit is NOT !important — lets Clerk's own 20px OTP font
+   size take effect (set via the appearance API in layout.tsx).  The mobile
+   media query below re-applies !important to prevent iOS auto-zoom on OTP.
    ─────────────────────────────────────────────────────────────────────────── */
+
+/* Strategy 1: exact OTP container class selectors */
+.cl-otpCodeField input,
+.cl-otpCodeFieldInputs input,
+/* Strategy 2: direct input element class (Clerk v5 attaches this) */
+.cl-otpCodeFieldInput,
+/* Strategy 3: any input inside any cl- prefixed element */
 [class*="cl-"] input,
 [class*="cl-"] input[type="text"],
 [class*="cl-"] input[type="email"],
@@ -141,7 +163,19 @@ textarea:not([class*="cl-"])::placeholder {
   appearance:         auto !important;
   background-color:   transparent !important;
   color:              inherit !important;
-  font-size:          inherit !important;
+  font-size:          inherit; /* no !important — Clerk appearance API sets 20px */
+}
+
+/* Prevent iOS auto-zoom on Clerk OTP boxes specifically.
+   Separate from the font-size above so mobile gets !important
+   while desktop leaves it open to the appearance API. */
+@media (max-width: 768px) {
+  .cl-otpCodeField input,
+  .cl-otpCodeFieldInputs input,
+  .cl-otpCodeFieldInput,
+  [class*="cl-"] input {
+    font-size: inherit !important;
+  }
 }
 
 /* ─── Autofill override ─────────────────────────────────────────────────────

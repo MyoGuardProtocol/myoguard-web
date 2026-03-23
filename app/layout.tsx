@@ -57,6 +57,34 @@ export default function RootLayout({
       signUpUrl="/sign-up-new"
       signInFallbackRedirectUrl="/dashboard"
       signUpFallbackRedirectUrl="/dashboard"
+      appearance={{
+        elements: {
+          /*
+           * otpCodeFieldInput — the actual <input> for each OTP digit.
+           *
+           * These styles are injected by Clerk's appearance API as high-
+           * priority CSS on the .cl-otpCodeFieldInput class.  They complement
+           * the CSS reset in globals.css that restores appearance:auto and
+           * background:transparent — the appearance API handles visual polish
+           * (font size, border, radius) while globals.css handles the CSS
+           * cascade fights with Tailwind preflight.
+           *
+           * DO NOT set `appearance` here — it has no effect via this API and
+           * must be controlled through CSS (globals.css) instead.
+           *
+           * DO NOT set width/height — Clerk's own sx system sets each box to
+           * t.space.$10 × t.space.$10 (~40px²) via generated CSS classes.
+           * Overriding them here without a sizing parent causes the digit
+           * boxes to collapse or overflow.
+           */
+          otpCodeFieldInput: {
+            fontSize:     '20px',
+            textAlign:    'center',
+            borderRadius: '8px',
+            border:       '1px solid #cbd5e1', /* slate-300 */
+          },
+        },
+      }}
     >
       {body}
     </ClerkProvider>
