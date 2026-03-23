@@ -163,18 +163,78 @@ textarea:not([class*="cl-"])::placeholder {
   appearance:         auto !important;
   background-color:   transparent !important;
   color:              inherit !important;
-  font-size:          inherit; /* no !important — Clerk appearance API sets 20px */
+  /* font-size MUST be !important here.
+     Unlayered CSS (this file) beats @layer clerk (where Clerk's sx CSS lives)
+     for ALL declarations — not just !important ones.  The earlier
+     `font-size: inherit` (no !important) was still unlayered and therefore
+     silently overrode Clerk's textVariants.h2 size (20px), causing digits
+     to render at 16px (inherited body size) inside a box sized for 20px
+     text.  Explicit 20px here matches the appearance API value and the
+     box dimensions enforced below. */
+  font-size:          20px !important;
+  /* Remove browser-native inset padding restored by appearance:auto.
+     Chrome applies 1px 2px; Safari/iOS applies 1px 4px.  Without this
+     reset, text is pushed off-centre vertically and horizontally. */
+  padding:            0 !important;
+  /* Normalise line-height so the browser doesn't apply platform-specific
+     leading that offsets the digit vertically within the fixed-height box. */
+  line-height:        normal !important;
+  /* Ensure text is centred even if a browser default overrides Clerk's
+     textAlign:center from @layer clerk. */
+  text-align:         center !important;
 }
 
-/* Prevent iOS auto-zoom on Clerk OTP boxes specifically.
-   Separate from the font-size above so mobile gets !important
-   while desktop leaves it open to the appearance API. */
+/* ─── Clerk OTP box layout enforcement ──────────────────────────────────────
+   WHY THIS BLOCK IS NEEDED (on top of the three-layer reset above):
+
+   The reset block fixes appearance / bg / color — but those properties do
+   not control box dimensions.  Clerk sets width/height via its sx system
+   into @layer clerk.  Because unlayered CSS beats @layer clerk, any
+   unlayered rule (including our reset above) takes precedence even for
+   properties it doesn't explicitly set — the cascade means @layer clerk
+   values are only applied if no unlayered rule touches that property.
+
+   In practice, "appearance:auto" also restores the browser's intrinsic
+   min-width for text inputs (based on the `size` attribute, default 20
+   chars).  On some browsers/versions this can override Clerk's 40px width.
+   Explicit pixel values here shut down that ambiguity entirely.
+
+   Gap between boxes: Clerk's flex gap lives in @layer clerk on the
+   .cl-otpCodeFieldInputs container.  No unlayered CSS touched it before,
+   so it applied.  Explicitly enforcing it here makes the gap immune to any
+   future unlayered rule being added above this one.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* Flex row container: uniform gap and alignment */
+.cl-otpCodeFieldInputs {
+  display:         flex !important;
+  flex-direction:  row !important;
+  align-items:     center !important;
+  justify-content: center !important;
+  gap:             8px !important;
+}
+
+/* Individual digit boxes: fixed pixel dimensions, no grow/shrink */
+.cl-otpCodeField input,
+.cl-otpCodeFieldInputs input,
+.cl-otpCodeFieldInput {
+  width:      44px !important;
+  height:     52px !important;
+  min-width:  44px !important;
+  max-width:  44px !important;
+  flex:       0 0 44px !important; /* never grow, never shrink, always 44px */
+  box-sizing: border-box !important;
+  overflow:   hidden !important;   /* prevent digit bleed outside box boundary */
+}
+
+
+/* iOS auto-zoom guard: keep 20px on mobile (≥16px prevents Safari zoom). */
 @media (max-width: 768px) {
   .cl-otpCodeField input,
   .cl-otpCodeFieldInputs input,
   .cl-otpCodeFieldInput,
   [class*="cl-"] input {
-    font-size: inherit !important;
+    font-size: 20px !important;
   }
 }
 

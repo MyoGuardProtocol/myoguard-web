@@ -62,26 +62,35 @@ export default function RootLayout({
           /*
            * otpCodeFieldInput — the actual <input> for each OTP digit.
            *
-           * These styles are injected by Clerk's appearance API as high-
-           * priority CSS on the .cl-otpCodeFieldInput class.  They complement
-           * the CSS reset in globals.css that restores appearance:auto and
-           * background:transparent — the appearance API handles visual polish
-           * (font size, border, radius) while globals.css handles the CSS
-           * cascade fights with Tailwind preflight.
+           * NOTE: globals.css enforces the authoritative layout for these
+           * boxes via unlayered !important rules (which beat @layer clerk
+           * where this appearance API's CSS is injected).  The values here
+           * are therefore documentation + a fallback for any browser that
+           * processes layers differently, NOT the effective source of truth.
            *
-           * DO NOT set `appearance` here — it has no effect via this API and
-           * must be controlled through CSS (globals.css) instead.
-           *
-           * DO NOT set width/height — Clerk's own sx system sets each box to
-           * t.space.$10 × t.space.$10 (~40px²) via generated CSS classes.
-           * Overriding them here without a sizing parent causes the digit
-           * boxes to collapse or overflow.
+           * Authoritative values live in globals.css:
+           *   width: 44px | height: 52px | font-size: 20px | padding: 0
            */
           otpCodeFieldInput: {
+            width:        '44px',
+            height:       '52px',
             fontSize:     '20px',
+            lineHeight:   'normal',
             textAlign:    'center',
+            padding:      '0',
+            boxSizing:    'border-box',
             borderRadius: '8px',
-            border:       '1px solid #cbd5e1', /* slate-300 */
+            border:       '1px solid #cbd5e1',
+          },
+          /*
+           * otpCodeFieldInputs — the flex row wrapping all six digit boxes.
+           * Mirrors the .cl-otpCodeFieldInputs rule in globals.css.
+           */
+          otpCodeFieldInputs: {
+            gap:            '8px',
+            display:        'flex',
+            alignItems:     'center',
+            justifyContent: 'center',
           },
         },
       }}

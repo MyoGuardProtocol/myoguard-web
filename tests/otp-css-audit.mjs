@@ -195,11 +195,31 @@ check(
   'size. This is the first-party override, independent of CSS cascade rules.',
 );
 check(
-  'width/height are NOT overridden on otpCodeFieldInput',
-  !layout.includes("width:") || !layout.includes("otpCodeFieldInput:"),
-  "Do not set width or height on otpCodeFieldInput via the appearance API. " +
-  "Clerk sx system sizes each box via t.space.$10. Overriding without a " +
-  'sizing parent collapses the boxes.',
+  'globals.css enforces fixed width on OTP boxes with !important',
+  css.includes('width:') && css.includes('44px') && css.includes('!important'),
+  'globals.css must set width: 44px !important on .cl-otpCodeField input / ' +
+  '.cl-otpCodeFieldInput. The appearance API goes into @layer clerk which ' +
+  'unlayered CSS beats — only !important in globals.css guarantees the size.',
+);
+check(
+  'globals.css enforces fixed height on OTP boxes with !important',
+  css.includes('height:') && css.includes('52px') && css.includes('!important'),
+  'globals.css must set height: 52px !important on .cl-otpCodeField input / ' +
+  '.cl-otpCodeFieldInput.',
+);
+check(
+  'globals.css enforces font-size: 20px !important on OTP boxes',
+  css.includes('font-size:') && css.includes('20px !important'),
+  'font-size must be 20px !important — without !important the unlayered ' +
+  'font-size:inherit override wins over @layer clerk and digits render at ' +
+  'the inherited body size (16px), misaligning text inside fixed boxes.',
+);
+check(
+  'globals.css enforces padding: 0 !important on OTP boxes',
+  css.includes('padding:') && (css.includes('0 !important') || css.includes('0px !important')),
+  'padding: 0 !important removes the browser-native inset padding restored ' +
+  'by appearance:auto (Chrome 1px 2px, Safari 1px 4px) which offsets text ' +
+  'from centre inside the digit box.',
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
