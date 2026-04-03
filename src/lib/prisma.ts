@@ -49,7 +49,7 @@ function createPrismaClient(): PrismaClient {
     max:                     5,       // small pool for dev / serverless
   });
 
-  const adapter = new PrismaPg(pool);
+  const adapter = new PrismaPg(pool as Parameters<typeof PrismaPg>[0]);
 
   return new PrismaClient({
     adapter,
