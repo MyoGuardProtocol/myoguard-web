@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "myoguard-dev",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\node.exe",
+      "runtimeArgs": [
+        "C:\\Users\\Onyekachukwu Okpala\\Projects\\myoguard-web\\node_modules\\next\\dist\\bin\\next",
+        "dev",
+        "C:\\Users\\Onyekachukwu Okpala\\Projects\\myoguard-web",
+        "--port",
+        "3002"
+      ],
+      "port": 3002
+    }
+  ]
+}
