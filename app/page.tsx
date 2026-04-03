@@ -59,7 +59,7 @@ function CalculatorInner() {
 
   return (
     <main className="min-h-screen bg-slate-50 font-sans">
-      <Header physicianName={physician?.displayName ?? null} showNav />
+      <Header showNav />
 
       <div className="max-w-3xl mx-auto px-6 py-10">
         {step === 'form' ? (
