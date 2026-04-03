@@ -5,50 +5,62 @@ import { useUser } from '@clerk/nextjs';
 import UserDropdown from './UserDropdown';
 
 type HeaderProps = {
-  physicianName?: string | null;
   /** Show the physician entry + auth nav in the top-right (calculator page) */
   showNav?: boolean;
 };
 
 /**
- * Shared brand header.
+ * Shared brand header — used on public/landing pages only.
  *
  * Structure:
- *   1. Institutional trust strip  — slim teal bar with clinical positioning tags
- *   2. Main header row            — logo lockup | physician badge | nav actions
+ *   1. Trust strip  — slim slate-900 bar, clinical tags (progressive reveal by breakpoint)
+ *   2. Main row     — shield + wordmark lockup | nav actions
  *
  * Nav layout (showNav=true):
- *   Signed out — Mobile  : "I'm a Physician" + "Sign In"
- *   Signed out — sm+     : "I'm a Physician" + "My Dashboard" + "Sign In"
- *   Signed in  — any     : "I'm a Physician" + <UserDropdown> (avatar + name)
+ *   Signed out — xs   : "I'm a Physician" + "Sign In"
+ *   Signed out — sm+  : "I'm a Physician" + "My Dashboard" + "Sign In"
+ *   Signed in  — any  : "I'm a Physician" + avatar dropdown (no name shown)
  *
- * During Clerk's load phase the signed-out links are shown to avoid layout
- * shift (most visitors are not signed in; the swap is instantaneous once
- * isLoaded=true).
+ * During Clerk's load phase the signed-out state is rendered to avoid
+ * layout shift — most visitors are guests, and the swap is instant.
  */
-export default function Header({ physicianName, showNav = false }: HeaderProps) {
+export default function Header({ showNav = false }: HeaderProps) {
   const { isSignedIn, isLoaded } = useUser();
+
+  // Route the logo to /dashboard for signed-in users; home for guests.
+  // We wait for Clerk to load before switching so there's no href flash.
+  const logoHref = isLoaded && isSignedIn ? '/dashboard' : '/';
+
   return (
     <header className="bg-white border-b border-slate-200 print:hidden">
 
-      {/* ── Institutional trust strip ── */}
-      <div className="bg-teal-700 px-6 py-1.5">
+      {/* ── Institutional trust strip — navy background, teal accents ── */}
+      <div className="bg-slate-900 px-6 py-1.5">
         <div className="max-w-3xl mx-auto flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4 flex-wrap">
-            {[
-              'Physician-Formulated',
-              'Evidence-Based Protocol',
-              'GLP-1 Specialist Tool',
-            ].map((tag, i) => (
-              <span key={i} className="flex items-center gap-1.5 text-[11px] font-medium text-teal-100">
-                <svg className="w-3 h-3 text-teal-300 flex-shrink-0" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M2 6l3 3 5-5" />
-                </svg>
-                {tag}
-              </span>
-            ))}
+          <div className="flex items-center gap-4">
+            {/* Always visible */}
+            <span className="flex items-center gap-1.5 text-[11px] font-medium text-slate-300">
+              <svg className="w-3 h-3 text-teal-400 flex-shrink-0" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M2 6l3 3 5-5" />
+              </svg>
+              Physician-Formulated
+            </span>
+            {/* Hidden on xs, visible on sm+ */}
+            <span className="hidden sm:flex items-center gap-1.5 text-[11px] font-medium text-slate-300">
+              <svg className="w-3 h-3 text-teal-400 flex-shrink-0" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M2 6l3 3 5-5" />
+              </svg>
+              Evidence-Based Protocol
+            </span>
+            {/* Hidden on xs and sm, visible on md+ */}
+            <span className="hidden md:flex items-center gap-1.5 text-[11px] font-medium text-slate-300">
+              <svg className="w-3 h-3 text-teal-400 flex-shrink-0" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M2 6l3 3 5-5" />
+              </svg>
+              GLP-1 Specialist Tool
+            </span>
           </div>
-          <span className="text-[11px] text-teal-300 font-mono hidden sm:block">myoguard.health</span>
+          <span className="text-[11px] text-slate-500 font-mono hidden sm:block">myoguard.health</span>
         </div>
       </div>
 
@@ -56,8 +68,22 @@ export default function Header({ physicianName, showNav = false }: HeaderProps) 
       <div className="px-6 py-3.5">
         <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
 
-          {/* Brand lockup */}
-          <div className="flex items-center gap-3 min-w-0">
+          {/* Brand lockup — shield icon + wordmark */}
+          <Link href={logoHref} className="flex items-center gap-2.5 min-w-0 group">
+            {/* Shield mark */}
+            <svg
+              className="w-7 h-7 text-teal-600 flex-shrink-0 group-hover:text-teal-700 transition-colors"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M12 2L3.5 5.5v6c0 5.25 3.83 10.16 8.5 11.5C16.67 21.66 20.5 16.75 20.5 11.5v-6L12 2z" />
+              <path d="M8.5 12l2.5 2.5 5-5" />
+            </svg>
             <div>
               <div className="flex items-baseline gap-1">
                 <span className="text-xl font-black text-slate-900 tracking-tight">
@@ -68,24 +94,11 @@ export default function Header({ physicianName, showNav = false }: HeaderProps) 
               <p className="text-[11px] text-slate-400 mt-0.5 tracking-wide hidden sm:block">
                 Protect Your Muscle During GLP-1 Therapy
               </p>
-              <p className="text-[11px] text-slate-400 mt-0.5 tracking-wide hidden md:block">
-                Preserve lean mass, optimise outcomes, and stay strong while losing weight.
-              </p>
             </div>
-          </div>
+          </Link>
 
-          {/* Right side — physician badge + nav */}
+          {/* Right side — nav actions */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Physician attribution badge — desktop only (saves space on mobile) */}
-            <div className="hidden md:flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
-              <svg className="w-3.5 h-3.5 text-teal-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z" />
-              </svg>
-              <span className="text-xs text-slate-600 font-medium">
-                {physicianName ?? (process.env.NEXT_PUBLIC_DEFAULT_PHYSICIAN_NAME ?? 'Dr. Onyeka Okpala, MD')}
-              </span>
-            </div>
-
             {showNav && (
               <>
                 {/* ── Physician entry point ──────────────────────────────────────

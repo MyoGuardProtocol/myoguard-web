@@ -3,8 +3,9 @@
 /**
  * UserDropdown
  *
- * Shows a signed-in user's avatar + name in the header and a dropdown with:
- *   • My Account  — opens Clerk's native profile modal (no custom route needed)
+ * Avatar-only trigger — shows no name in the header. The dropdown panel
+ * reveals the full name + email for context. Menu items:
+ *   • My Account  — opens Clerk's native profile modal
  *   • Dashboard   — links to /dashboard
  *   • Sign Out    — calls clerk.signOut() and redirects to /
  *
@@ -12,9 +13,7 @@
  *   • Closes on outside click (mousedown listener)
  *   • Closes on Escape key
  *   • Avatar falls back to initials when no Clerk image is set
- *   • Name truncated to 120 px on sm+, hidden on xs (avatar only)
  *   • Returns null if Clerk is loading or user is not signed in
- *     (Header shows signed-out links instead)
  */
 
 import { useRef, useState, useEffect, useCallback } from 'react';
@@ -63,6 +62,7 @@ export default function UserDropdown() {
     user.primaryEmailAddress?.emailAddress?.[0]?.toUpperCase() ||
     '?';
 
+  // Full name shown in the dropdown panel for context.
   const displayName =
     user.fullName ||
     user.primaryEmailAddress?.emailAddress ||
@@ -115,11 +115,6 @@ export default function UserDropdown() {
             </span>
           )}
         </div>
-
-        {/* Name — hidden on xs, shown on sm+ */}
-        <span className="hidden sm:block text-xs font-medium text-slate-700 max-w-[120px] truncate leading-none">
-          {displayName}
-        </span>
 
         {/* Chevron */}
         <svg

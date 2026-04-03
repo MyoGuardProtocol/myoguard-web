@@ -15,6 +15,8 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://myoguard.health';
  * shows the confirmation state, even in local dev without credentials.
  */
 export async function POST(req: NextRequest) {
+  console.log("🔥 EMAIL CAPTURE ROUTE HIT");
+
   let body: unknown;
   try {
     body = await req.json();
@@ -58,12 +60,12 @@ export async function POST(req: NextRequest) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          from:    `MyoGuard Protocol <protocol@myoguard.health>`,
+          from:    `MyoGuard Health <hello@myoguard.health>`,
           to:      email,
-          subject: 'Your MyoGuard Muscle Protection Plan',
+          subject: 'Your MyoGuard Protocol is Ready',
           html,
-          reply_to: "myoguardprotocol@gmail.com"
-        }),
+          reply_to: "hello@myoguard.health",
+                  }),
       });
 
       if (resendRes.ok) {

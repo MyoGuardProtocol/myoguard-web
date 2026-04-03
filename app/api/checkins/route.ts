@@ -4,10 +4,17 @@ import { prisma } from '@/src/lib/prisma';
 import { CheckinSchema } from '@/src/schemas/assessment';
 
 /**
- * POST /api/checkins   — create a weekly check-in record
- * GET  /api/checkins   — return user's last 12 check-ins
- * Both require authentication.
+ * POST /api/checkins
+ * Auth required. Creates a WeeklyCheckin for the current calendar week (Mon–Sun).
+ * Saves all form fields including energyLevel and nauseaLevel.
+ * Computes and persists proteinAdherence and exerciseAdherence against the
+ * user's most recent assessment targets — so the DB record is self-contained
+ * for analysis and email digest without re-fetching assessment data later.
+ *
+ * GET /api/checkins
+ * Auth required. Returns the user's last 12 check-ins ordered by most recent.
  */
+
 export async function POST(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) {
@@ -25,23 +32,36 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'Validation failed', details: parsed.error.flatten() },
-      { status: 422 }
+      { status: 422 },
     );
   }
 
+  // Resolve internal user + their latest assessment targets in one query.
+  // The proteinAdherence and exerciseAdherence ratios are computed at write-time
+  // so every check-in record is self-contained for analysis and digest rendering.
   const user = await prisma.user.findUnique({
-    where: { clerkId: userId },
-    select: { id: true },
+    where:  { clerkId: userId },
+    select: {
+      id: true,
+      assessments: {
+        orderBy: { assessmentDate: 'desc' },
+        take:    1,
+        include: {
+          muscleScore:  { select: { proteinTargetG: true } },
+          protocolPlan: { select: { proteinTargetG: true } },
+        },
+      },
+    },
   });
 
   if (!user) {
     return NextResponse.json({ error: 'User not found' }, { status: 404 });
   }
 
-  // Derive week boundaries (Mon–Sun of the current week)
-  const now   = new Date();
-  const day   = now.getDay(); // 0 = Sun
-  const diff  = (day === 0 ? -6 : 1) - day;
+  // ── Week boundaries: Mon 00:00:00 → Sun 23:59:59 (local UTC) ───────────────
+  const now       = new Date();
+  const day       = now.getDay(); // 0 = Sun
+  const diff      = day === 0 ? -6 : 1 - day;
   const weekStart = new Date(now);
   weekStart.setDate(now.getDate() + diff);
   weekStart.setHours(0, 0, 0, 0);
@@ -49,21 +69,52 @@ export async function POST(req: NextRequest) {
   weekEnd.setDate(weekStart.getDate() + 6);
   weekEnd.setHours(23, 59, 59, 999);
 
-  const data = parsed.data;
+  const data           = parsed.data;
+  const latestAssmt    = user.assessments[0] ?? null;
+
+  // ── proteinAdherence ────────────────────────────────────────────────────────
+  // Prefer the ProtocolPlan aggressive target; fall back to MuscleScore target.
+  // Stored as a ratio (0.0–1.0+). Null when either value is missing.
+  const proteinTargetG =
+    latestAssmt?.protocolPlan?.proteinTargetG ??
+    latestAssmt?.muscleScore?.proteinTargetG  ??
+    null;
+
+  const proteinAdherence =
+    data.avgProteinG != null && proteinTargetG != null && proteinTargetG > 0
+      ? Math.round((data.avgProteinG / proteinTargetG) * 1000) / 1000  // 3 dp
+      : null;
+
+  // ── exerciseAdherence ───────────────────────────────────────────────────────
+  // Target is derived from the assessment's exerciseDaysWk (set at assessment time).
+  // Stored as a ratio (0.0–1.0+). Null when either value is missing.
+  const exerciseDaysTarget = latestAssmt?.exerciseDaysWk ?? null;
+
+  const exerciseAdherence =
+    data.totalWorkouts != null && exerciseDaysTarget != null && exerciseDaysTarget > 0
+      ? Math.round((data.totalWorkouts / exerciseDaysTarget) * 1000) / 1000
+      : null;
 
   try {
+    // TODO: remove the @ts-expect-error lines once `npx prisma db push && npx prisma generate`
+    // has been run — energyLevel / nauseaLevel were added to schema.prisma but the Prisma
+    // client types won't reflect them until generation is re-run.
     const checkin = await prisma.weeklyCheckin.create({
       data: {
-        userId:       user.id,
+        userId:            user.id,
         weekStart,
         weekEnd,
-        avgWeightKg:  data.avgWeightKg,
-        avgProteinG:  data.avgProteinG,
-        totalWorkouts: data.totalWorkouts,
-        avgHydration: data.avgHydration,
-        highlights:   [],
-        recommendations: [],
-        completedAt:  new Date(),
+        avgWeightKg:       data.avgWeightKg,
+        avgProteinG:       data.avgProteinG,
+        totalWorkouts:     data.totalWorkouts,
+        avgHydration:      data.avgHydration,
+        energyLevel:       data.energyLevel,
+        nauseaLevel:       data.nauseaLevel,
+        proteinAdherence,
+        exerciseAdherence,
+        highlights:        [],
+        recommendations:   [],
+        completedAt:       new Date(),
       },
     });
 
@@ -81,7 +132,7 @@ export async function GET() {
   }
 
   const user = await prisma.user.findUnique({
-    where: { clerkId: userId },
+    where:  { clerkId: userId },
     select: { id: true },
   });
 

@@ -3,8 +3,17 @@ import { redirect } from 'next/navigation';
 import { prisma } from '@/src/lib/prisma';
 import Link from 'next/link';
 import PostAuthSync from '@/src/components/ui/PostAuthSync';
+import OnboardingRedirect from '@/src/components/ui/OnboardingRedirect';
 import AssessmentHeroPlaceholder from '@/src/components/ui/AssessmentHeroPlaceholder';
 import ContributingFactors, { type Factor, type ImpactLevel } from '@/src/components/ui/ContributingFactors';
+import WeeklyFocusCard from '@/src/components/ui/WeeklyFocusCard';
+import DashboardHeader from '@/src/components/ui/DashboardHeader';
+import {
+  generateWeeklyFocus,
+  type CheckinWindow,
+  type ProtocolTargets,
+  type RiskBand as AdaptiveRiskBand,
+} from '@/src/lib/adaptiveProtocol';
 
 // ─── Module-level DB helper ───────────────────────────────────────────────────
 // Defined at module scope so TypeScript can infer the return type via
@@ -39,12 +48,30 @@ const USER_SELECT = {
           proteinTargetG: true,
         },
       },
+      // ProtocolPlan supplies the targets used by the weekly focus engine.
+      // Only present on assessments saved after the protocol persistence build.
+      protocolPlan: {
+        select: {
+          proteinTargetG:  true,
+          hydrationTarget: true,
+        },
+      },
     },
   },
+  // 4 weeks needed for trend analysis in the weekly focus engine.
   weeklyCheckins: {
     orderBy: { weekStart: 'desc' as const },
-    take:    1,
-    select:  { id: true, weekStart: true },
+    take:    4,
+    select: {
+      id:            true,
+      weekStart:     true,
+      avgProteinG:   true,
+      totalWorkouts: true,
+      avgHydration:  true,
+      avgWeightKg:   true,
+      energyLevel:   true,
+      nauseaLevel:   true,
+    },
   },
 } as const;
 
@@ -283,40 +310,24 @@ export default async function DashboardPage() {
 
     return (
       <main className="min-h-screen bg-slate-50 font-sans">
-        <header className="bg-white border-b border-slate-200 px-6 py-4">
-          <div className="max-w-xl mx-auto flex items-center justify-between">
-            <div>
-              <Link href="/" className="text-xl font-bold text-slate-800 tracking-tight hover:opacity-80 transition-opacity">
-                Myo<span className="text-teal-600">Guard</span>
-              </Link>
-              <p className="text-xs text-slate-500 mt-0.5">Physician-Formulated · Data-Driven Muscle Protection</p>
-            </div>
-            <form action="/api/stripe/checkout" method="POST">
-              <button
-                type="submit"
-                title="Upgrade to Premium"
-                className="text-xs border rounded-full px-3 py-1 font-medium bg-slate-100 text-slate-500 border-slate-200 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-300 transition-colors cursor-pointer"
-              >
-                Free Plan · Upgrade →
-              </button>
-            </form>
-          </div>
-        </header>
+        <DashboardHeader />
 
-        <div className="max-w-xl mx-auto px-5 py-8 space-y-4">
+        <div className="max-w-[1200px] mx-auto px-6 lg:px-8 py-8 space-y-8">
+
+          {/* ── Welcome ── */}
           <div>
-            <h1 className="text-xl font-bold text-slate-800">
+            <h1 className="text-xl font-semibold text-slate-800">
               Welcome back{shellName ? `, ${shellName}` : ''}
             </h1>
-            <p className="text-slate-500 text-sm mt-0.5">Your muscle-protection dashboard</p>
+            <p className="text-slate-500 text-sm mt-1">Your muscle-protection dashboard</p>
           </div>
 
-          {/* DB unavailable notice — friendly, not a hard error */}
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4">
+          {/* DB unavailable notice */}
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-6 py-5">
             <p className="text-sm font-semibold text-amber-800 mb-1">
               {isTimeout ? 'Database connection timed out' : 'Profile data temporarily unavailable'}
             </p>
-            <p className="text-xs text-amber-700 leading-relaxed mb-3">
+            <p className="text-xs text-amber-700 leading-relaxed mb-4">
               {isTimeout
                 ? 'We could not reach the database within 8 seconds. This usually means the Supabase project is paused (free tier auto-pauses after inactivity) or outbound port 6543 is blocked on this network.'
                 : 'Your assessment history and saved data could not be loaded right now. You can still take a new assessment.'}
@@ -324,38 +335,46 @@ export default async function DashboardPage() {
             <div className="flex items-center gap-3 flex-wrap">
               <a
                 href="/dashboard"
-                className="inline-flex items-center gap-1 text-xs font-semibold text-amber-800 bg-amber-100 hover:bg-amber-200 border border-amber-300 rounded-lg px-3 py-1.5 transition-colors"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-amber-800 bg-amber-100 hover:bg-amber-200 border border-amber-300 rounded-lg px-3 py-2 transition-colors"
               >
                 ↻ Retry
               </a>
-              <Link
-                href="/"
-                className="text-xs font-medium text-amber-700 hover:underline"
-              >
+              <Link href="/dashboard/assessment" className="text-xs font-medium text-amber-700 hover:underline">
                 Take a new assessment →
               </Link>
             </div>
           </div>
 
-          {/* Keep quick actions functional — don't block on DB */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Quick actions — always available even when DB is down */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-sm">
             <Link
               href="/checkin"
-              className="bg-white border border-slate-200 rounded-2xl p-4 hover:border-teal-300 hover:shadow-sm transition-all"
+              className="flex items-center justify-between bg-white border border-slate-200 rounded-xl p-4 hover:border-slate-300 hover:shadow-sm transition-all"
             >
-              <span className="text-xl mb-2 block">📋</span>
-              <p className="text-sm font-semibold text-slate-800 mb-0.5">Weekly check-in</p>
-              <p className="text-xs text-slate-500 leading-snug">Log this week&apos;s metrics</p>
+              <div className="flex items-center gap-3">
+                <span className="text-lg">📋</span>
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">Check-in</p>
+                  <p className="text-xs text-slate-500">Log metrics</p>
+                </div>
+              </div>
+              <span className="text-slate-300 text-sm">→</span>
             </Link>
             <Link
-              href="/"
-              className="bg-white border border-slate-200 rounded-2xl p-4 hover:border-teal-300 hover:shadow-sm transition-all"
+              href="/dashboard/assessment"
+              className="flex items-center justify-between bg-green-600 hover:bg-green-700 rounded-xl p-4 transition-colors"
             >
-              <span className="text-xl mb-2 block">🔄</span>
-              <p className="text-sm font-semibold text-slate-800 mb-0.5">New assessment</p>
-              <p className="text-xs text-slate-500 leading-snug">Run your first assessment</p>
+              <div className="flex items-center gap-3">
+                <span className="text-lg">🔄</span>
+                <div>
+                  <p className="text-sm font-semibold text-white">Assess</p>
+                  <p className="text-xs text-green-200">New assessment</p>
+                </div>
+              </div>
+              <span className="text-green-300 text-sm">→</span>
             </Link>
           </div>
+
         </div>
       </main>
     );
@@ -369,13 +388,50 @@ export default async function DashboardPage() {
     ? Math.round(latestScore - prevScore)
     : null;
   const isPremium        = user.subscriptionStatus === 'ACTIVE';
-  const firstName        = user.fullName?.split(' ')[0] ?? null;
+  // Extract first actual given name, skipping honorifics so "Dr Onyeka Okpala"
+  // produces "Onyeka" not "Dr" in the greeting.
+  const HONORIFICS       = ['Dr', 'Dr.', 'Prof', 'Prof.', 'Mr', 'Mrs', 'Ms', 'Miss'];
+  const nameParts        = (user.fullName ?? '').split(' ').filter(Boolean);
+  const firstName        = nameParts.find(p => !HONORIFICS.includes(p)) ?? nameParts[0] ?? null;
   const isPhysician      = user.role === 'PHYSICIAN';
 
   // Derive factors only when an assessment exists
   const factors = latestAssessment
     ? deriveFactors(latestAssessment, user.profile ?? null)
     : [];
+
+  // ── Weekly protocol focus ─────────────────────────────────────────────────
+  // Computed server-side from the last 4 check-ins + the latest protocol plan.
+  // Always rendered — WeeklyFocusCard handles the zero-data empty state itself.
+  const latestPlan        = latestAssessment?.protocolPlan  ?? null;
+  const latestMuscleScore = latestAssessment?.muscleScore   ?? null;
+
+  const checkinWindow: CheckinWindow[] = user.weeklyCheckins.map(c => ({
+    weekStart:     c.weekStart,
+    avgProteinG:   c.avgProteinG   ?? null,
+    totalWorkouts: c.totalWorkouts ?? null,
+    avgHydration:  c.avgHydration  ?? null,
+    avgWeightKg:   c.avgWeightKg   ?? null,
+    energyLevel:   c.energyLevel   ?? null,
+    nauseaLevel:   c.nauseaLevel   ?? null,
+  }));
+
+  // Only compute when we have protocol targets (requires a completed assessment)
+  const weeklyFocus = latestMuscleScore
+    ? generateWeeklyFocus(checkinWindow, {
+        proteinTargetG:  latestPlan?.proteinTargetG  ?? latestMuscleScore.proteinTargetG,
+        hydrationTarget: latestPlan?.hydrationTarget ?? 2.5,
+        riskBand:        latestMuscleScore.riskBand   as AdaptiveRiskBand,
+      } satisfies ProtocolTargets)
+    : null;
+
+  const daysSinceLastCheckin = user.weeklyCheckins[0]
+    ? Math.floor((Date.now() - user.weeklyCheckins[0].weekStart.getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+
+  const hasCheckinData =
+    weeklyFocus !== null && weeklyFocus.snapshot.weeksAnalysed > 0;
+  // ─────────────────────────────────────────────────────────────────────────
 
   // ── Connected physician display name (patients only) ─────────────────────
   // user.physicianId is an informal FK to User.id (no Prisma @relation).
@@ -406,51 +462,25 @@ export default async function DashboardPage() {
     <main className="min-h-screen bg-slate-50 font-sans">
       {/* Silently syncs a pending guest assessment to the DB after first login */}
       <PostAuthSync />
+      {/* Redirects first-time users (no profile) to /onboarding to complete setup */}
+      <OnboardingRedirect hasProfile={!!user.profile} />
 
       {/* ── Header ── */}
-      <header className="bg-white border-b border-slate-200 px-6 py-4">
-        <div className="max-w-xl mx-auto flex items-center justify-between">
-          <div>
-            <Link href="/" className="text-xl font-bold text-slate-800 tracking-tight hover:opacity-80 transition-opacity">
-              Myo<span className="text-teal-600">Guard</span>
-            </Link>
-            <p className="text-xs text-slate-500 mt-0.5">Physician-Formulated · Data-Driven Muscle Protection</p>
-          </div>
-          {isPremium ? (
-            /* Premium — pure status badge, not interactive */
-            <span className="text-xs border rounded-full px-3 py-1 font-medium bg-teal-50 text-teal-700 border-teal-200 cursor-default select-none">
-              ⭐ Premium
-            </span>
-          ) : (
-            /* Free Plan — clicking triggers the Stripe upgrade checkout */
-            <form action="/api/stripe/checkout" method="POST">
-              <button
-                type="submit"
-                title="Upgrade to Premium"
-                className="text-xs border rounded-full px-3 py-1 font-medium bg-slate-100 text-slate-500 border-slate-200 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-300 transition-colors cursor-pointer"
-              >
-                Free Plan · Upgrade →
-              </button>
-            </form>
-          )}
-        </div>
-      </header>
+      <DashboardHeader plan={isPremium ? 'premium' : 'free'} />
 
-      <div className="max-w-xl mx-auto px-5 py-8 space-y-4">
+      <div className="max-w-[1200px] mx-auto px-6 lg:px-8 py-8">
 
         {/* ── Welcome ── */}
-        <div>
-          <h1 className="text-xl font-bold text-slate-800">
+        <div className="mb-8">
+          <h1 className="text-xl font-semibold text-slate-800">
             Welcome back{firstName ? `, ${firstName}` : ''}
           </h1>
-          <p className="text-slate-500 text-sm mt-0.5">
-            Your muscle-protection dashboard
-          </p>
+          <p className="text-slate-500 text-sm mt-1">Your muscle-protection dashboard</p>
         </div>
 
-        {/* ── Connected physician banner (patients with a linked physician) ── */}
+        {/* ── Physician banner (full width, above grid) ── */}
         {connectedPhysicianName && (
-          <div className="flex items-center gap-3 bg-teal-50 border border-teal-100 rounded-2xl px-4 py-3">
+          <div className="flex items-center gap-3 bg-teal-50 border border-teal-100 rounded-xl px-5 py-4 mb-8">
             <span className="text-lg flex-shrink-0">👨‍⚕️</span>
             <div className="flex-1 min-w-0">
               <p className="text-[11px] font-semibold text-teal-700 uppercase tracking-wide">
@@ -460,223 +490,240 @@ export default async function DashboardPage() {
                 Connected to {connectedPhysicianName}
               </p>
             </div>
-            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2.5 py-1 flex-shrink-0 uppercase tracking-wide">
+            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-3 py-1 flex-shrink-0 uppercase tracking-wide">
               Active
             </span>
           </div>
         )}
 
-        {/* ════════════════════════════════════════════════════════════════════ */}
-        {/* ── JOURNEY HERO ── primary CTA if they have a score */}
-        {/* ════════════════════════════════════════════════════════════════════ */}
-        {latestScore !== null && latestBand ? (
-          <Link
-            href="/dashboard/journey"
-            className="block bg-slate-900 hover:bg-slate-800 rounded-2xl p-5 transition-colors group"
-          >
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <p className="text-[10px] font-bold text-teal-400 uppercase tracking-[0.15em] mb-1">
-                  Your MyoGuard Journey
-                </p>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-5xl font-black text-white tabular-nums leading-none">
-                    {Math.round(latestScore)}
-                  </span>
-                  <span className="text-xl text-slate-500 font-light">/100</span>
-                </div>
-              </div>
+        {/* ══════════════════════════════════════════════════════════════════════
+            TWO-COLUMN GRID
+            Left (main):    score hero · factors · weekly focus · history
+            Right (sidebar): actions · portal · report · upgrade
+        ══════════════════════════════════════════════════════════════════════ */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8">
 
-              <div className="flex flex-col items-end gap-2 mt-1">
-                {/* Risk badge */}
-                {(() => {
-                  const rm = RISK_META[latestBand] ?? RISK_META.HIGH;
-                  return (
-                    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border ${rm.bg} ${rm.border} ${rm.colour}`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${rm.dot}`} />
-                      {rm.label}
-                    </span>
-                  );
-                })()}
-                {/* Delta */}
-                {delta !== null && (
-                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${
-                    delta > 0
-                      ? 'bg-emerald-900/60 text-emerald-400 border-emerald-700'
-                      : delta < 0
-                      ? 'bg-red-900/60 text-red-400 border-red-700'
-                      : 'bg-slate-700 text-slate-400 border-slate-600'
-                  }`}>
-                    {delta > 0 ? '↑' : delta < 0 ? '↓' : '→'} {Math.abs(delta)} pts
-                  </span>
-                )}
-              </div>
-            </div>
+          {/* ── Main column ───────────────────────────────────────────────── */}
+          <div className="space-y-8">
 
-            {/* Score track */}
-            <div className="h-2 rounded-full bg-slate-700 overflow-hidden mb-3">
-              <div
-                className={`h-full rounded-full transition-all ${SCORE_TRACK[latestBand] ?? 'bg-teal-500'}`}
-                style={{ width: `${Math.round(latestScore)}%` }}
-              />
-            </div>
-
-            {/* CTA row */}
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-slate-400">
-                {latestScore < 80
-                  ? `${80 - Math.round(latestScore)} points from Low Risk`
-                  : 'In the optimal Low Risk zone ✓'}
-              </p>
-              <span className="text-xs font-semibold text-teal-400 group-hover:text-teal-300 transition-colors flex items-center gap-1">
-                View journey →
-              </span>
-            </div>
-          </Link>
-        ) : (
-          /* No score yet — client component reads sessionStorage to decide
-             between skeleton (pending sync) and the true empty state.       */
-          <AssessmentHeroPlaceholder />
-        )}
-
-        {/* ════════════════════════════════════════════════════════════════════ */}
-        {/* ── CONTRIBUTING FACTORS ── only when a score exists */}
-        {/* ════════════════════════════════════════════════════════════════════ */}
-        {factors.length > 0 && <ContributingFactors factors={factors} />}
-
-        {/* ════════════════════════════════════════════════════════════════════ */}
-        {/* ── QUICK ACTIONS ── */}
-        {/* ════════════════════════════════════════════════════════════════════ */}
-        <div className="grid grid-cols-2 gap-3">
-          <Link
-            href="/checkin"
-            className="bg-white border border-slate-200 rounded-2xl p-4 hover:border-teal-300 hover:shadow-sm transition-all group"
-          >
-            <span className="text-xl mb-2 block">📋</span>
-            <p className="text-sm font-semibold text-slate-800 mb-0.5">Weekly check-in</p>
-            <p className="text-xs text-slate-500 leading-snug">
-              {user.weeklyCheckins[0]
-                ? `Last: ${formatDate(user.weeklyCheckins[0].weekStart)}`
-                : 'Log this week\'s metrics'}
-            </p>
-          </Link>
-          <Link
-            href="/"
-            className="bg-white border border-slate-200 rounded-2xl p-4 hover:border-teal-300 hover:shadow-sm transition-all group"
-          >
-            <span className="text-xl mb-2 block">🔄</span>
-            <p className="text-sm font-semibold text-slate-800 mb-0.5">New assessment</p>
-            <p className="text-xs text-slate-500 leading-snug">
-              {latestAssessment
-                ? `Last: ${formatDate(latestAssessment.assessmentDate)}`
-                : 'Run your first assessment'}
-            </p>
-          </Link>
-        </div>
-
-        {/* ── Physician Portal CTA (physicians only) ── */}
-        {isPhysician && (
-          <Link
-            href="/doctor/start"
-            className="flex items-center gap-4 bg-teal-50 border border-teal-200 rounded-2xl px-5 py-4 hover:border-teal-400 hover:shadow-sm transition-all"
-          >
-            <span className="text-2xl flex-shrink-0">👨‍⚕️</span>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-teal-800">Physician Portal</p>
-              <p className="text-xs text-teal-600 leading-snug mt-0.5">
-                View your referral link, patient activity, and practice tools
-              </p>
-            </div>
-            <span className="text-xs font-semibold text-teal-600 flex-shrink-0">Open →</span>
-          </Link>
-        )}
-
-        {/* ── Physician Report CTA ── */}
-        {latestScore !== null && (
-          <Link
-            href="/dashboard/report"
-            className="flex items-center gap-4 bg-white border border-slate-200 rounded-2xl px-5 py-4 hover:border-teal-300 hover:shadow-sm transition-all"
-          >
-            <span className="text-2xl flex-shrink-0">🩺</span>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-slate-800">Physician Report</p>
-              <p className="text-xs text-slate-500 leading-snug mt-0.5">
-                Print or share a clinical summary with your doctor
-              </p>
-            </div>
-            <span className="text-xs font-semibold text-teal-600 flex-shrink-0">View →</span>
-          </Link>
-        )}
-
-        {/* ════════════════════════════════════════════════════════════════════ */}
-        {/* ── ASSESSMENT HISTORY ── */}
-        {/* ════════════════════════════════════════════════════════════════════ */}
-        {user.assessments.length > 0 && (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="px-5 pt-4 pb-3 border-b border-slate-100">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                Assessment history
-              </p>
-            </div>
-            <div className="divide-y divide-slate-100">
-              {user.assessments.slice(0, 5).map((a) => {
-                const band  = a.muscleScore?.riskBand;
-                const score = a.muscleScore?.score;
-                const rm    = band ? (RISK_META[band] ?? RISK_META.HIGH) : null;
-                return (
-                  <Link key={a.id} href={`/dashboard/results/${a.id}`} className="flex items-center justify-between px-5 py-3 hover:bg-slate-50 transition-colors">
-                    <div>
-                      <p className="text-sm font-medium text-slate-700">
-                        {formatDate(a.assessmentDate)}
-                      </p>
-                      <p className="text-xs text-slate-400">
-                        {a.weightKg}kg · {a.proteinGrams}g protein target
-                      </p>
+            {/* Score hero */}
+            {latestScore !== null && latestBand ? (
+              <Link
+                href="/dashboard/journey"
+                className="block bg-slate-900 hover:bg-slate-800 rounded-xl p-8 transition-colors group"
+              >
+                <div className="flex items-start justify-between mb-6">
+                  <div>
+                    <p className="text-[10px] font-bold text-teal-400 uppercase tracking-[0.15em] mb-2">
+                      Your MyoGuard Journey
+                    </p>
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-6xl font-black text-white tabular-nums leading-none">
+                        {Math.round(latestScore)}
+                      </span>
+                      <span className="text-2xl text-slate-500 font-light">/100</span>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {score != null && (
-                        <span className="text-sm font-bold text-slate-800 tabular-nums">
-                          {Math.round(score)}/100
-                        </span>
-                      )}
-                      {rm && band && (
-                        <span className={`text-xs font-medium border rounded-full px-2.5 py-0.5 ${rm.bg} ${rm.border} ${rm.colour}`}>
+                  </div>
+
+                  <div className="flex flex-col items-end gap-2 mt-1">
+                    {(() => {
+                      const rm = RISK_META[latestBand] ?? RISK_META.HIGH;
+                      return (
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border ${rm.bg} ${rm.border} ${rm.colour}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${rm.dot}`} />
                           {rm.label}
                         </span>
-                      )}
-                    </div>
-                  </Link>
-                );
-              })}
-              {user.assessments.length > 5 && (
-                <div className="px-5 py-3 text-center">
-                  <Link href="/dashboard/journey" className="text-xs text-teal-600 hover:underline font-medium">
-                    View full history in Journey →
-                  </Link>
+                      );
+                    })()}
+                    {delta !== null && (
+                      <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${
+                        delta > 0
+                          ? 'bg-emerald-900/60 text-emerald-400 border-emerald-700'
+                          : delta < 0
+                          ? 'bg-red-900/60 text-red-400 border-red-700'
+                          : 'bg-slate-700 text-slate-400 border-slate-600'
+                      }`}>
+                        {delta > 0 ? '↑' : delta < 0 ? '↓' : '→'} {Math.abs(delta)} pts
+                      </span>
+                    )}
+                  </div>
                 </div>
+
+                <div className="h-2 rounded-full bg-slate-700 overflow-hidden mb-4">
+                  <div
+                    className={`h-full rounded-full transition-all ${SCORE_TRACK[latestBand] ?? 'bg-teal-500'}`}
+                    style={{ width: `${Math.round(latestScore)}%` }}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-slate-400">
+                    {latestScore < 80
+                      ? `${80 - Math.round(latestScore)} points from Low Risk`
+                      : 'In the optimal Low Risk zone ✓'}
+                  </p>
+                  <span className="text-xs font-semibold text-teal-400 group-hover:text-teal-300 transition-colors flex items-center gap-1">
+                    View journey →
+                  </span>
+                </div>
+              </Link>
+            ) : (
+              <AssessmentHeroPlaceholder />
+            )}
+
+            {/* Contributing factors */}
+            {factors.length > 0 && <ContributingFactors factors={factors} />}
+
+            {/* Weekly protocol focus */}
+            {latestScore !== null && (
+              <WeeklyFocusCard
+                focus={weeklyFocus}
+                hasData={hasCheckinData}
+                daysSinceLastCheckin={daysSinceLastCheckin}
+              />
+            )}
+
+            {/* Assessment history */}
+            {user.assessments.length > 0 && (
+              <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+                <div className="px-6 pt-5 pb-4 border-b border-slate-100">
+                  <p className="text-sm font-semibold text-slate-700">Assessment History</p>
+                </div>
+                <div className="divide-y divide-slate-100">
+                  {user.assessments.slice(0, 5).map((a) => {
+                    const band  = a.muscleScore?.riskBand;
+                    const score = a.muscleScore?.score;
+                    const rm    = band ? (RISK_META[band] ?? RISK_META.HIGH) : null;
+                    return (
+                      <Link key={a.id} href={`/dashboard/results/${a.id}`} className="flex items-center justify-between px-6 py-4 hover:bg-slate-50 transition-colors">
+                        <div>
+                          <p className="text-sm font-medium text-slate-700">
+                            {formatDate(a.assessmentDate)}
+                          </p>
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            {a.weightKg}kg · {a.proteinGrams}g protein target
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {score != null && (
+                            <span className="text-sm font-bold text-slate-800 tabular-nums">
+                              {Math.round(score)}/100
+                            </span>
+                          )}
+                          {rm && band && (
+                            <span className={`text-xs font-medium border rounded-full px-2.5 py-0.5 ${rm.bg} ${rm.border} ${rm.colour}`}>
+                              {rm.label}
+                            </span>
+                          )}
+                        </div>
+                      </Link>
+                    );
+                  })}
+                  {user.assessments.length > 5 && (
+                    <div className="px-6 py-4 text-center">
+                      <Link href="/dashboard/journey" className="text-xs text-teal-600 hover:underline font-medium">
+                        View full history in Journey →
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+          </div>
+
+          {/* ── Sidebar ───────────────────────────────────────────────────── */}
+          <div className="space-y-6">
+
+            {/* Quick actions */}
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <h2 className="text-sm font-semibold text-slate-700 mb-4">Quick Actions</h2>
+              <div className="space-y-3">
+                <Link
+                  href="/dashboard/assessment"
+                  className="flex items-center justify-between w-full bg-green-600 hover:bg-green-700 text-white rounded-lg px-5 py-2.5 font-semibold text-sm transition-colors"
+                >
+                  New Assessment
+                  <span>→</span>
+                </Link>
+                <Link
+                  href="/checkin"
+                  className="flex items-center justify-between w-full border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg px-5 py-2.5 font-medium text-sm transition-colors"
+                >
+                  <span className="flex items-center gap-2">
+                    <span>📋</span>
+                    Weekly Check-in
+                  </span>
+                  <span className="text-slate-400 text-xs tabular-nums">
+                    {user.weeklyCheckins[0] ? formatDate(user.weeklyCheckins[0].weekStart) : '→'}
+                  </span>
+                </Link>
+              </div>
+              {latestAssessment && (
+                <p className="text-xs text-slate-400 mt-4 text-center">
+                  Last assessed {formatDate(latestAssessment.assessmentDate)}
+                </p>
               )}
             </div>
-          </div>
-        )}
 
-        {/* ── Subscription upgrade ── */}
-        {!isPremium && latestScore !== null && (
-          <div className="bg-slate-800 rounded-2xl p-5 text-white">
-            <p className="font-semibold text-sm mb-1">Upgrade to Premium</p>
-            <p className="text-slate-400 text-xs leading-relaxed mb-3">
-              Unlock physician report exports, advanced trend analytics, and priority protocol updates.
-            </p>
-            <form action="/api/stripe/checkout" method="POST">
-              <button
-                type="submit"
-                className="bg-teal-500 hover:bg-teal-400 text-white font-semibold text-sm px-4 py-2 rounded-lg transition-colors"
+            {/* Physician portal (physicians only) */}
+            {isPhysician && (
+              <Link
+                href="/doctor/start"
+                className="block bg-white rounded-xl shadow-sm p-6 border border-teal-100 hover:border-teal-300 hover:shadow transition-all"
               >
-                Upgrade Now →
-              </button>
-            </form>
-          </div>
-        )}
+                <div className="flex items-start gap-3">
+                  <span className="text-xl flex-shrink-0">👨‍⚕️</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-teal-800 mb-1">Physician Portal</p>
+                    <p className="text-xs text-teal-600 leading-snug">
+                      Referral link, patient activity, and practice tools
+                    </p>
+                  </div>
+                </div>
+                <p className="text-xs font-semibold text-teal-600 mt-4 text-right">Open →</p>
+              </Link>
+            )}
 
+            {/* Physician report */}
+            {latestScore !== null && (
+              <Link
+                href="/dashboard/report"
+                className="block bg-white rounded-xl shadow-sm p-6 hover:shadow transition-all"
+              >
+                <div className="flex items-start gap-3">
+                  <span className="text-xl flex-shrink-0">🩺</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-800 mb-1">Physician Report</p>
+                    <p className="text-xs text-slate-500 leading-snug">
+                      Print or share a clinical summary with your doctor
+                    </p>
+                  </div>
+                </div>
+                <p className="text-xs font-semibold text-teal-600 mt-4 text-right">View report →</p>
+              </Link>
+            )}
+
+            {/* Upgrade (free users with a score) */}
+            {!isPremium && latestScore !== null && (
+              <div className="bg-slate-900 rounded-xl p-6 text-white">
+                <p className="font-semibold text-sm mb-2">Upgrade to Premium</p>
+                <p className="text-slate-400 text-xs leading-relaxed mb-5">
+                  Unlock physician report exports, advanced trend analytics, and priority protocol updates.
+                </p>
+                <form action="/api/stripe/checkout" method="POST">
+                  <button
+                    type="submit"
+                    className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold text-sm px-5 py-2.5 rounded-lg transition-colors"
+                  >
+                    Upgrade Now →
+                  </button>
+                </form>
+              </div>
+            )}
+
+          </div>
+        </div>
       </div>
     </main>
   );

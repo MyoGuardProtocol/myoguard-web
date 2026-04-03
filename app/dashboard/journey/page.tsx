@@ -2,6 +2,7 @@ import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/src/lib/prisma';
 import Link from 'next/link';
+import DashboardHeader from '@/src/components/ui/DashboardHeader';
 import { generateWeeklyDigest } from '@/src/lib/weeklyDigest';
 
 // ─── Band config ───────────────────────────────────────────────────────────────
@@ -79,7 +80,7 @@ function getSmartNextAction(
       title:    'Review your MyoGuard protocol today',
       subtitle: 'Your trend shows a declining score. Protein adherence and resistance training are the two fastest levers to reverse this.',
       cta:      'Run new assessment →',
-      ctaHref:  '/',
+      ctaHref:  '/dashboard/assessment',
       type:     'urgent',
     };
   }
@@ -119,7 +120,7 @@ function getSmartNextAction(
       title:    'Add 2 resistance sessions this week',
       subtitle: 'Your recent log shows fewer than 2 workouts. Resistance training is the single highest-impact change at your current risk level.',
       cta:      'View protocol →',
-      ctaHref:  '/',
+      ctaHref:  '/dashboard/assessment',
       type:     'recommended',
     };
   }
@@ -130,7 +131,7 @@ function getSmartNextAction(
       title:    'Reassess before your next dose escalation',
       subtitle: "You're in the optimal zone. Each dose step-up is a muscle-risk window — a fresh assessment keeps your protocol ahead of it.",
       cta:      'New assessment →',
-      ctaHref:  '/',
+      ctaHref:  '/dashboard/assessment',
       type:     'maintenance',
     };
   }
@@ -164,7 +165,7 @@ const ACTION_STYLE: Record<ActionType, {
   ctaCls:  string;
 }> = {
   urgent:      { border: 'border-orange-800', bg: 'bg-orange-950', badge: 'bg-orange-900  text-orange-300  border-orange-800', label: 'Highest impact', ctaCls: 'bg-orange-600 hover:bg-orange-500' },
-  recommended: { border: 'border-teal-800',   bg: 'bg-teal-950',   badge: 'bg-teal-900    text-teal-300    border-teal-800',   label: 'Recommended',   ctaCls: 'bg-teal-600   hover:bg-teal-500'   },
+  recommended: { border: 'border-teal-800',   bg: 'bg-teal-950',   badge: 'bg-teal-900    text-teal-300    border-teal-800',   label: 'Recommended',   ctaCls: 'bg-green-600  hover:bg-green-700'  },
   maintenance: { border: 'border-slate-700',  bg: 'bg-slate-800',  badge: 'bg-slate-700   text-slate-300   border-slate-600',  label: 'Maintenance',   ctaCls: 'bg-slate-600  hover:bg-slate-500'  },
 };
 
@@ -336,7 +337,7 @@ export default async function JourneyPage() {
             begin tracking your muscle-protection progress over time.
           </p>
           <Link
-            href="/"
+            href="/dashboard/assessment"
             className="bg-teal-500 hover:bg-teal-400 text-white font-bold text-sm px-6 py-3 rounded-xl transition-colors inline-block"
           >
             Start Your Assessment →
@@ -405,21 +406,9 @@ export default async function JourneyPage() {
     <main className="min-h-screen bg-slate-900 font-sans">
 
       {/* ── Sticky header ── */}
-      <header className="sticky top-0 z-10 bg-slate-900/90 backdrop-blur border-b border-slate-800 px-5 py-4">
-        <div className="max-w-xl mx-auto flex items-center justify-between">
-          <Link href="/" className="text-lg font-bold text-white tracking-tight">
-            Myo<span className="text-teal-400">Guard</span>
-          </Link>
-          <Link
-            href="/dashboard"
-            className="text-xs text-slate-400 hover:text-white transition-colors font-medium"
-          >
-            ← Dashboard
-          </Link>
-        </div>
-      </header>
+      <DashboardHeader />
 
-      <div className="max-w-xl mx-auto px-5 pt-7 pb-16 space-y-4">
+      <div className="max-w-[1200px] mx-auto px-6 lg:px-8 pt-8 pb-16 space-y-8">
 
         {/* ── Section label + title ── */}
         <div>
@@ -534,7 +523,7 @@ export default async function JourneyPage() {
               </span>
             ) : (
               <Link
-                href="/"
+                href="/dashboard/assessment"
                 className="text-xs font-semibold text-teal-400 hover:text-teal-300 transition-colors"
               >
                 Set your target →
@@ -569,7 +558,7 @@ export default async function JourneyPage() {
               <p className="text-xs text-slate-500 leading-relaxed mb-5 max-w-xs mx-auto">
                 Complete your next assessment after your next dose escalation to activate score projection.
               </p>
-              <Link href="/" className="inline-block bg-teal-600 hover:bg-teal-500 text-white font-semibold text-xs px-5 py-2.5 rounded-xl transition-colors">
+              <Link href="/dashboard/assessment" className="inline-block bg-teal-600 hover:bg-teal-500 text-white font-semibold text-xs px-5 py-2.5 rounded-xl transition-colors">
                 New assessment →
               </Link>
             </div>
@@ -878,7 +867,7 @@ export default async function JourneyPage() {
               <p className="text-xs text-slate-500 leading-relaxed mb-5 max-w-xs mx-auto">
                 Run a new assessment after your next dose escalation to start tracking how your score changes over time.
               </p>
-              <Link href="/" className="inline-block bg-slate-700 hover:bg-slate-600 text-white font-semibold text-xs px-5 py-2.5 rounded-xl transition-colors">
+              <Link href="/dashboard/assessment" className="inline-block bg-slate-700 hover:bg-slate-600 text-white font-semibold text-xs px-5 py-2.5 rounded-xl transition-colors">
                 New assessment →
               </Link>
             </div>
@@ -930,7 +919,7 @@ export default async function JourneyPage() {
           <Link href="/checkin" className="bg-teal-500 hover:bg-teal-400 text-white font-bold text-sm py-3.5 rounded-2xl text-center transition-colors">
             Log this week →
           </Link>
-          <Link href="/" className="bg-slate-700 hover:bg-slate-600 text-white font-semibold text-sm py-3.5 rounded-2xl text-center transition-colors">
+          <Link href="/dashboard/assessment" className="bg-slate-700 hover:bg-slate-600 text-white font-semibold text-sm py-3.5 rounded-2xl text-center transition-colors">
             New assessment
           </Link>
         </div>

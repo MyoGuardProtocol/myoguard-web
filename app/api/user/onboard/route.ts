@@ -4,6 +4,7 @@ import { auth, currentUser } from "@clerk/nextjs/server"
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/app/lib/prisma"
+import { sendWelcomeEmail } from "@/src/lib/email"
 
 // ─── Request body schema ──────────────────────────────────────────────────────
 // Validates shape and types before any DB write.
@@ -29,8 +30,6 @@ const OnboardSchema = z.object({
 type OnboardBody = z.infer<typeof OnboardSchema>
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://myoguard.health';
 
 /**
  * Resolves a physician's DB User.id from a PhysicianProfile referral code.
@@ -149,14 +148,7 @@ export async function POST(req: NextRequest) {
     })
 
     // ── Welcome email (fire-and-forget — never blocks the response) ──────────
-    fetch(`${APP_URL}/api/email`, {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({
-        email,
-        firstName: body.fullName.split(" ")[0],
-      }),
-    }).catch(() => {})
+    sendWelcomeEmail({ email, firstName: body.fullName.split(" ")[0] }).catch(() => {})
 
     return NextResponse.json({ success: true, userId: user.id, physicianLinked: !!physicianId })
 

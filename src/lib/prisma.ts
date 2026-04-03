@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
 
 // Prevent multiple PrismaClient instances during Next.js hot reloads in dev
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
@@ -27,17 +28,28 @@ function createPrismaClient(): PrismaClient {
     );
   }
 
-  // Pass PoolConfig directly — avoids @types/pg version mismatch between
-  // the top-level pg package and the copy bundled inside @prisma/adapter-pg.
-  // PrismaPg accepts either a Pool instance or a PoolConfig; using PoolConfig
-  // lets the adapter create its own pool with the correct internal types.
-  const adapter = new PrismaPg({
+  // Create an explicit Pool instance rather than passing a bare PoolConfig to
+  // PrismaPg.  When PrismaPg receives a PoolConfig it creates a Pool internally
+  // via its own code path, which in @prisma/adapter-pg v7 can trigger the
+  // pg@8 deprecation warning:
+  //   "Calling client.query() when the client is already executing a query"
+  // This fires when the adapter's internally-created Pool initialises a
+  // connection and the adapter calls client.query() before the previous
+  // setup call on that client has resolved.
+  //
+  // Passing an explicit Pool gives the adapter a stable, user-managed pool
+  // and avoids the internal initialisation race.  pg is a peer dependency of
+  // @prisma/adapter-pg (not a bundled copy), so Pool from the top-level
+  // "pg" package is type-compatible with what the adapter expects.
+  const pool = new Pool({
     connectionString,
     ssl:                    { rejectUnauthorized: false },
     connectionTimeoutMillis: 8_000,   // fail fast — don't hang the request
     idleTimeoutMillis:       10_000,
     max:                     5,       // small pool for dev / serverless
   });
+
+  const adapter = new PrismaPg(pool);
 
   return new PrismaClient({
     adapter,

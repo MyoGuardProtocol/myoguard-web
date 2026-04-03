@@ -106,8 +106,14 @@ export default function ProtocolResults({
         </div>
       )}
 
-      {/* ── Email capture + CTA (always visible) ── */}
-      <EmailCapture results={results} formData={formData} referralSlug={referralSlug} />
+      {/* ── Email capture — guests only.
+           Signed-in users access their protocol via /dashboard/results/[id];
+           they do not need to email it to themselves.
+           We wait for Clerk to load (!isLoaded) so we never flash the capture
+           form briefly on a signed-in user's first render. ── */}
+      {(!isLoaded || !isSignedIn) && (
+        <EmailCapture results={results} formData={formData} referralSlug={referralSlug} />
+      )}
       <SupplementCTA />
 
       {/* ── Actions ── */}

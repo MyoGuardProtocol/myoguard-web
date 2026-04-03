@@ -4,6 +4,9 @@ binaryTargets   = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
+  // Prisma 7: connection URLs are NOT defined here.
+  // They live in prisma.config.ts (defineConfig → datasource.url).
+  // See: https://pris.ly/d/config-datasource
   provider = "postgresql"
 }
 
@@ -201,6 +204,10 @@ model WeeklyCheckin {
   avgProteinG       Float?
   totalWorkouts     Int?
   avgHydration      Float?
+  /// 1 (Very low) – 5 (Excellent) — self-reported from the weekly check-in form
+  energyLevel       Int?
+  /// 1 (None) – 5 (Severe) — self-reported from the weekly check-in form
+  nauseaLevel       Int?
   scoreDelta        Float?
   proteinAdherence  Float?
   exerciseAdherence Float?

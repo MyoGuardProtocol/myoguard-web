@@ -4,8 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { z } from 'zod';
-import { useUser } from '@clerk/nextjs';
-import UserDropdown from '@/src/components/ui/UserDropdown';
+import DashboardHeader from '@/src/components/ui/DashboardHeader';
 
 // ─── Symptoms list (mirrors main form + protocol engine) ──────────────────────
 const SYMPTOMS = [
@@ -86,7 +85,6 @@ function inputCls(hasError: boolean) {
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function AssessmentPage() {
   const router = useRouter();
-  const { isSignedIn, isLoaded } = useUser();
 
   const [form, setForm] = useState<FormData>({
     weightKg:        '',
@@ -187,33 +185,28 @@ export default function AssessmentPage() {
     <main className="min-h-screen bg-slate-50 font-sans">
 
       {/* Header */}
-      <header className="bg-white border-b border-slate-200 px-5 py-4">
-        <div className="max-w-xl mx-auto flex items-center justify-between">
-          <Link href="/" className="text-xl font-bold text-slate-800 tracking-tight hover:opacity-80 transition-opacity">
-            Myo<span className="text-teal-600">Guard</span>
+      <DashboardHeader />
+
+      <div className="max-w-[1200px] mx-auto px-6 lg:px-8 py-8">
+
+        {/* Breadcrumb */}
+        <div className="mb-8">
+          <Link href="/dashboard" className="text-xs font-medium text-slate-500 hover:text-teal-600 transition-colors">
+            ← Back to Dashboard
           </Link>
-          <div className="flex items-center gap-3">
-            <Link href="/dashboard" className="text-xs font-medium text-teal-600 hover:underline">
-              ← Dashboard
-            </Link>
-            {/* UserDropdown returns null when not signed in — safe to render unconditionally */}
-            {isLoaded && isSignedIn && <UserDropdown />}
+        </div>
+
+        {/* Form — constrained to readable width, centered */}
+        <div className="max-w-xl mx-auto">
+
+          <div className="mb-8">
+            <h1 className="text-xl font-semibold text-slate-800">New Assessment</h1>
+            <p className="mt-1 text-sm text-slate-500 leading-relaxed">
+              Enter your current details to generate a fresh MyoGuard Score and muscle-protection protocol.
+            </p>
           </div>
-        </div>
-      </header>
 
-      <div className="max-w-xl mx-auto px-5 py-8">
-
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-slate-800">
-            New <span className="text-teal-600">Assessment</span>
-          </h1>
-          <p className="mt-1.5 text-sm text-slate-500 leading-relaxed">
-            Enter your current details to generate a fresh MyoGuard Score and muscle-protection protocol.
-          </p>
-        </div>
-
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-6">
+          <div className="bg-white rounded-xl shadow-sm p-6 space-y-6">
 
           {/* ── Weight ── */}
           <div>
@@ -402,23 +395,24 @@ export default function AssessmentPage() {
             className={`w-full py-3.5 rounded-xl font-semibold text-sm transition-all ${
               loading
                 ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                : 'bg-teal-600 hover:bg-teal-700 text-white shadow-sm'
+                : 'bg-green-600 hover:bg-green-700 text-white shadow-sm'
             }`}
           >
             {loading ? 'Calculating your score…' : 'Generate My Muscle Protection Plan →'}
           </button>
 
+          </div>
+
+          <p className="mt-6 text-xs text-slate-400 text-center leading-relaxed">
+            This tool generates educational nutritional reference data only. It does not constitute
+            a physician–patient relationship or individualised medical advice. Review all recommendations
+            with your prescribing physician.{' '}
+            <Link href="/privacy" className="underline hover:text-slate-600 transition-colors">
+              Privacy Policy
+            </Link>
+          </p>
+
         </div>
-
-        <p className="mt-6 text-xs text-slate-400 text-center leading-relaxed">
-          This tool generates educational nutritional reference data only. It does not constitute
-          a physician–patient relationship or individualised medical advice. Review all recommendations
-          with your prescribing physician.{' '}
-          <Link href="/privacy" className="underline hover:text-slate-600 transition-colors">
-            Privacy Policy
-          </Link>
-        </p>
-
       </div>
     </main>
   );

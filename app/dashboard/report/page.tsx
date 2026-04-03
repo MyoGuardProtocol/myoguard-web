@@ -16,6 +16,7 @@ import {
 import ShareButton               from './ShareButton';
 import DownloadPDFButton         from './DownloadPDFButton';
 import PhysicianFeedback         from './PhysicianFeedback';
+import DashboardHeader           from '@/src/components/ui/DashboardHeader';
 
 const TREND_LABEL: Record<string, { text: string; colour: string; icon: string }> = {
   improving:    { text: 'Improving',          colour: 'text-emerald-700', icon: '↑' },
@@ -156,16 +157,7 @@ export default async function ReportPage() {
     return (
       <main className="min-h-screen bg-slate-50 font-sans">
         {/* Nav stays present so the user is never stranded */}
-        <header className="bg-white border-b border-slate-200 px-5 py-4">
-          <div className="max-w-3xl mx-auto flex items-center justify-between">
-            <Link href="/" className="text-xl font-bold text-slate-800 tracking-tight">
-              Myo<span className="text-teal-600">Guard</span>
-            </Link>
-            <Link href="/dashboard" className="text-xs font-medium text-teal-600 hover:underline">
-              ← Dashboard
-            </Link>
-          </div>
-        </header>
+        <DashboardHeader />
         <div className="flex items-center justify-center px-5 py-20">
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 max-w-sm w-full text-center">
             <p className="text-2xl mb-3">📋</p>
@@ -175,7 +167,7 @@ export default async function ReportPage() {
               assessment is scored. It only takes a few minutes.
             </p>
             <Link
-              href="/"
+              href="/dashboard/assessment"
               className="bg-teal-600 text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-teal-700 transition-colors inline-block"
             >
               Start Your Assessment →
@@ -274,16 +266,7 @@ export default async function ReportPage() {
     <main className="min-h-screen bg-slate-100 font-sans">
 
       {/* ── Screen-only nav ── */}
-      <header className="print:hidden bg-white border-b border-slate-200 px-5 py-4">
-        <div className="max-w-3xl mx-auto flex items-center justify-between">
-          <Link href="/" className="text-xl font-bold text-slate-800 tracking-tight">
-            Myo<span className="text-teal-600">Guard</span>
-          </Link>
-          <Link href="/dashboard" className="text-xs font-medium text-teal-600 hover:underline">
-            ← Dashboard
-          </Link>
-        </div>
-      </header>
+      <DashboardHeader />
 
       {/* ── Screen-only action bar ── */}
       {/*
@@ -293,7 +276,7 @@ export default async function ReportPage() {
         flex-wrap ensures the two buttons collapse to a second line on narrow viewports
         without any horizontal overflow.
       */}
-      <div className="print:hidden max-w-3xl mx-auto px-5 py-4">
+      <div className="print:hidden max-w-xl mx-auto px-5 py-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm font-bold text-slate-800">Physician Report</p>
@@ -313,7 +296,7 @@ export default async function ReportPage() {
         Intentionally NOT rendered in print/PDF — it is transient screen state,
         not clinical content. Never redesign this into an interactive surface.
       */}
-      <div className="print:hidden max-w-3xl mx-auto px-5 pb-3">
+      <div className="print:hidden max-w-xl mx-auto px-5 pb-3">
         <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
 
           {/* ① Report generated */}

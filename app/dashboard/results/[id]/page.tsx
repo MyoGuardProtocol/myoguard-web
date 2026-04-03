@@ -2,19 +2,19 @@ import { auth } from '@clerk/nextjs/server';
 import { redirect, notFound } from 'next/navigation';
 import { prisma } from '@/src/lib/prisma';
 import Link from 'next/link';
-import UserDropdown from '@/src/components/ui/UserDropdown';
+import DashboardHeader from '@/src/components/ui/DashboardHeader';
 
 // ─── Band config ───────────────────────────────────────────────────────────────
 type Band = 'CRITICAL' | 'HIGH' | 'MODERATE' | 'LOW';
 
 const BAND_META: Record<Band, {
-  label:      string;
-  colour:     string;
-  dot:        string;
-  ring:       string;
-  bg:         string;
-  border:     string;
-  trackCls:   string;
+  label:    string;
+  colour:   string;
+  dot:      string;
+  ring:     string;
+  bg:       string;
+  border:   string;
+  trackCls: string;
 }> = {
   CRITICAL: {
     label: 'Critical Risk',  colour: 'text-red-400',
@@ -42,6 +42,7 @@ const BAND_META: Record<Band, {
   },
 };
 
+// Band-level lean mass risk messages
 const LEAN_LOSS_MSG: Record<Band, string> = {
   LOW:      'Minimal lean mass risk at your current inputs. Maintaining this level of protein and activity keeps you well-protected.',
   MODERATE: 'Moderate lean mass risk. Improving protein adherence and adding resistance training sessions are the two fastest ways to shift this.',
@@ -49,8 +50,21 @@ const LEAN_LOSS_MSG: Record<Band, string> = {
   CRITICAL: 'High lean mass risk. Immediate protocol adherence is essential. Every gram of protein and every resistance session counts at this stage.',
 };
 
+// ─── Helpers ───────────────────────────────────────────────────────────────────
 function longDate(d: Date): string {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function shortDate(d: Date): string {
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+// Signed delta helper — returns "+12", "−5", or "±0"
+function signedDelta(current: number, previous: number): string {
+  const d = Math.round(current - previous);
+  if (d > 0) return `+${d}`;
+  if (d < 0) return `−${Math.abs(d)}`;
+  return '±0';
 }
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
@@ -65,12 +79,12 @@ export default async function ResultsPage({
   const { id } = await params;
 
   const user = await prisma.user.findUnique({
-    where: { clerkId },
+    where:  { clerkId },
     select: { id: true, fullName: true },
   });
   if (!user) redirect('/dashboard');
 
-  // Fetch the specific assessment — scoped to this user to prevent ID enumeration
+  // ── Fetch current assessment (scoped to user to prevent ID enumeration) ────
   const assessment = await prisma.assessment.findFirst({
     where:   { id, userId: user.id },
     include: {
@@ -83,41 +97,70 @@ export default async function ResultsPage({
           explanation:    true,
         },
       },
+      protocolPlan: {
+        select: {
+          proteinTargetG:   true,
+          proteinSources:   true,
+          supplementation:  true,
+          trainingPlan:     true,
+          hydrationTarget:  true,
+          electrolyteNotes: true,
+          giGuidance:       true,
+        },
+      },
     },
   });
 
   if (!assessment || !assessment.muscleScore) notFound();
 
+  // ── Fetch the immediately-preceding assessment for delta comparison ─────────
+  // Uses assessmentDate < current date (not just id != current) so the ordering
+  // is stable even if two assessments were saved on the same second.
+  const previousAssessment = await prisma.assessment.findFirst({
+    where: {
+      userId:         user.id,
+      assessmentDate: { lt: assessment.assessmentDate },
+    },
+    orderBy: { assessmentDate: 'desc' },
+    include: {
+      muscleScore: {
+        select: {
+          score:          true,
+          riskBand:       true,
+          leanLossEstPct: true,
+          proteinTargetG: true,
+        },
+      },
+    },
+  });
+
   const ms          = assessment.muscleScore;
+  const plan        = assessment.protocolPlan ?? null;
+  const prev        = previousAssessment?.muscleScore ?? null;
+
   const score       = Math.round(ms.score);
   const band        = ms.riskBand as Band;
   const meta        = BAND_META[band];
   const pointsToLow = score < 80 ? 80 - score : null;
-  const firstName   = user.fullName?.split(' ')[0] ?? null;
+  // Skip honorifics so "Dr Onyeka Okpala" → "Onyeka", not "Dr"
+  const HONORIFICS  = ['Dr', 'Dr.', 'Prof', 'Prof.', 'Mr', 'Mrs', 'Ms', 'Miss'];
+  const nameParts   = (user.fullName ?? '').split(' ').filter(Boolean);
+  const firstName   = nameParts.find(p => !HONORIFICS.includes(p)) ?? nameParts[0] ?? null;
+
+  // Delta values — only rendered when a previous assessment exists
+  const scoreDelta      = prev ? signedDelta(ms.score,          prev.score)          : null;
+  const proteinDelta    = prev ? signedDelta(ms.proteinTargetG, prev.proteinTargetG) : null;
+  const leanLossDelta   = prev ? signedDelta(ms.leanLossEstPct, prev.leanLossEstPct) : null;
+  const prevBand        = prev ? (prev.riskBand as Band)                              : null;
+  const bandImproved    = prev ? (score > Math.round(prev.score))                     : null;
 
   return (
     <main className="min-h-screen bg-slate-900 font-sans">
 
       {/* ── Sticky header ── */}
-      <header className="sticky top-0 z-10 bg-slate-900/90 backdrop-blur border-b border-slate-800 px-5 py-4">
-        <div className="max-w-xl mx-auto flex items-center justify-between">
-          <Link href="/" className="text-lg font-bold text-white tracking-tight">
-            Myo<span className="text-teal-400">Guard</span>
-          </Link>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/dashboard"
-              className="text-xs text-slate-400 hover:text-white transition-colors font-medium"
-            >
-              ← Dashboard
-            </Link>
-            {/* Client component — handles its own auth guard (returns null when signed out) */}
-            <UserDropdown />
-          </div>
-        </div>
-      </header>
+      <DashboardHeader />
 
-      <div className="max-w-xl mx-auto px-5 pt-7 pb-16 space-y-4">
+      <div className="max-w-[1200px] mx-auto px-6 lg:px-8 pt-8 pb-16 space-y-8">
 
         {/* ── Title ── */}
         <div>
@@ -135,7 +178,7 @@ export default async function ResultsPage({
         {/* ══════════════════════════════════════════════════════════════════════ */}
         {/* ── SCORE HERO ── */}
         {/* ══════════════════════════════════════════════════════════════════════ */}
-        <div className="bg-slate-800 rounded-3xl p-6 border border-slate-700">
+        <div className="bg-slate-800 rounded-xl p-8 border border-slate-700">
 
           <div className="flex items-start justify-between gap-4 mb-6">
             <div>
@@ -160,7 +203,7 @@ export default async function ResultsPage({
             </div>
           </div>
 
-          {/* Score track — same animation classes as journey page */}
+          {/* Score track */}
           <div className="mb-5">
             <div className="relative mb-1">
               <div className="myg-track-reveal h-4 rounded-full overflow-hidden flex gap-px">
@@ -205,6 +248,108 @@ export default async function ResultsPage({
             </div>
           )}
         </div>
+
+        {/* ══════════════════════════════════════════════════════════════════════ */}
+        {/* ── PREVIOUS vs CURRENT COMPARISON ── only when a prior result exists */}
+        {/* ══════════════════════════════════════════════════════════════════════ */}
+        {prev && previousAssessment && (
+          <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
+            <div className="px-5 pt-4 pb-3 border-b border-slate-700/70 flex items-center justify-between">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em]">
+                Since Last Assessment
+              </p>
+              <span className="text-[10px] text-slate-500">
+                {shortDate(previousAssessment.assessmentDate)}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-px bg-slate-700/30">
+
+              {/* Score delta */}
+              <div className="bg-slate-800 px-4 py-4 flex flex-col gap-1">
+                <p className="text-[10px] font-medium text-slate-500">Score</p>
+                <p className="text-lg font-black text-white tabular-nums leading-none">
+                  {score}
+                  <span className="text-slate-600 font-light text-sm"> /100</span>
+                </p>
+                <span className={`text-xs font-bold tabular-nums ${
+                  scoreDelta && !scoreDelta.startsWith('−')
+                    ? 'text-emerald-400'
+                    : scoreDelta === '±0'
+                    ? 'text-slate-500'
+                    : 'text-red-400'
+                }`}>
+                  {scoreDelta} pts
+                </span>
+              </div>
+
+              {/* Protein delta */}
+              <div className="bg-slate-800 px-4 py-4 flex flex-col gap-1">
+                <p className="text-[10px] font-medium text-slate-500">Protein Target</p>
+                <p className="text-lg font-black text-white tabular-nums leading-none">
+                  {Math.round(ms.proteinTargetG)}
+                  <span className="text-slate-600 font-light text-sm">g</span>
+                </p>
+                <span className={`text-xs font-bold tabular-nums ${
+                  proteinDelta && !proteinDelta.startsWith('−')
+                    ? 'text-teal-400'
+                    : proteinDelta === '±0'
+                    ? 'text-slate-500'
+                    : 'text-slate-400'
+                }`}>
+                  {proteinDelta}g / day
+                </span>
+              </div>
+
+              {/* Lean loss delta */}
+              <div className="bg-slate-800 px-4 py-4 flex flex-col gap-1">
+                <p className="text-[10px] font-medium text-slate-500">Lean Risk</p>
+                <p className="text-lg font-black text-white tabular-nums leading-none">
+                  {ms.leanLossEstPct}
+                  <span className="text-slate-600 font-light text-sm">%</span>
+                </p>
+                {/* For lean loss, a DECREASE is good (green) */}
+                <span className={`text-xs font-bold tabular-nums ${
+                  leanLossDelta && leanLossDelta.startsWith('−')
+                    ? 'text-emerald-400'
+                    : leanLossDelta === '±0'
+                    ? 'text-slate-500'
+                    : 'text-red-400'
+                }`}>
+                  {leanLossDelta}%
+                </span>
+              </div>
+            </div>
+
+            {/* Band change row */}
+            {prevBand && prevBand !== band && (
+              <div className={`px-5 py-3 border-t border-slate-700/40 flex items-center gap-2 ${
+                bandImproved ? 'bg-emerald-950/50' : 'bg-red-950/50'
+              }`}>
+                <span className="text-sm">{bandImproved ? '✅' : '⚠️'}</span>
+                <p className="text-xs text-slate-300 leading-snug">
+                  Risk band changed:{' '}
+                  <span className={`font-semibold ${BAND_META[prevBand].colour}`}>
+                    {BAND_META[prevBand].label}
+                  </span>
+                  {' → '}
+                  <span className={`font-semibold ${meta.colour}`}>
+                    {meta.label}
+                  </span>
+                </p>
+              </div>
+            )}
+
+            {/* No band change — neutral acknowledgement */}
+            {prevBand && prevBand === band && (
+              <div className="px-5 py-3 border-t border-slate-700/40">
+                <p className="text-[11px] text-slate-500">
+                  Risk band unchanged — {BAND_META[band].label}. Keep tracking weekly to move the needle.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ══════════════════════════════════════════════════════════════════════ */}
         {/* ── PROTEIN TARGET ── */}
@@ -280,6 +425,109 @@ export default async function ResultsPage({
         </div>
 
         {/* ══════════════════════════════════════════════════════════════════════ */}
+        {/* ── PROTOCOL PLAN ── persisted from DB; null-safe fallback ── */}
+        {/* ══════════════════════════════════════════════════════════════════════ */}
+        {plan && (
+          <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
+            <div className="px-5 pt-4 pb-3 border-b border-slate-700/70">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em]">
+                Your Protocol Plan
+              </p>
+            </div>
+
+            {/* ── Supplementation ── */}
+            <div className="px-5 pt-5 pb-4 border-b border-slate-700/40">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-base">💊</span>
+                <p className="text-xs font-bold text-slate-300 uppercase tracking-wide">
+                  Supplementation
+                </p>
+              </div>
+              <ul className="space-y-2">
+                {plan.supplementation.map((item, i) => (
+                  <li key={i} className="flex items-start gap-2.5">
+                    <span className="flex-shrink-0 mt-1 w-1.5 h-1.5 rounded-full bg-teal-500" />
+                    <p className="text-xs text-slate-300 leading-relaxed">{item}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* ── Training plan ── */}
+            <div className="px-5 pt-4 pb-4 border-b border-slate-700/40">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-base">🏋️</span>
+                <p className="text-xs font-bold text-slate-300 uppercase tracking-wide">
+                  Training Plan
+                </p>
+              </div>
+              <p className="text-xs text-slate-400 leading-relaxed">{plan.trainingPlan}</p>
+            </div>
+
+            {/* ── Protein sources ── */}
+            <div className="px-5 pt-4 pb-4 border-b border-slate-700/40">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-base">🥩</span>
+                <p className="text-xs font-bold text-slate-300 uppercase tracking-wide">
+                  Top Protein Sources
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {plan.proteinSources.map((src, i) => (
+                  <span
+                    key={i}
+                    className="text-[11px] bg-slate-700/60 text-slate-300 border border-slate-600/50 rounded-lg px-2.5 py-1.5 leading-tight"
+                  >
+                    {src}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* ── Hydration + Electrolytes ── */}
+            <div className="px-5 pt-4 pb-4 border-b border-slate-700/40">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">💧</span>
+                  <p className="text-xs font-bold text-slate-300 uppercase tracking-wide">
+                    Hydration & Electrolytes
+                  </p>
+                </div>
+                <span className="text-sm font-bold text-teal-400 tabular-nums">
+                  {plan.hydrationTarget}L / day
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 leading-relaxed">{plan.electrolyteNotes}</p>
+            </div>
+
+            {/* ── GI guidance ── */}
+            <div className="px-5 pt-4 pb-5">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-base">🫁</span>
+                <p className="text-xs font-bold text-slate-300 uppercase tracking-wide">
+                  GI Guidance
+                </p>
+              </div>
+              {/* GI guidance may contain pipe-separated segments for multiple symptoms */}
+              {plan.giGuidance.includes(' | ')
+                ? (
+                    <ul className="space-y-2.5">
+                      {plan.giGuidance.split(' | ').map((segment, i) => (
+                        <li key={i} className="flex items-start gap-2.5">
+                          <span className="flex-shrink-0 mt-1 w-1.5 h-1.5 rounded-full bg-amber-500" />
+                          <p className="text-xs text-slate-400 leading-relaxed">{segment}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  )
+                : (
+                    <p className="text-xs text-slate-400 leading-relaxed">{plan.giGuidance}</p>
+                  )}
+            </div>
+          </div>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════════════════ */}
         {/* ── ASSESSMENT INPUTS ── */}
         {/* ══════════════════════════════════════════════════════════════════════ */}
         <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
@@ -290,10 +538,10 @@ export default async function ResultsPage({
           </div>
           <div className="grid grid-cols-2 gap-px bg-slate-700/40">
             {[
-              { label: 'Body weight',    value: `${assessment.weightKg} kg`             },
-              { label: 'Protein intake', value: `${Math.round(assessment.proteinGrams)} g/day` },
-              { label: 'Training days',  value: `${assessment.exerciseDaysWk} days/wk`  },
-              { label: 'Hydration',      value: `${assessment.hydrationLitres} L/day`   },
+              { label: 'Body weight',    value: `${assessment.weightKg} kg`                          },
+              { label: 'Protein intake', value: `${Math.round(assessment.proteinGrams)} g/day`       },
+              { label: 'Training days',  value: `${assessment.exerciseDaysWk} days/wk`               },
+              { label: 'Hydration',      value: `${assessment.hydrationLitres} L/day`                },
             ].map(({ label, value }) => (
               <div key={label} className="bg-slate-800 px-4 py-3">
                 <p className="text-[10px] font-medium text-slate-500 mb-0.5">{label}</p>
@@ -338,12 +586,30 @@ export default async function ResultsPage({
               Log this week →
             </Link>
             <Link
-              href="/"
+              href="/dashboard/assessment"
               className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-semibold text-sm py-3.5 rounded-2xl text-center transition-colors"
             >
               New assessment
             </Link>
           </div>
+        </div>
+
+        {/* ══════════════════════════════════════════════════════════════════════ */}
+        {/* ── BOTTOM CTAs ── */}
+        {/* ══════════════════════════════════════════════════════════════════════ */}
+        <div className="space-y-3 pt-2">
+          <Link
+            href="/dashboard/assessment"
+            className="block w-full bg-green-600 hover:bg-green-700 text-white font-semibold text-sm py-3.5 rounded-xl text-center transition-colors"
+          >
+            New Assessment →
+          </Link>
+          <Link
+            href="/dashboard"
+            className="block w-full text-center text-sm text-slate-400 hover:text-white font-medium py-2 transition-colors"
+          >
+            ← Back to Dashboard
+          </Link>
         </div>
 
         <p className="text-center text-[10px] text-slate-600 pt-1 leading-relaxed">

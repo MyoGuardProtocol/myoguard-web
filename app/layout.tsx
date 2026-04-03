@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
+import Footer from "@/src/components/ui/Footer";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -29,9 +30,10 @@ export default function RootLayout({
   const body = (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen`}
       >
-        {children}
+        <div className="flex-1">{children}</div>
+        <Footer />
       </body>
     </html>
   );
@@ -58,6 +60,15 @@ export default function RootLayout({
       signInFallbackRedirectUrl="/dashboard"
       signUpFallbackRedirectUrl="/dashboard"
       appearance={{
+        variables: {
+          /*
+           * fontFamily: 'inherit' — tells Clerk to use whatever font the
+           * surrounding page has (i.e. Geist after the globals.css fix).
+           * Without this, Clerk injects its own font stack which can conflict
+           * with the body font and render text at a visually heavier weight.
+           */
+          fontFamily: 'inherit',
+        },
         elements: {
           /*
            * otpCodeFieldInput — the actual <input> for each OTP digit.
