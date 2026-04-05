@@ -2,6 +2,7 @@ import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/src/lib/prisma';
 import Link from 'next/link';
+import PhysicianNav from '@/src/components/ui/PhysicianNav';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -16,49 +17,54 @@ const RISK_ORDER: Record<string, number> = {
 };
 
 const BAND_STYLE: Record<string, {
-  label:    string;
-  pill:     string;
-  dot:      string;
-  bar:      string;     // left border accent on card
-  track:    string;     // score progress bar
-  statBg:   string;
-  statText: string;
+  label:      string;
+  pill:       string;
+  dot:        string;
+  bar:        string;     // left border accent on card
+  track:      string;     // score progress bar
+  statBg:     string;
+  statText:   string;
+  statBorder: string;     // individual band-coloured border for summary cells
 }> = {
   CRITICAL: {
-    label:    'Critical',
-    pill:     'bg-red-50    text-red-700    border-red-200',
-    dot:      'bg-red-500',
-    bar:      'border-l-red-400',
-    track:    'bg-red-500',
-    statBg:   'bg-red-50',
-    statText: 'text-red-700',
+    label:      'Critical',
+    pill:       'bg-red-50    text-red-700    border-red-200',
+    dot:        'bg-red-500',
+    bar:        'border-l-red-400',
+    track:      'bg-red-500',
+    statBg:     'bg-red-50',
+    statText:   'text-red-700',
+    statBorder: 'border-red-200',
   },
   HIGH: {
-    label:    'High',
-    pill:     'bg-orange-50 text-orange-700 border-orange-200',
-    dot:      'bg-orange-500',
-    bar:      'border-l-orange-400',
-    track:    'bg-orange-500',
-    statBg:   'bg-orange-50',
-    statText: 'text-orange-700',
+    label:      'High',
+    pill:       'bg-orange-50 text-orange-700 border-orange-200',
+    dot:        'bg-orange-500',
+    bar:        'border-l-orange-400',
+    track:      'bg-orange-500',
+    statBg:     'bg-orange-50',
+    statText:   'text-orange-700',
+    statBorder: 'border-orange-200',
   },
   MODERATE: {
-    label:    'Moderate',
-    pill:     'bg-amber-50  text-amber-700  border-amber-200',
-    dot:      'bg-amber-500',
-    bar:      'border-l-amber-400',
-    track:    'bg-amber-500',
-    statBg:   'bg-amber-50',
-    statText: 'text-amber-700',
+    label:      'Moderate',
+    pill:       'bg-amber-50  text-amber-700  border-amber-200',
+    dot:        'bg-amber-500',
+    bar:        'border-l-amber-400',
+    track:      'bg-amber-500',
+    statBg:     'bg-amber-50',
+    statText:   'text-amber-700',
+    statBorder: 'border-amber-200',
   },
   LOW: {
-    label:    'Low',
-    pill:     'bg-emerald-50 text-emerald-700 border-emerald-200',
-    dot:      'bg-emerald-500',
-    bar:      'border-l-emerald-400',
-    track:    'bg-emerald-500',
-    statBg:   'bg-emerald-50',
-    statText: 'text-emerald-700',
+    label:      'Low',
+    pill:       'bg-emerald-50 text-emerald-700 border-emerald-200',
+    dot:        'bg-emerald-500',
+    bar:        'border-l-emerald-400',
+    track:      'bg-emerald-500',
+    statBg:     'bg-emerald-50',
+    statText:   'text-emerald-700',
+    statBorder: 'border-emerald-200',
   },
 };
 
@@ -203,25 +209,7 @@ export default async function PatientListPage() {
   return (
     <main className="min-h-screen bg-slate-50 font-sans">
 
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <header className="bg-white border-b border-slate-200 px-6 py-4 print:hidden">
-        <div className="max-w-3xl mx-auto flex items-center justify-between">
-          <div>
-            <Link
-              href="/"
-              className="text-xl font-bold text-slate-800 tracking-tight hover:opacity-80 transition-opacity"
-            >
-              Myo<span className="text-teal-600">Guard</span> Protocol
-            </Link>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Physician-Formulated · Data-Driven Muscle Protection
-            </p>
-          </div>
-          <span className="text-xs bg-teal-50 text-teal-700 border border-teal-200 rounded-full px-3 py-1 font-medium">
-            {displayName}
-          </span>
-        </div>
-      </header>
+      <PhysicianNav activePath="/doctor/patients" displayName={displayName} />
 
       <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">
 
@@ -249,12 +237,12 @@ export default async function PatientListPage() {
               return (
                 <div
                   key={band}
-                  className={`rounded-xl border p-3 text-center ${s.statBg} border-slate-200`}
+                  className={`rounded-xl border p-3 text-center ${s.statBg} ${s.statBorder}`}
                 >
-                  <p className={`text-2xl font-black tabular-nums ${s.statText}`}>
+                  <p className={`font-mono text-3xl font-black tabular-nums leading-none ${s.statText}`}>
                     {counts[band]}
                   </p>
-                  <p className={`text-[11px] font-semibold mt-0.5 ${s.statText}`}>
+                  <p className={`text-[11px] font-semibold mt-1.5 ${s.statText}`}>
                     {s.label} Risk
                   </p>
                 </div>
@@ -311,7 +299,7 @@ export default async function PatientListPage() {
 
                     {/* Score badge */}
                     <div className="flex-shrink-0 text-center w-14">
-                      <p className={`text-2xl font-black tabular-nums leading-none ${needsAttn ? 'text-slate-800' : 'text-slate-600'}`}>
+                      <p className={`font-mono text-2xl font-black tabular-nums leading-none ${needsAttn ? 'text-slate-800' : 'text-slate-600'}`}>
                         {score !== null ? Math.round(score) : '—'}
                       </p>
                       <p className="text-[10px] text-slate-400 mt-0.5">/100</p>
@@ -370,12 +358,6 @@ export default async function PatientListPage() {
           </div>
         )}
 
-        {/* ── Footer nav ───────────────────────────────────────────────── */}
-        <div className="text-center pt-2">
-          <Link href="/dashboard" className="text-sm text-teal-600 hover:underline font-medium">
-            ← Back to Dashboard
-          </Link>
-        </div>
 
       </div>
     </main>

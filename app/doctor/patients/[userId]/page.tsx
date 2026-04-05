@@ -3,6 +3,8 @@ import { redirect, notFound } from 'next/navigation';
 import { prisma } from '@/src/lib/prisma';
 import Link from 'next/link';
 import ContributingFactors, { type Factor, type ImpactLevel } from '@/src/components/ui/ContributingFactors';
+import PhysicianNav from '@/src/components/ui/PhysicianNav';
+import PhysicianReviewPanel from '@/src/components/ui/PhysicianReviewPanel';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -253,25 +255,7 @@ export default async function PatientDetailPage({
   return (
     <main className="min-h-screen bg-slate-50 font-sans">
 
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <header className="bg-white border-b border-slate-200 px-6 py-4 print:hidden">
-        <div className="max-w-3xl mx-auto flex items-center justify-between">
-          <div>
-            <Link
-              href="/"
-              className="text-xl font-bold text-slate-800 tracking-tight hover:opacity-80 transition-opacity"
-            >
-              Myo<span className="text-teal-600">Guard</span> Protocol
-            </Link>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Physician-Formulated · Data-Driven Muscle Protection
-            </p>
-          </div>
-          <span className="text-xs bg-teal-50 text-teal-700 border border-teal-200 rounded-full px-3 py-1 font-medium">
-            {displayName}
-          </span>
-        </div>
-      </header>
+      <PhysicianNav activePath="/doctor/patients" displayName={displayName} />
 
       <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">
 
@@ -321,7 +305,7 @@ export default async function PatientDetailPage({
               {/* Score row */}
               <div className="flex items-end justify-between gap-4 mb-4">
                 <div>
-                  <p className="text-6xl font-black tabular-nums leading-none text-white">
+                  <p className="text-6xl font-black font-mono tabular-nums leading-none text-white">
                     {latestScore !== null ? Math.round(latestScore) : '—'}
                   </p>
                   <p className="text-sm text-slate-400 mt-1">/100</p>
@@ -338,7 +322,7 @@ export default async function PatientDetailPage({
 
                   {/* Delta */}
                   {delta !== null && (
-                    <p className={`text-sm font-semibold ${
+                    <p className={`text-sm font-semibold font-mono ${
                       delta > 0 ? 'text-emerald-400' : delta < 0 ? 'text-red-400' : 'text-slate-400'
                     }`}>
                       {delta > 0 ? `▲ +${delta}` : delta < 0 ? `▼ ${delta}` : '→ No change'} from last
@@ -378,7 +362,7 @@ export default async function PatientDetailPage({
                   },
                 ].map(stat => (
                   <div key={stat.label} className="bg-slate-800 rounded-xl p-3 text-center">
-                    <p className="text-sm font-bold text-white tabular-nums">{stat.value}</p>
+                    <p className="text-sm font-bold font-mono text-white tabular-nums">{stat.value}</p>
                     <p className="text-[10px] text-slate-400 mt-0.5">{stat.label}</p>
                   </div>
                 ))}
@@ -403,7 +387,7 @@ export default async function PatientDetailPage({
                 ].map(item => (
                   <div key={item.label}>
                     <p className="text-xs text-slate-400 mb-0.5">{item.label}</p>
-                    <p className="text-sm font-semibold text-slate-800">{item.value}</p>
+                    <p className="text-sm font-semibold font-mono text-slate-800">{item.value}</p>
                   </div>
                 ))}
               </div>
@@ -439,47 +423,16 @@ export default async function PatientDetailPage({
             {/* ── Contributing Factors ─────────────────────────────────────── */}
             <ContributingFactors factors={factors} />
 
-            {/* ── Physician Review (read-only) ─────────────────────────────── */}
-            {latest.physicianReview && (
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">
-                    Existing Review
-                  </p>
-                  <div className="flex-1 h-px bg-slate-200" />
-                  <p className="text-[11px] text-slate-400 flex-shrink-0">
-                    {shortDate(latest.physicianReview.reviewedAt)}
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 mb-3">
-                  {latest.physicianReview.overallImpression && (
-                    <div>
-                      <p className="text-xs text-slate-400 mb-0.5">Impression</p>
-                      <p className="text-sm font-semibold text-slate-800 capitalize">
-                        {latest.physicianReview.overallImpression}
-                      </p>
-                    </div>
-                  )}
-                  {latest.physicianReview.followUpDays != null && (
-                    <div>
-                      <p className="text-xs text-slate-400 mb-0.5">Follow-up</p>
-                      <p className="text-sm font-semibold text-slate-800">
-                        {latest.physicianReview.followUpDays} days
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {latest.physicianReview.note && (
-                  <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
-                    <p className="text-xs text-slate-500 leading-relaxed">
-                      {latest.physicianReview.note}
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
+            {/* ── Physician Review ─────────────────────────────────────────── */}
+            <PhysicianReviewPanel
+              assessmentId={latest.id}
+              existing={latest.physicianReview ? {
+                overallImpression: latest.physicianReview.overallImpression,
+                followUpDays:      latest.physicianReview.followUpDays,
+                note:              latest.physicianReview.note,
+                reviewedAt:        latest.physicianReview.reviewedAt.toISOString(),
+              } : null}
+            />
           </>
         )}
 
@@ -511,7 +464,7 @@ export default async function PatientDetailPage({
                     }`}
                   >
                     {/* Score */}
-                    <p className="text-xl font-black tabular-nums text-slate-800 w-10 flex-shrink-0">
+                    <p className="text-xl font-black font-mono tabular-nums text-slate-800 w-10 flex-shrink-0">
                       {sc?.score != null ? Math.round(sc.score) : '—'}
                     </p>
 
@@ -540,9 +493,9 @@ export default async function PatientDetailPage({
         )}
 
         {/* ── Footer nav ──────────────────────────────────────────────────── */}
-        <div className="text-center pt-2 print:hidden">
+        <div className="pt-2 print:hidden">
           <Link href="/doctor/patients" className="text-sm text-teal-600 hover:underline font-medium">
-            ← Back to Patient Overview
+            ← All Patients
           </Link>
         </div>
 

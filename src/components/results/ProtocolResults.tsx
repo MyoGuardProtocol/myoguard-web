@@ -111,7 +111,7 @@ export default function ProtocolResults({
            they do not need to email it to themselves.
            We wait for Clerk to load (!isLoaded) so we never flash the capture
            form briefly on a signed-in user's first render. ── */}
-      {(!isLoaded || !isSignedIn) && (
+      {(isLoaded && !isSignedIn) && (
         <EmailCapture results={results} formData={formData} referralSlug={referralSlug} />
       )}
       <SupplementCTA />

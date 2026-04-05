@@ -48,7 +48,9 @@
       "Bash(grep -r \"otpCodeField\\\\|cl-otp\\\\|otpInput\" 'C:\\\\Users\\\\Onyekachukwu Okpala\\\\Projects\\\\myoguard-web\\\\node_modules\\\\@clerk\\\\clerk-react\\\\dist' --include=*.js -l)",
       "Bash(grep -rn \"appearance.*none\\\\|appearance: none\" 'C:\\\\Users\\\\Onyekachukwu Okpala\\\\Projects\\\\myoguard-web\\\\node_modules\\\\@clerk\\\\clerk-react\\\\dist' --include=*.css)",
       "Bash(grep -rn \"otpCode\\\\|otp_code\\\\|otp-code\" 'C:\\\\Users\\\\Onyekachukwu Okpala\\\\Projects\\\\myoguard-web\\\\node_modules\\\\@clerk' -l --include=*.mjs)",
-      "Bash(echo \"EXIT:$?\")"
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(node -e \"const pkg = require\\('./package.json'\\); console.log\\(JSON.stringify\\(Object.entries\\(pkg.dependencies\\).filter\\(\\([k]\\) => k.includes\\('clerk'\\)\\), null, 2\\)\\)\")",
+      "Bash(node -e \"const {prisma} = require\\('./src/lib/prisma'\\); console.log\\(Object.keys\\(prisma\\)\\)\")"
     ]
   }
 }

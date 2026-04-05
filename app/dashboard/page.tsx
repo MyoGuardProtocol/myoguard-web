@@ -380,6 +380,11 @@ export default async function DashboardPage() {
     );
   }
 
+  // Role-based routing — physicians who land on /dashboard are sent to their portal.
+  // PHYSICIAN_PENDING → holding screen; PHYSICIAN → full patient list.
+  if (user.role === 'PHYSICIAN')         redirect('/doctor/patients');
+  if (user.role === 'PHYSICIAN_PENDING') redirect('/doctor/dashboard');
+
   const latestAssessment = user.assessments[0];
   const latestScore      = latestAssessment?.muscleScore?.score ?? null;
   const latestBand       = latestAssessment?.muscleScore?.riskBand ?? null;
@@ -393,7 +398,7 @@ export default async function DashboardPage() {
   const HONORIFICS       = ['Dr', 'Dr.', 'Prof', 'Prof.', 'Mr', 'Mrs', 'Ms', 'Miss'];
   const nameParts        = (user.fullName ?? '').split(' ').filter(Boolean);
   const firstName        = nameParts.find(p => !HONORIFICS.includes(p)) ?? nameParts[0] ?? null;
-  const isPhysician      = user.role === 'PHYSICIAN';
+
 
   // Derive factors only when an assessment exists
   const factors = latestAssessment
@@ -437,7 +442,7 @@ export default async function DashboardPage() {
   // user.physicianId is an informal FK to User.id (no Prisma @relation).
   // Resolve: physician User → referralSlug → PhysicianProfile.displayName.
   let connectedPhysicianName: string | null = null;
-  if (!isPhysician && user.physicianId) {
+  if (user.physicianId) {
     try {
       const physicianUser = await prisma.user.findUnique({
         where:  { id: user.physicianId },
@@ -518,7 +523,7 @@ export default async function DashboardPage() {
                       Your MyoGuard Journey
                     </p>
                     <div className="flex items-baseline gap-1.5">
-                      <span className="text-6xl font-black text-white tabular-nums leading-none">
+                      <span className="font-mono text-6xl font-black text-white tabular-nums leading-none">
                         {Math.round(latestScore)}
                       </span>
                       <span className="text-2xl text-slate-500 font-light">/100</span>
@@ -543,7 +548,7 @@ export default async function DashboardPage() {
                           ? 'bg-red-900/60 text-red-400 border-red-700'
                           : 'bg-slate-700 text-slate-400 border-slate-600'
                       }`}>
-                        {delta > 0 ? '↑' : delta < 0 ? '↓' : '→'} {Math.abs(delta)} pts
+                        {delta > 0 ? '↑' : delta < 0 ? '↓' : '→'} <span className="font-mono">{Math.abs(delta)}</span> pts
                       </span>
                     )}
                   </div>
@@ -606,7 +611,7 @@ export default async function DashboardPage() {
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
                           {score != null && (
-                            <span className="text-sm font-bold text-slate-800 tabular-nums">
+                            <span className="font-mono text-sm font-bold text-slate-800 tabular-nums">
                               {Math.round(score)}/100
                             </span>
                           )}
@@ -666,24 +671,7 @@ export default async function DashboardPage() {
               )}
             </div>
 
-            {/* Physician portal (physicians only) */}
-            {isPhysician && (
-              <Link
-                href="/doctor/start"
-                className="block bg-white rounded-xl shadow-sm p-6 border border-teal-100 hover:border-teal-300 hover:shadow transition-all"
-              >
-                <div className="flex items-start gap-3">
-                  <span className="text-xl flex-shrink-0">👨‍⚕️</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-teal-800 mb-1">Physician Portal</p>
-                    <p className="text-xs text-teal-600 leading-snug">
-                      Referral link, patient activity, and practice tools
-                    </p>
-                  </div>
-                </div>
-                <p className="text-xs font-semibold text-teal-600 mt-4 text-right">Open →</p>
-              </Link>
-            )}
+
 
             {/* Physician report */}
             {latestScore !== null && (

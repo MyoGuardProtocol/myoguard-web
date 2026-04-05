@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { useUser } from '@clerk/nextjs';
 import Link from 'next/link';
 import { calculateProtocol } from '@/src/lib/protocolEngine';
 import type { AssessmentInput, ProtocolResult, PhysicianInfo } from '@/src/types';
@@ -15,8 +16,19 @@ import ProtocolResults from '@/src/components/results/ProtocolResults';
  * in the App Router to avoid static rendering errors.
  */
 function CalculatorInner() {
-  const searchParams = useSearchParams();
-  const refSlug      = searchParams.get('ref');
+  const searchParams          = useSearchParams();
+  const refSlug               = searchParams.get('ref');
+  const router                = useRouter();
+  const { isLoaded, isSignedIn } = useUser();
+
+  // Signed-in users have a dashboard — redirect them rather than showing the
+  // public calculator. /dashboard handles physician → /doctor/patients routing.
+  useEffect(() => {
+    if (isLoaded && isSignedIn) {
+router.replace('/doctor');
+}
+
+  }, [isLoaded, isSignedIn, router]);
 
   const [step, setStep]           = useState<'form' | 'results'>('form');
   const [results, setResults]     = useState<ProtocolResult | null>(null);
@@ -51,6 +63,13 @@ function CalculatorInner() {
     setResults(null);
     setFormData(null);
   };
+
+  // Suppress the form while Clerk resolves a signed-in session — avoids a
+  // flash of the public calculator before router.replace('/dashboard') fires.
+  if (isLoaded && isSignedIn) {
+router.replace('/doctor');
+return null;
+}
 
   // Recover persisted slug even when user navigates directly (no ?ref= in URL)
   const activeSlug =

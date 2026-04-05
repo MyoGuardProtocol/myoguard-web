@@ -3,6 +3,7 @@ import { redirect, notFound } from 'next/navigation';
 import { prisma } from '@/src/lib/prisma';
 import Link from 'next/link';
 import DashboardHeader from '@/src/components/ui/DashboardHeader';
+import ScoreGauge from '@/src/components/ui/ScoreGauge';
 
 // ─── Band config ───────────────────────────────────────────────────────────────
 type Band = 'CRITICAL' | 'HIGH' | 'MODERATE' | 'LOW';
@@ -180,70 +181,37 @@ export default async function ResultsPage({
         {/* ══════════════════════════════════════════════════════════════════════ */}
         <div className="bg-slate-800 rounded-xl p-8 border border-slate-700">
 
-          <div className="flex items-start justify-between gap-4 mb-6">
-            <div>
-              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
-                MyoGuard Score
-              </p>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-7xl font-black text-white tabular-nums leading-none">
-                  {score}
-                </span>
-                <span className="text-2xl text-slate-600 font-light leading-none">/100</span>
-              </div>
-            </div>
-            <div className="flex flex-col items-end gap-2 mt-1 flex-shrink-0">
-              <span className={`myg-badge-in inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border ${meta.bg} ${meta.border} ${meta.colour}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />
-                {meta.label}
-              </span>
-              <span className="text-[10px] font-medium text-slate-500 tabular-nums">
-                {ms.leanLossEstPct}% lean loss risk
-              </span>
-            </div>
+          {/* Label + band badge */}
+          <div className="flex items-center justify-between mb-5">
+            <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
+              MyoGuard Score
+            </p>
+            <span className={`myg-badge-in inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border ${meta.bg} ${meta.border} ${meta.colour}`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />
+              {meta.label}
+            </span>
           </div>
 
-          {/* Score track */}
-          <div className="mb-5">
-            <div className="relative mb-1">
-              <div className="myg-track-reveal h-4 rounded-full overflow-hidden flex gap-px">
-                <div className="h-full bg-red-900/60"     style={{ width: '40%' }} />
-                <div className="h-full bg-orange-900/60"  style={{ width: '20%' }} />
-                <div className="h-full bg-amber-900/60"   style={{ width: '20%' }} />
-                <div className="h-full bg-emerald-900/60" style={{ width: '20%' }} />
-              </div>
-              {band !== 'LOW' && (
-                <div className="absolute top-0 h-full w-0.5 bg-emerald-500/40" style={{ left: '80%' }} />
-              )}
-              <div
-                className={`myg-thumb-pop absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-white shadow-xl ring-2 ${meta.ring}`}
-                style={{ left: `${Math.min(97, Math.max(3, score))}%` }}
-              />
-            </div>
-            <div className="relative h-4 mt-2">
-              <span className="absolute left-0 text-[9px] font-medium text-slate-600">0</span>
-              {band !== 'LOW' && (
-                <span className="absolute text-[9px] font-medium text-emerald-600/70 -translate-x-1/2" style={{ left: '80%' }}>80</span>
-              )}
-              <span className="absolute right-0 text-[9px] font-medium text-slate-600">100</span>
-            </div>
+          {/* Radial gauge — replaces the segmented horizontal track */}
+          <div className="max-w-[220px] mx-auto mb-5">
+            <ScoreGauge score={score} band={band} leanLossPct={ms.leanLossEstPct} />
           </div>
 
           {/* Distance to Low Risk / already there */}
           {pointsToLow !== null ? (
-            <div className="flex items-center gap-2 bg-slate-700/50 rounded-xl px-4 py-3">
-              <span className="text-lg">🎯</span>
+            <div className="bg-slate-700/50 rounded-xl px-4 py-3">
               <p className="text-sm text-slate-200 leading-snug">
-                <span className="text-white font-bold">{pointsToLow} point{pointsToLow === 1 ? '' : 's'}</span>
-                {' '}away from the{' '}
+                <span className="font-mono font-bold text-white tabular-nums">{pointsToLow}</span>
+                {' '}
+                <span className="font-light">{pointsToLow === 1 ? 'point' : 'points'}</span>
+                {' from the '}
                 <span className="text-emerald-400 font-semibold">Low Risk zone</span>
               </p>
             </div>
           ) : (
-            <div className="flex items-center gap-2 bg-emerald-950 border border-emerald-800 rounded-xl px-4 py-3">
-              <span className="text-lg">✅</span>
+            <div className="bg-emerald-950 border border-emerald-800 rounded-xl px-4 py-3">
               <p className="text-sm text-emerald-300 font-semibold leading-snug">
-                You are in the optimal Low Risk zone
+                In the optimal Low Risk zone
               </p>
             </div>
           )}
@@ -268,11 +236,11 @@ export default async function ResultsPage({
               {/* Score delta */}
               <div className="bg-slate-800 px-4 py-4 flex flex-col gap-1">
                 <p className="text-[10px] font-medium text-slate-500">Score</p>
-                <p className="text-lg font-black text-white tabular-nums leading-none">
+                <p className="font-mono text-lg font-black text-white tabular-nums leading-none">
                   {score}
-                  <span className="text-slate-600 font-light text-sm"> /100</span>
+                  <span className="font-sans text-slate-600 font-light text-sm"> /100</span>
                 </p>
-                <span className={`text-xs font-bold tabular-nums ${
+                <span className={`font-mono text-xs font-bold tabular-nums ${
                   scoreDelta && !scoreDelta.startsWith('−')
                     ? 'text-emerald-400'
                     : scoreDelta === '±0'
@@ -286,11 +254,11 @@ export default async function ResultsPage({
               {/* Protein delta */}
               <div className="bg-slate-800 px-4 py-4 flex flex-col gap-1">
                 <p className="text-[10px] font-medium text-slate-500">Protein Target</p>
-                <p className="text-lg font-black text-white tabular-nums leading-none">
+                <p className="font-mono text-lg font-black text-white tabular-nums leading-none">
                   {Math.round(ms.proteinTargetG)}
-                  <span className="text-slate-600 font-light text-sm">g</span>
+                  <span className="font-sans text-slate-600 font-light text-sm">g</span>
                 </p>
-                <span className={`text-xs font-bold tabular-nums ${
+                <span className={`font-mono text-xs font-bold tabular-nums ${
                   proteinDelta && !proteinDelta.startsWith('−')
                     ? 'text-teal-400'
                     : proteinDelta === '±0'
@@ -304,12 +272,12 @@ export default async function ResultsPage({
               {/* Lean loss delta */}
               <div className="bg-slate-800 px-4 py-4 flex flex-col gap-1">
                 <p className="text-[10px] font-medium text-slate-500">Lean Risk</p>
-                <p className="text-lg font-black text-white tabular-nums leading-none">
+                <p className="font-mono text-lg font-black text-white tabular-nums leading-none">
                   {ms.leanLossEstPct}
-                  <span className="text-slate-600 font-light text-sm">%</span>
+                  <span className="font-sans text-slate-600 font-light text-sm">%</span>
                 </p>
                 {/* For lean loss, a DECREASE is good (green) */}
-                <span className={`text-xs font-bold tabular-nums ${
+                <span className={`font-mono text-xs font-bold tabular-nums ${
                   leanLossDelta && leanLossDelta.startsWith('−')
                     ? 'text-emerald-400'
                     : leanLossDelta === '±0'
@@ -370,7 +338,7 @@ export default async function ResultsPage({
           </div>
           <div className="px-5 py-5">
             <div className="flex items-baseline gap-2 mb-3">
-              <span className="text-5xl font-black text-white tabular-nums leading-none">
+              <span className="font-mono text-5xl font-black text-white tabular-nums leading-none">
                 {Math.round(ms.proteinTargetG)}
               </span>
               <span className="text-xl text-slate-500 font-light">g/day</span>
@@ -399,7 +367,7 @@ export default async function ResultsPage({
             </div>
             <div className="flex-1 min-w-0">
               <p className={`text-sm font-bold mb-1.5 ${meta.colour}`}>
-                {ms.leanLossEstPct}% estimated lean mass loss risk
+                <span className="font-mono tabular-nums">{ms.leanLossEstPct}</span>% estimated lean mass loss risk
               </p>
               <p className="text-xs text-slate-400 leading-relaxed">
                 {LEAN_LOSS_MSG[band]}
@@ -493,7 +461,7 @@ export default async function ResultsPage({
                     Hydration & Electrolytes
                   </p>
                 </div>
-                <span className="text-sm font-bold text-teal-400 tabular-nums">
+                <span className="font-mono text-sm font-bold text-teal-400 tabular-nums">
                   {plan.hydrationTarget}L / day
                 </span>
               </div>
@@ -545,7 +513,7 @@ export default async function ResultsPage({
             ].map(({ label, value }) => (
               <div key={label} className="bg-slate-800 px-4 py-3">
                 <p className="text-[10px] font-medium text-slate-500 mb-0.5">{label}</p>
-                <p className="text-sm font-semibold text-white tabular-nums">{value}</p>
+                <p className="font-mono text-sm font-semibold text-white tabular-nums">{value}</p>
               </div>
             ))}
           </div>

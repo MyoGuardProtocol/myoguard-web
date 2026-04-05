@@ -64,13 +64,13 @@ export default function AccountGate({ score, onGuest }: AccountGateProps) {
         {/* CTAs */}
         <div className="space-y-2">
           <Link
-            href="/sign-up"
+            href="/sign-up-new"
             className="block w-full text-center bg-teal-500 hover:bg-teal-400 text-white font-bold text-sm py-3 rounded-xl transition-colors"
           >
             Create free account →
           </Link>
           <Link
-            href="/sign-in"
+            href="/sign-in-new"
             className="block w-full text-center bg-slate-700 hover:bg-slate-600 text-white font-semibold text-sm py-3 rounded-xl transition-colors"
           >
             Sign in

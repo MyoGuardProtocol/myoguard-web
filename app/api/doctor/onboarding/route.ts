@@ -1,7 +1,9 @@
+export const dynamic = 'force-dynamic';
+
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/src/lib/prisma';
 import { z } from 'zod';
+import { prisma } from '@/src/lib/prisma';
 
 const OnboardingSchema = z.object({
   fullName:      z.string().min(2).max(100).trim(),
@@ -49,7 +51,15 @@ export async function POST(req: NextRequest) {
 
   // Fetch email from Clerk (needed if User row doesn't exist yet)
   const clerkUser = await currentUser();
-  const email     = clerkUser?.emailAddresses?.[0]?.emailAddress ?? '';
+  const email = clerkUser?.emailAddresses?.[0]?.emailAddress?.trim().toLowerCase() ?? '';
+
+  if (!email) {
+    console.error('[doctor/onboarding] No email on Clerk user', clerkId);
+    return NextResponse.json(
+      { error: 'Could not retrieve account email. Please sign out and try again.' },
+      { status: 422 },
+    );
+  }
 
   try {
     // 1. Upsert User — set role to PHYSICIAN_PENDING
@@ -104,6 +114,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error('[doctor/onboarding] DB error', err);
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : String(err) },
+      { status: 500 },
+    );
   }
 }

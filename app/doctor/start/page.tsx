@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { prisma } from '@/src/lib/prisma';
 import Link from 'next/link';
 import CopyButton from './CopyButton';
+import PhysicianNav from '@/src/components/ui/PhysicianNav';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://myoguard.health';
 
@@ -32,22 +33,11 @@ export default async function DoctorStartPage() {
     });
   }
 
+  const displayName = physician?.displayName ?? user.fullName ?? 'Physician';
+
   return (
     <main className="min-h-screen bg-slate-50 font-sans">
-      {/* Header */}
-      <header className="bg-white border-b border-slate-200 px-6 py-4">
-        <div className="max-w-3xl mx-auto flex items-center justify-between">
-          <div>
-            <Link href="/" className="text-xl font-bold text-slate-800 tracking-tight hover:opacity-80 transition-opacity">
-              Myo<span className="text-teal-600">Guard</span> Protocol
-            </Link>
-            <p className="text-xs text-slate-500 mt-0.5">Physician-Formulated · Data-Driven Muscle Protection</p>
-          </div>
-          <span className="text-xs bg-teal-50 text-teal-700 border border-teal-200 rounded-full px-3 py-1 font-medium">
-            {physician?.displayName ?? user.fullName ?? 'Physician Portal'}
-          </span>
-        </div>
-      </header>
+      <PhysicianNav activePath="/doctor/start" displayName={displayName} />
 
       <div className="max-w-3xl mx-auto px-6 py-10 space-y-6">
 
@@ -204,9 +194,9 @@ export default async function DoctorStartPage() {
         </div>
 
         {/* Nav */}
-        <div className="text-center">
-          <Link href="/dashboard" className="text-sm text-teal-600 hover:underline font-medium">
-            ← Back to Dashboard
+        <div>
+          <Link href="/doctor/patients" className="text-sm text-teal-600 hover:underline font-medium">
+            ← Patient Overview
           </Link>
         </div>
       </div>

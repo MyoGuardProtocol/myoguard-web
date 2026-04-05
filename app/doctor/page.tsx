@@ -1,17 +1,31 @@
 import Link from 'next/link';
+import { auth } from '@clerk/nextjs/server';
+import { redirect } from 'next/navigation';
+import { prisma } from '@/src/lib/prisma';
 
 /**
  * /doctor — Physician portal landing page.
  *
- * Public (no auth required). The CTA routes to /sign-in with a redirect back
- * to /doctor/onboarding so physicians land directly on their setup form after
- * authenticating via Google or magic-link email (no password friction).
+ * Signed-in physicians are routed directly to their portal without seeing
+ * this marketing page. Signed-in patients may view it per policy — they are
+ * not automatically redirected. Unauthenticated visitors see the full page.
  *
  * Mobile-first: all elements use full-width tap targets, readable font sizes,
  * and stack vertically on xs screens. The feature grid goes 1-col on mobile,
  * 3-col on sm+.
  */
-export default function DoctorLandingPage() {
+export default async function DoctorLandingPage() {
+  const { userId } = await auth();
+
+  if (userId) {
+    const user = await prisma.user.findUnique({
+      where:  { clerkId: userId },
+      select: { role: true },
+    });
+    if (user?.role === 'PHYSICIAN')         redirect('/doctor/patients');
+    if (user?.role === 'PHYSICIAN_PENDING') redirect('/doctor/dashboard');
+    // PATIENT or unknown → fall through and render the landing page
+  }
   return (
     <main className="min-h-screen bg-white font-sans flex flex-col">
 
@@ -57,7 +71,7 @@ export default function DoctorLandingPage() {
           {/* CTA */}
           <div className="space-y-3">
             <Link
-              href="/sign-in?redirect_url=/doctor/onboarding"
+              href="/doctor/sign-in"
               className="w-full inline-flex items-center justify-center gap-2 bg-slate-900 text-white text-base font-semibold px-8 py-4 rounded-2xl hover:bg-slate-800 active:bg-slate-950 transition-colors shadow-sm min-h-[52px]"
             >
               Continue as Physician
@@ -66,7 +80,7 @@ export default function DoctorLandingPage() {
               </svg>
             </Link>
             <Link
-              href="/sign-up?redirect_url=/doctor/onboarding"
+              href="/doctor/sign-up"
               className="w-full inline-flex items-center justify-center gap-2 bg-white border border-slate-200 text-slate-700 text-sm font-semibold px-8 py-3.5 rounded-2xl hover:border-teal-300 hover:text-teal-700 hover:bg-teal-50 transition-colors min-h-[48px]"
             >
               New to MyoGuard? Create account
