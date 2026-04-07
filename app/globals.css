@@ -27,6 +27,30 @@
   --background: #ffffff;
   --foreground: #171717;
   color-scheme: light;
+
+  /* ── Midnight Executive design tokens ──────────────────────────────────────
+     Used by .glass-card, .btn-lift, .clinical-alert-* utility classes and any
+     component that needs to reference brand values via CSS custom properties.
+     Tailwind class bg-[var(--mg-teal)] etc. also works with these.
+     ──────────────────────────────────────────────────────────────────────── */
+  --mg-bg:             #050A15;     /* Deep Midnight Navy                    */
+  --mg-surface-1:      rgba(255, 255, 255, 0.04);  /* lowest elevation      */
+  --mg-surface-2:      rgba(255, 255, 255, 0.07);  /* card / panel          */
+  --mg-surface-3:      rgba(255, 255, 255, 0.11);  /* active / hover state  */
+  --mg-border:         rgba(255, 255, 255, 0.08);  /* default border        */
+  --mg-border-muted:   rgba(255, 255, 255, 0.045); /* divider               */
+  --mg-teal:           #2DD4BF;    /* Myo-Teal — primary / success           */
+  --mg-teal-glow:      rgba(45, 212, 191, 0.20);
+  --mg-teal-dim:       rgba(45, 212, 191, 0.12);
+  --mg-coral:          #F87171;    /* Muted Coral — high-risk accent         */
+  --mg-coral-glow:     rgba(248, 113, 113, 0.18);
+  --mg-coral-dim:      rgba(248, 113, 113, 0.10);
+  --mg-orange:         #FB923C;    /* High-risk (non-critical) accent        */
+  --mg-orange-glow:    rgba(251, 146, 60, 0.18);
+  --mg-orange-dim:     rgba(251, 146, 60, 0.08);
+  --mg-rose:           #F43F5E;    /* Critical risk                          */
+  --mg-rose-glow:      rgba(244, 63, 94, 0.22);
+  --mg-rose-dim:       rgba(244, 63, 94, 0.08);
 }
 
 @theme inline {
@@ -34,6 +58,117 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+}
+
+/* ─── Glassmorphism surface ──────────────────────────────────────────────────
+   Apply to any dark-mode card that sits over the --mg-bg background.
+   backdrop-filter requires the parent to have a non-opaque background so the
+   blur has pixels to sample — works correctly on bg-[#050A15] and bg-slate-900.
+   ─────────────────────────────────────────────────────────────────────────── */
+.glass-card {
+  background:              var(--mg-surface-2);
+  backdrop-filter:         blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border:                  1px solid var(--mg-border);
+}
+.glass-card-low {
+  background:              rgba(255, 255, 255, 0.025);
+  backdrop-filter:         blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border:                  1px solid var(--mg-border-muted);
+}
+
+/* ─── Button Lift ────────────────────────────────────────────────────────────
+   Springy upward translate + shadow depth on hover. GPU-composited only.
+   Add class="btn-lift" to any <button> or <a> alongside existing Tailwind.
+   ─────────────────────────────────────────────────────────────────────────── */
+.btn-lift {
+  transition:
+    transform     220ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow    220ms ease,
+    background-color 150ms ease,
+    border-color  150ms ease;
+}
+.btn-lift:hover:not(:disabled) {
+  transform:  translateY(-2px);
+  box-shadow: 0 10px 32px -6px rgba(0, 0, 0, 0.55);
+}
+.btn-lift:active:not(:disabled) {
+  transform:  translateY(0px);
+  box-shadow: none;
+  transition-duration: 80ms;
+}
+
+/* ─── Clinical alert cards ───────────────────────────────────────────────────
+   Replace standard red/orange boxes with a refined glowing border treatment.
+   The glow is achieved via layered box-shadow (no filter, so layout unaffected).
+
+   HIGH     — orange glow, static
+   CRITICAL — rose glow, slow-pulse animation (respects prefers-reduced-motion)
+   LOW      — teal accent, no glow (affirmation state)
+   MODERATE — amber, subtle glow
+   ─────────────────────────────────────────────────────────────────────────── */
+.clinical-alert-high {
+  background:  var(--mg-orange-dim);
+  border:      1px solid rgba(251, 146, 60, 0.32);
+  box-shadow:
+    0 0 0 1px  rgba(251, 146, 60, 0.10),
+    0 0 28px -6px var(--mg-orange-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+.clinical-alert-critical {
+  background:  var(--mg-rose-dim);
+  border:      1px solid rgba(244, 63, 94, 0.38);
+  box-shadow:
+    0 0 0 1px  rgba(244, 63, 94, 0.12),
+    0 0 36px -6px var(--mg-rose-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+.clinical-alert-moderate {
+  background:  rgba(245, 158, 11, 0.06);
+  border:      1px solid rgba(245, 158, 11, 0.22);
+  box-shadow:
+    0 0 0 1px  rgba(245, 158, 11, 0.07),
+    0 0 20px -8px rgba(245, 158, 11, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+.clinical-alert-low {
+  background:  var(--mg-teal-dim);
+  border:      1px solid rgba(45, 212, 191, 0.28);
+  box-shadow:
+    0 0 0 1px  rgba(45, 212, 191, 0.08),
+    0 0 20px -8px var(--mg-teal-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* ─── Score gauge drop-shadow glow ──────────────────────────────────────────
+   Applied to the SVG wrapper <div> for each risk band.
+   drop-shadow uses the arc's own colour as light source automatically.
+   ─────────────────────────────────────────────────────────────────────────── */
+.gauge-glow-low      { filter: drop-shadow(0 0  8px rgba(45,  212, 191, 0.45)); }
+.gauge-glow-moderate { filter: drop-shadow(0 0  8px rgba(245, 158,  11, 0.40)); }
+.gauge-glow-high     { filter: drop-shadow(0 0 10px rgba(251, 146,  60, 0.50)); }
+.gauge-glow-critical { filter: drop-shadow(0 0 12px rgba(244,  63,  94, 0.55)); }
+
+/* ─── Critical pulse (box-shadow only — GPU safe) ────────────────────────── */
+@media (prefers-reduced-motion: no-preference) {
+  .clinical-alert-critical {
+    animation: mg-critical-pulse 3.5s ease-in-out infinite;
+  }
+  @keyframes mg-critical-pulse {
+    0%, 100% {
+      box-shadow:
+        0 0 0 1px  rgba(244, 63, 94, 0.12),
+        0 0 36px -6px rgba(244, 63, 94, 0.22),
+        inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    }
+    50% {
+      box-shadow:
+        0 0 0 1px  rgba(244, 63, 94, 0.22),
+        0 0 52px -4px rgba(244, 63, 94, 0.38),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    }
+  }
 }
 
 body {

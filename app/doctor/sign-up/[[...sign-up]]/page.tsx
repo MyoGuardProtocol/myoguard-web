@@ -80,7 +80,7 @@ export default async function PhysicianSignUpPage() {
         routing="path"
         path="/doctor/sign-up"
         signInUrl="/doctor/sign-in"
-        forceRedirectUrl="/doctor/onboarding"
+        forceRedirectUrl="/doctor/dashboard"
       />
 
       <Link

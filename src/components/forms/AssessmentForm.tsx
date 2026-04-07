@@ -40,12 +40,14 @@ const WEIGHT_KG = { min: 30, max: 250 };
  */
 export default function AssessmentForm({ onSubmit }: AssessmentFormProps) {
   const [form, setForm] = useState<AssessmentInput>({
-    weight: '',
-    unit: 'kg',
-    doseMg: 0,
-    medication: 'semaglutide',
+    weight:        '',
+    unit:          'kg',
+    doseMg:        0,
+    medication:    'semaglutide',
     activityLevel: 'sedentary',
-    symptoms: [],
+    symptoms:      [],
+    sleepHours:    undefined,
+    sleepQuality:  undefined,
   });
   const [consented, setConsented] = useState(false);
 
@@ -356,6 +358,148 @@ export default function AssessmentForm({ onSubmit }: AssessmentFormProps) {
                   </button>
                 ))}
               </div>
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div className="border-t border-slate-100" />
+
+          {/* ── Section C: Recovery & Sleep ── */}
+          <div className="space-y-5">
+            <div>
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                Recovery &amp; Sleep
+              </p>
+              <p className="text-xs text-slate-400 mt-1 leading-snug">
+                Optional — improves score accuracy. Sleep deprivation blunts muscle protein synthesis.
+              </p>
+            </div>
+
+            {/* Sleep hours — numeric input with Geist Mono display */}
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">
+                Average Nightly Sleep
+                <span className="ml-1.5 text-slate-400 font-normal text-xs">(hours)</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  placeholder="e.g. 7.0"
+                  min={0}
+                  max={14}
+                  step={0.5}
+                  value={form.sleepHours ?? ''}
+                  onChange={e => {
+                    const v = e.target.value === '' ? undefined : parseFloat(e.target.value);
+                    setForm(f => ({ ...f, sleepHours: v }));
+                  }}
+                  className={
+                    inputCls +
+                    ' font-mono tabular-nums pr-14'
+                  }
+                  style={{ fontFamily: 'var(--font-geist-mono), ui-monospace, monospace' }}
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none select-none">
+                  hrs
+                </span>
+              </div>
+              {/* Contextual warning for critically low sleep */}
+              {form.sleepHours !== undefined && form.sleepHours < 5.5 && (
+                <div className="mt-2 flex items-start gap-2 rounded-lg bg-orange-50 border border-orange-200 px-3 py-2">
+                  <span className="text-orange-500 text-sm mt-0.5 flex-shrink-0">⚠</span>
+                  <p className="text-xs text-orange-700 leading-relaxed">
+                    <span className="font-semibold">Severe sleep deficit detected.</span>{' '}
+                    Fewer than 5.5 hours significantly blunts MPS and may elevate your risk band.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Sleep quality — premium 1-5 slider */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-semibold text-slate-700">
+                  Sleep Quality
+                </label>
+                {/* Live readout in Geist Mono */}
+                <span
+                  className="text-xs tabular-nums font-semibold px-2 py-0.5 rounded-md"
+                  style={{
+                    fontFamily:      'var(--font-geist-mono), ui-monospace, monospace',
+                    background:      form.sleepQuality !== undefined ? 'rgba(45,212,191,0.12)' : 'transparent',
+                    color:           form.sleepQuality !== undefined ? '#2DD4BF' : '#94a3b8',
+                    border:          form.sleepQuality !== undefined ? '1px solid rgba(45,212,191,0.3)' : 'none',
+                  }}
+                >
+                  {form.sleepQuality !== undefined
+                    ? ['', 'Poor', 'Fair', 'Average', 'Good', 'Excellent'][form.sleepQuality]
+                    : 'Not set'}
+                </span>
+              </div>
+
+              {/* Custom styled range slider */}
+              <div className="relative py-1">
+                <input
+                  type="range"
+                  min={1}
+                  max={5}
+                  step={1}
+                  value={form.sleepQuality ?? 3}
+                  onChange={e => setForm(f => ({ ...f, sleepQuality: parseInt(e.target.value) }))}
+                  onMouseDown={() => {
+                    // Set quality on first interaction if untouched
+                    if (form.sleepQuality === undefined) {
+                      setForm(f => ({ ...f, sleepQuality: 3 }));
+                    }
+                  }}
+                  className="w-full h-2 rounded-full appearance-none cursor-pointer
+                    bg-gradient-to-r from-red-300 via-amber-300 to-emerald-400
+                    [&::-webkit-slider-thumb]:appearance-none
+                    [&::-webkit-slider-thumb]:w-5
+                    [&::-webkit-slider-thumb]:h-5
+                    [&::-webkit-slider-thumb]:rounded-full
+                    [&::-webkit-slider-thumb]:bg-white
+                    [&::-webkit-slider-thumb]:shadow-md
+                    [&::-webkit-slider-thumb]:border-2
+                    [&::-webkit-slider-thumb]:border-teal-400
+                    [&::-webkit-slider-thumb]:transition-transform
+                    [&::-webkit-slider-thumb]:hover:scale-110
+                    [&::-moz-range-thumb]:w-5
+                    [&::-moz-range-thumb]:h-5
+                    [&::-moz-range-thumb]:rounded-full
+                    [&::-moz-range-thumb]:bg-white
+                    [&::-moz-range-thumb]:border-2
+                    [&::-moz-range-thumb]:border-teal-400
+                    [&::-moz-range-thumb]:shadow-md"
+                />
+                {/* Scale labels */}
+                <div className="flex justify-between mt-1.5 px-0.5">
+                  {['1\nPoor', '2\nFair', '3\nAvg', '4\nGood', '5\nExcellent'].map((label, i) => (
+                    <span
+                      key={i}
+                      className="text-[9px] text-slate-400 text-center leading-tight whitespace-pre"
+                    >
+                      {label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Biological alert — shown when quality is impaired */}
+              {form.sleepQuality !== undefined && form.sleepQuality < 3 && (
+                <div className="mt-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3">
+                  <div className="flex items-start gap-2.5">
+                    <svg className="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                    </svg>
+                    <p className="text-xs text-orange-800 leading-relaxed">
+                      <span className="font-bold">Biological Alert:</span>{' '}
+                      Insufficient recovery blunts Muscle Protein Synthesis by ~18%. Poor sleep quality
+                      will apply a 10-point penalty to your MyoGuard Score.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

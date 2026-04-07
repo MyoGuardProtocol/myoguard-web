@@ -1,90 +1,163 @@
+'use client';
+
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { useUser } from '@clerk/nextjs';
 
-/**
- * PhysicianNav
- *
- * Shared navigation bar for all authenticated /doctor/* pages.
- * Server component — no client boundary needed.
- *
- * Props:
- *  activePath   — caller passes the tab key that should appear active.
- *                 Use '/doctor/patients' for both the list and detail pages
- *                 so the Patients tab stays highlighted when drilling into a patient.
- *  displayName  — physician display name (PhysicianProfile.displayName preferred,
- *                 falls back to User.fullName). Non-clickable identity pill.
- */
-
-type Props = {
-  activePath:  string;
-  displayName: string;
+// ── Props are fully optional so existing call sites that pass activePath +
+// displayName continue to work, and new call sites with no props also work.
+type PhysicianNavProps = {
+  activePath?:  string;   // legacy prop — overrides pathname detection if supplied
+  displayName?: string;   // legacy prop — overrides Clerk name if supplied
 };
 
-const NAV_ITEMS = [
-  { label: 'Patients',          href: '/doctor/patients' },
-  { label: 'Tools & Referrals', href: '/doctor/start'    },
-] as const;
+const NAV_LINKS = [
+  { href: '/doctor/dashboard', label: 'Dashboard' },
+  { href: '/doctor/patients',  label: 'Patients'  },
+  { href: '/doctor/start',     label: 'Start Sheet'},
+];
 
-export default function PhysicianNav({ activePath, displayName }: Props) {
+export default function PhysicianNav({ activePath, displayName }: PhysicianNavProps = {}) {
+  const pathname = usePathname();
+  const { user } = useUser();
+
+  // Use the explicit activePath prop when supplied (legacy pages), otherwise
+  // fall back to the URL from usePathname() for new pages that don't pass it.
+  const currentPath = activePath ?? pathname;
+
+  // Display name priority: explicit prop → Clerk full name → Clerk email → fallback
+  const nameToShow =
+    displayName ??
+    user?.fullName ??
+    user?.emailAddresses[0]?.emailAddress ??
+    'Physician';
+
+  const initial = nameToShow.charAt(0).toUpperCase();
+
   return (
-    <header className="bg-white border-b border-slate-200 print:hidden">
-      <div className="max-w-3xl mx-auto px-6">
-        <div className="flex items-center justify-between h-14">
-
-          {/* Wordmark — links to the physician home (patient list) */}
-          <Link
-            href="/doctor/patients"
-            className="flex items-baseline gap-1 hover:opacity-75 transition-opacity flex-shrink-0"
+    <nav
+      style={{
+        background:   '#060D1E',
+        borderBottom: '1px solid rgba(255,255,255,0.07)',
+        position:     'sticky',
+        top:          0,
+        zIndex:       50,
+      }}
+    >
+      <div
+        style={{
+          maxWidth:   '64rem',
+          margin:     '0 auto',
+          padding:    '0 20px',
+          display:    'flex',
+          alignItems: 'center',
+          height:     56,
+          gap:        28,
+        }}
+      >
+        {/* Wordmark */}
+        <Link href="/doctor/patients" style={{ textDecoration: 'none', flexShrink: 0 }}>
+          <span style={{ fontSize: 18, fontWeight: 900, letterSpacing: '-0.03em', color: '#F8FAFC' }}>
+            Myo<span style={{ color: '#2DD4BF' }}>Guard</span>
+          </span>
+          <span
+            style={{
+              marginLeft:    6,
+              fontSize:      10,
+              fontWeight:    400,
+              color:         'rgba(255,255,255,0.35)',
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase' as const,
+            }}
           >
-            <span className="text-base font-black text-slate-900 tracking-tight">
-              Myo<span className="text-teal-600">Guard</span>
-            </span>
-            <span className="text-slate-400 font-light text-sm ml-0.5">Protocol</span>
-          </Link>
+            Physician
+          </span>
+        </Link>
 
-          {/* Primary nav — desktop only; physician tool is desktop-first */}
-          <nav className="hidden sm:flex items-center h-full">
-            {NAV_ITEMS.map(({ label, href }) => {
-              const isActive = activePath === href;
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  className={[
-                    'relative inline-flex items-center h-full px-4 text-sm transition-colors',
-                    isActive
-                      ? 'font-semibold text-slate-900'
-                      : 'font-medium text-slate-500 hover:text-slate-700',
-                  ].join(' ')}
-                >
-                  {label}
-                  {isActive && (
-                    <span
-                      aria-hidden="true"
-                      className="absolute bottom-0 left-4 right-4 h-0.5 rounded-full bg-teal-500"
-                    />
-                  )}
-                </Link>
-              );
-            })}
-          </nav>
+        {/* Nav links */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1 }}>
+          {NAV_LINKS.map(({ href, label }) => {
+            const active = currentPath === href || currentPath.startsWith(href + '/');
+            return (
+              <Link
+                key={href}
+                href={href}
+                style={{
+                  textDecoration: 'none',
+                  padding:        '6px 12px',
+                  borderRadius:   6,
+                  fontSize:       13,
+                  fontWeight:     active ? 600 : 400,
+                  color:          active ? '#2DD4BF' : 'rgba(255,255,255,0.55)',
+                  background:     active ? 'rgba(45,212,191,0.08)' : 'transparent',
+                  position:       'relative' as const,
+                  transition:     'color 0.15s, background 0.15s',
+                }}
+              >
+                {label}
+                {active && (
+                  <span
+                    style={{
+                      position:     'absolute',
+                      bottom:       -1,
+                      left:         12,
+                      right:        12,
+                      height:       2,
+                      background:   '#2DD4BF',
+                      borderRadius: 1,
+                      boxShadow:    '0 0 8px rgba(45,212,191,0.5)',
+                    }}
+                  />
+                )}
+              </Link>
+            );
+          })}
+        </div>
 
-          {/* Right side — identity pill + sign out */}
-          <div className="flex items-center gap-3 flex-shrink-0">
-            {displayName && (
-              <span className="hidden sm:block text-xs font-medium text-slate-600 bg-slate-100 border border-slate-200 rounded-full px-3 py-1 leading-none select-none">
-                {displayName}
-              </span>
-            )}
-            <Link
-              href="/sign-out"
-              className="text-xs text-slate-400 hover:text-slate-600 transition-colors whitespace-nowrap"
-            >
-              Sign out
-            </Link>
+        {/* Identity pill */}
+        <div
+          style={{
+            display:        'flex',
+            alignItems:     'center',
+            gap:            8,
+            padding:        '5px 12px',
+            borderRadius:   99,
+            background:     'rgba(255,255,255,0.06)',
+            border:         '1px solid rgba(255,255,255,0.08)',
+            flexShrink:     0,
+          }}
+        >
+          <div
+            style={{
+              width:           28,
+              height:          28,
+              borderRadius:    '50%',
+              background:      'linear-gradient(135deg,#2DD4BF,#0D9488)',
+              display:         'flex',
+              alignItems:      'center',
+              justifyContent:  'center',
+              fontSize:        11,
+              fontWeight:      800,
+              color:           '#fff',
+              flexShrink:      0,
+            }}
+          >
+            {initial}
           </div>
-
+          <span
+            style={{
+              fontSize:      12,
+              color:         'rgba(255,255,255,0.7)',
+              maxWidth:      140,
+              overflow:      'hidden',
+              textOverflow:  'ellipsis',
+              whiteSpace:    'nowrap' as const,
+            }}
+          >
+            {nameToShow}
+          </span>
         </div>
       </div>
-    </header>
+    </nav>
   );
 }

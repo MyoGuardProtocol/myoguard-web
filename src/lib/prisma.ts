@@ -41,12 +41,18 @@ function createPrismaClient(): PrismaClient {
   // and avoids the internal initialisation race.  pg is a peer dependency of
   // @prisma/adapter-pg (not a bundled copy), so Pool from the top-level
   // "pg" package is type-compatible with what the adapter expects.
+  // Append connect_timeout to the URL so PgBouncer / Supabase pooler also
+  // honours it — the Pool option only covers the Node.js → pooler TCP leg.
+  const urlWithTimeout = connectionString.includes('connect_timeout')
+    ? connectionString
+    : `${connectionString}${connectionString.includes('?') ? '&' : '?'}connect_timeout=10`;
+
   const pool = new Pool({
-    connectionString,
+    connectionString:        urlWithTimeout,
     ssl:                    { rejectUnauthorized: false },
-    connectionTimeoutMillis: 8_000,   // fail fast — don't hang the request
+    connectionTimeoutMillis: 10_000,   // fail fast — don't hang the request
     idleTimeoutMillis:       10_000,
-    max:                     5,       // small pool for dev / serverless
+    max:                     5,        // small pool for dev / serverless
   });
 
   const adapter = new PrismaPg(pool as unknown as any);

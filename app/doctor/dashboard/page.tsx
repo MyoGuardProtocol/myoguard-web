@@ -1,39 +1,75 @@
-import { auth } from '@clerk/nextjs/server';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/src/lib/prisma';
 import Link from 'next/link';
 
 /**
- * /doctor/dashboard — Role-aware physician dashboard entry point.
+ * /doctor/dashboard — Role-aware physician entry point.
  *
- * Role routing table:
- *   PHYSICIAN_PENDING → show "account under review" holding screen
- *   PHYSICIAN         → redirect to /doctor/patients (full patient list)
- *   PATIENT / other   → redirect to /dashboard (patient dashboard)
- *   ADMIN             → redirect to /admin/physicians
+ * Role routing:
+ *   PHYSICIAN         → /doctor/patients  (command center)
+ *   ADMIN             → /admin/physicians
+ *   PATIENT           → /dashboard
+ *   PHYSICIAN_PENDING → "Account under review" holding screen
  *
- * Protected: middleware.ts requires a valid Clerk session before render.
+ * clerkId-fallback (same pattern as /dashboard):
+ *   If no DB row is found by clerkId, we look up by email and stamp the new
+ *   clerkId onto the existing row. This handles the case where a Clerk account
+ *   is deleted+recreated (new userId, same email) without losing role data.
  */
+
+const PHYSICIAN_SELECT = {
+  id:       true,
+  role:     true,
+  fullName: true,
+  email:    true,
+  physicianOnboarding: {
+    select: { country: true, specialty: true, submittedAt: true },
+  },
+} as const;
+
+type PhysicianRow = Awaited<ReturnType<typeof fetchByClerkId>>;
+
+function fetchByClerkId(clerkId: string) {
+  return prisma.user.findUnique({ where: { clerkId }, select: PHYSICIAN_SELECT });
+}
+
 export default async function DoctorDashboardPage() {
   const { userId } = await auth();
   if (!userId) redirect('/sign-in');
 
-  const user = await prisma.user.findUnique({
-    where:  { clerkId: userId },
-    select: {
-      role:     true,
-      fullName: true,
-      email:    true,
-      physicianOnboarding: {
-        select: { country: true, specialty: true, submittedAt: true },
-      },
-    },
-  });
+  // ── Phase 1: fast path — look up by clerkId ──────────────────────────────
+  let user: PhysicianRow | null = await fetchByClerkId(userId);
 
-  // Not in DB yet (webhook race) → treat as patient
-  if (!user) redirect('/dashboard');
+  // ── Phase 2: email-fallback — handles clerkId mismatch after Clerk account
+  //    recreation (same email, new Clerk userId) ─────────────────────────────
+  if (!user) {
+    const clerkUser = await currentUser();
+    if (!clerkUser) redirect('/sign-in');
 
-  // Role routing
+    const email = clerkUser.emailAddresses[0]?.emailAddress ?? '';
+
+    if (email) {
+      const byEmail = await prisma.user.findUnique({
+        where:  { email },
+        select: { id: true },
+      }).catch(() => null);
+
+      if (byEmail) {
+        // Attach the new clerkId so Phase 1 hits on the next request.
+        user = await prisma.user.update({
+          where:  { id: byEmail.id },
+          data:   { clerkId: userId },
+          select: PHYSICIAN_SELECT,
+        }).catch(() => null);
+      }
+    }
+  }
+
+  // Still no row → new physician (webhook hasn't fired yet or first visit)
+  if (!user) redirect('/doctor/onboarding');
+
+  // ── Role routing ──────────────────────────────────────────────────────────
   if (user.role === 'PHYSICIAN') redirect('/doctor/patients');
   if (user.role === 'ADMIN')     redirect('/admin/physicians');
   if (user.role === 'PATIENT')   redirect('/dashboard');
@@ -62,7 +98,6 @@ export default async function DoctorDashboardPage() {
         {/* ── Status card ── */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 text-center space-y-5">
 
-          {/* Clock icon */}
           <div className="w-16 h-16 rounded-full bg-amber-50 border border-amber-100 flex items-center justify-center mx-auto">
             <svg className="w-8 h-8 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -78,7 +113,6 @@ export default async function DoctorDashboardPage() {
             </p>
           </div>
 
-          {/* What happens next */}
           <div className="bg-slate-50 rounded-xl p-4 text-left space-y-2.5">
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">What happens next</p>
             {[
@@ -135,9 +169,7 @@ export default async function DoctorDashboardPage() {
                 <dt className="text-slate-400 w-28 flex-shrink-0">Submitted</dt>
                 <dd className="text-slate-500 text-xs mt-0.5">
                   {user.physicianOnboarding.submittedAt.toLocaleDateString('en-GB', {
-                    day:   'numeric',
-                    month: 'short',
-                    year:  'numeric',
+                    day: 'numeric', month: 'short', year: 'numeric',
                   })}
                 </dd>
               </div>
@@ -145,7 +177,6 @@ export default async function DoctorDashboardPage() {
           </div>
         )}
 
-        {/* Sign out */}
         <div className="text-center">
           <Link href="/sign-out" className="text-sm text-slate-400 hover:text-slate-600 transition-colors">
             Sign out

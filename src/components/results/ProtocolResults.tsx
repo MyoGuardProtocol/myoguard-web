@@ -12,6 +12,7 @@ import ScoreProjectionCard from './ScoreProjectionCard';
 import AccountGate from '../ui/AccountGate';
 import EmailCapture from '../ui/EmailCapture';
 import SupplementCTA from '../ui/SupplementCTA';
+import RecoverySignalCard from '../ui/RecoverySignalCard';
 
 type ProtocolResultsProps = {
   results:       ProtocolResult;
@@ -86,6 +87,15 @@ export default function ProtocolResults({
           explanation={results.explanation}
         />
       </div>
+
+      {/* ── Recovery Signal — shown when sleep data was collected ── */}
+      <RecoverySignalCard
+        sleepHours={formData.sleepHours}
+        sleepQuality={formData.sleepQuality}
+        recoveryStatus={results.recoveryStatus}
+        penaltyApplied={results.recoveryModifierApplied}
+        criticalOverride={results.criticalOverrideApplied}
+      />
 
       {/* ── Account gate — shown to unauthenticated guests ── */}
       {showGate ? (

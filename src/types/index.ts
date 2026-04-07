@@ -3,7 +3,7 @@
  * Re-exports core domain types so all pages/components import from one place.
  */
 
-export type { AssessmentInput, ProtocolResult, RiskBand } from "@/src/lib/protocolEngine";
+export type { AssessmentInput, ProtocolResult, RiskBand, RecoveryStatus } from "@/src/lib/protocolEngine";
 
 // ─── Physician / Referral ────────────────────────────────────────────────────
 
@@ -30,11 +30,13 @@ export type ApiError = {
 // ─── Dashboard / Check-in ────────────────────────────────────────────────────
 
 export type CheckinInput = {
-  avgWeightKg?: number;
-  avgProteinG?: number;
+  avgWeightKg?:  number;
+  avgProteinG?:  number;
   totalWorkouts?: number;
   avgHydration?: number;
-  energyLevel?: number;   // 1–5
-  nauseaLevel?: number;   // 1–5
-  notes?: string;
+  energyLevel?:  number;   // 1–5
+  nauseaLevel?:  number;   // 1–5
+  notes?:        string;
+  sleepHours?:   number;   // avg nightly hours for the week
+  sleepQuality?: number;   // 1–5
 };

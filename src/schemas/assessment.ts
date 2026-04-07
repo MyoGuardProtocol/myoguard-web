@@ -3,12 +3,15 @@ import { z } from "zod";
 // ─── Assessment intake (mirrors AssessmentInput from protocolEngine) ──────────
 
 export const AssessmentInputSchema = z.object({
-  weight: z.string().min(1, "Weight is required"),
-  unit: z.enum(["kg", "lbs"]),
-  medication: z.enum(["semaglutide", "tirzepatide"]),
-  doseMg: z.number().positive("Dose must be a positive number"),
+  weight:        z.string().min(1, "Weight is required"),
+  unit:          z.enum(["kg", "lbs"]),
+  medication:    z.enum(["semaglutide", "tirzepatide"]),
+  doseMg:        z.number().positive("Dose must be a positive number"),
   activityLevel: z.enum(["sedentary", "moderate", "active"]),
-  symptoms: z.array(z.string()),
+  symptoms:      z.array(z.string()),
+  // ── Recovery & Sleep (optional — section C of the form) ─────────────────
+  sleepHours:    z.number().min(0).max(14).optional(),
+  sleepQuality:  z.number().int().min(1).max(5).optional(),
 });
 
 export type AssessmentInputSchema = z.infer<typeof AssessmentInputSchema>;
@@ -49,6 +52,9 @@ export const CheckinSchema = z.object({
   energyLevel:   z.number().int().min(1).max(5).optional(),
   nauseaLevel:   z.number().int().min(1).max(5).optional(),
   notes:         z.string().max(2000).optional(),
+  // ── Recovery & Sleep ─────────────────────────────────────────────────────
+  sleepHours:    z.number().min(0).max(14).optional(),
+  sleepQuality:  z.number().int().min(1).max(5).optional(),
 });
 
 export type CheckinSchema = z.infer<typeof CheckinSchema>;

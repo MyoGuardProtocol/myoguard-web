@@ -4,6 +4,8 @@ import { prisma } from '@/src/lib/prisma';
 import Link from 'next/link';
 import DashboardHeader from '@/src/components/ui/DashboardHeader';
 import ScoreGauge from '@/src/components/ui/ScoreGauge';
+import ClinicalAlert from '@/src/components/ui/ClinicalAlert';
+import RecoverySignalCard from '@/src/components/ui/RecoverySignalCard';
 
 // ─── Band config ───────────────────────────────────────────────────────────────
 type Band = 'CRITICAL' | 'HIGH' | 'MODERATE' | 'LOW';
@@ -360,21 +362,11 @@ export default async function ResultsPage({
         {/* ══════════════════════════════════════════════════════════════════════ */}
         {/* ── LEAN MASS RISK ── */}
         {/* ══════════════════════════════════════════════════════════════════════ */}
-        <div className={`rounded-2xl border px-5 py-5 ${meta.bg} ${meta.border}`}>
-          <div className="flex items-start gap-3">
-            <div className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-lg ${meta.trackCls} border ${meta.border}`}>
-              💪
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className={`text-sm font-bold mb-1.5 ${meta.colour}`}>
-                <span className="font-mono tabular-nums">{ms.leanLossEstPct}</span>% estimated lean mass loss risk
-              </p>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                {LEAN_LOSS_MSG[band]}
-              </p>
-            </div>
-          </div>
-        </div>
+        <ClinicalAlert
+          band={band}
+          leanLossPct={ms.leanLossEstPct}
+          message={LEAN_LOSS_MSG[band]}
+        />
 
         {/* ══════════════════════════════════════════════════════════════════════ */}
         {/* ── CLINICAL EXPLANATION ── */}
@@ -391,6 +383,15 @@ export default async function ResultsPage({
             </p>
           </div>
         </div>
+
+        {/* ══════════════════════════════════════════════════════════════════════ */}
+        {/* ── RECOVERY SIGNAL ── only renders when sleep data was collected ── */}
+        {/* ══════════════════════════════════════════════════════════════════════ */}
+        <RecoverySignalCard
+          sleepHours={assessment.sleepHours}
+          sleepQuality={assessment.sleepQuality}
+          recoveryStatus={assessment.recoveryStatus}
+        />
 
         {/* ══════════════════════════════════════════════════════════════════════ */}
         {/* ── PROTOCOL PLAN ── persisted from DB; null-safe fallback ── */}

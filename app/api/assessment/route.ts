@@ -247,6 +247,10 @@ export async function POST(req: NextRequest) {
           muscleWeakness:  input.symptoms.includes('Muscle weakness')  ? 1 : 0,
           score:           protocol.myoguardScore,
           riskBand:        riskBandMap[protocol.riskBand],
+          // ── Recovery & Sleep (nullable — only present when user filled section C)
+          sleepHours:      input.sleepHours      ?? null,
+          sleepQuality:    input.sleepQuality    ?? null,
+          recoveryStatus:  protocol.recoveryStatus,
         },
       });
 
