@@ -1,3 +1,4 @@
+"use client";
 /**
  * Root landing — hard fork between Physician and Patient tracks.
  * No Clerk, no auth checks, no redirects. Pure navigation.
