@@ -3,13 +3,14 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 /**
  * Route matchers
  *
- * /doctor/sign-in   – public (must stay unprotected or sign-in is unreachable)
- * /doctor/sign-up   – public
- * /doctor/onboarding – requires session; redirects unauthenticated → /doctor/sign-in
- * /doctor/dashboard  – requires session; redirects unauthenticated → /doctor/sign-in
- * /doctor/patients/* – requires session; redirects unauthenticated → /doctor/sign-in
- * /doctor/start      – requires session; redirects unauthenticated → /doctor/sign-in
- * /admin/*           – requires session; uses default Clerk sign-in URL (/sign-in-new)
+ * /doctor/sign-in    – public (must stay unprotected or sign-in is unreachable)
+ * /doctor/sign-up    – public
+ * /invite/[doctorId] – public (sets referral cookie then redirects to sign-up)
+ * /doctor/onboarding  – requires session; redirects unauthenticated → /doctor/sign-in
+ * /doctor/dashboard   – requires session; redirects unauthenticated → /doctor/sign-in
+ * /doctor/patients/*  – requires session; redirects unauthenticated → /doctor/sign-in
+ * /doctor/start       – requires session; redirects unauthenticated → /doctor/sign-in
+ * /admin/*            – requires session; uses default Clerk sign-in URL (/sign-in-new)
  *
  * Page-level auth() calls perform DB role checks (PHYSICIAN, ADMIN, etc.).
  * Middleware only guarantees a valid Clerk session exists for protected paths.

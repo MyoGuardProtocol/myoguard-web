@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { prisma } from '@/src/lib/prisma';
 import Link from 'next/link';
 import PostAuthSync from '@/src/components/ui/PostAuthSync';
+import ReferralSync from '@/src/components/ui/ReferralSync';
 import OnboardingRedirect from '@/src/components/ui/OnboardingRedirect';
 import AssessmentHeroPlaceholder from '@/src/components/ui/AssessmentHeroPlaceholder';
 import ContributingFactors, { type Factor, type ImpactLevel } from '@/src/components/ui/ContributingFactors';
@@ -467,6 +468,8 @@ export default async function DashboardPage() {
     <main className="min-h-screen bg-slate-50 font-sans">
       {/* Silently syncs a pending guest assessment to the DB after first login */}
       <PostAuthSync />
+      {/* Links patient to referring physician if mgReferredBy cookie is present */}
+      <ReferralSync />
       {/* Redirects first-time users (no profile) to /onboarding to complete setup */}
       <OnboardingRedirect hasProfile={!!user.profile} />
 

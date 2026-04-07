@@ -12,6 +12,7 @@ import { redirect } from 'next/navigation';
 import { prisma } from '@/src/lib/prisma';
 import PhysicianNav from '@/src/components/ui/PhysicianNav';
 import PatientCommandCenter, { type PatientRow } from '@/src/components/ui/PatientCommandCenter';
+import PatientGrowthCard from '@/src/components/ui/PatientGrowthCard';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -70,7 +71,7 @@ export default async function PatientsPage() {
 
   const physician = await prisma.user.findUnique({
     where:  { clerkId },
-    select: { id: true, role: true, referralSlug: true },
+    select: { id: true, role: true, fullName: true, referralSlug: true },
   });
 
   if (!physician)                            redirect('/dashboard');
@@ -160,6 +161,12 @@ export default async function PatientsPage() {
   return (
     <main style={{ minHeight: '100vh', background: '#050A15' }}>
       <PhysicianNav />
+      <div className="max-w-6xl mx-auto px-6 py-6">
+        <PatientGrowthCard
+          doctorId={physician.id}
+          doctorName={physician.fullName}
+        />
+      </div>
       <PatientCommandCenter patients={patients} />
     </main>
   );
