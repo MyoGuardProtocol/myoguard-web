@@ -1,248 +1,306 @@
 "use client";
-/**
- * Root landing — hard fork between Physician and Patient tracks.
- * No Clerk, no auth checks, no redirects. Pure navigation.
- */
-import Link from 'next/link';
+import { useState } from "react";
 
-export default function RootPage() {
-  return (
-    <main
-      style={{
-        minHeight:     '100vh',
-        background:    '#0a0a0a',
-        fontFamily:    'system-ui, -apple-system, sans-serif',
-        display:       'flex',
-        flexDirection: 'column',
-        alignItems:    'center',
-        padding:       '64px 24px 48px',
-        position:      'relative',
-        overflow:      'hidden',
-      }}
-    >
+function computeScore(weightKg: number, proteinG: number, doseM: number): number {
+const target = weightKg * 1.6;
+const adequacy = Math.min(proteinG / target, 1);
+const dosePenalty = Math.min(doseM / 2.4, 1) * 20;
+const raw = adequacy * 100 - dosePenalty;
+return Math.max(0, Math.min(100, Math.round(raw)));
+}
 
-      {/* ── Radial glow backdrop ── */}
-      <div style={{
-        position:   'absolute',
-        top:        '-120px',
-        left:       '50%',
-        transform:  'translateX(-50%)',
-        width:      '700px',
-        height:     '500px',
-        background: 'radial-gradient(ellipse at center, rgba(45,212,191,0.08) 0%, transparent 70%)',
-        pointerEvents: 'none',
-      }} />
+type RiskBand = "LOW" | "MODERATE" | "HIGH";
 
-      {/* ── Wordmark ── */}
-      <div style={{ marginBottom: 56, textAlign: 'center', position: 'relative' }}>
-        <p style={{ fontSize: 36, fontWeight: 900, letterSpacing: '-0.04em', color: '#F8FAFC', margin: 0 }}>
-          Myo<span style={{ color: '#2DD4BF' }}>Guard</span>
-        </p>
-        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.14em', textTransform: 'uppercase', marginTop: 6 }}>
-          Protocol Platform
-        </p>
-      </div>
+function getRisk(score: number): RiskBand {
+if (score >= 70) return "LOW";
+if (score >= 40) return "MODERATE";
+return "HIGH";
+}
 
-      {/* ── Hero ── */}
-      <div style={{ maxWidth: 680, textAlign: 'center', marginBottom: 56, position: 'relative' }}>
-        <h1 style={{
-          fontSize:      'clamp(28px, 5vw, 44px)',
-          fontWeight:    900,
-          letterSpacing: '-0.03em',
-          color:         '#F8FAFC',
-          margin:        '0 0 20px',
-          lineHeight:    1.15,
-        }}>
-          Protect Muscle.{' '}
-          <span style={{ color: '#2DD4BF' }}>Optimize Outcomes.</span>
-        </h1>
-        <p style={{
-          fontSize:   'clamp(14px, 2vw, 17px)',
-          color:      'rgba(255,255,255,0.5)',
-          lineHeight: 1.7,
-          margin:     0,
-        }}>
-          Physician-guided protocols designed to preserve lean mass, reduce side effects,
-          and improve outcomes during GLP-1 therapy.
-        </p>
-      </div>
+const RISK_META: Record<RiskBand, { label: string; color: string; explanation: string }> = {
+LOW: {
+label: "Low Risk",
+color: "text-teal-600",
+explanation:
+"Your protein intake is well-matched to your GLP-1 dose. Lean mass loss risk is within acceptable clinical range. Continue current protocol with quarterly monitoring.",
+},
+MODERATE: {
+label: "Moderate Risk",
+color: "text-amber-600",
+explanation:
+"Protein adequacy is suboptimal relative to your GLP-1 dose stage. Sarcopenic trajectory is possible without intervention. Supplementation and resistance training are recommended.",
+},
+HIGH: {
+label: "High Risk",
+color: "text-red-600",
+explanation:
+"Significant lean mass loss risk detected. Your current protein intake does not meet the 1.6 g/kg protective threshold. Immediate protocol review is indicated.",
+},
+};
 
-      {/* ── Value strip ── */}
-      <div style={{
-        display:             'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-        gap:                 12,
-        width:               '100%',
-        maxWidth:            720,
-        marginBottom:        56,
-        position:            'relative',
-      }}>
-        {[
-          { title: 'Clinical Intelligence',    body: 'Real-time risk scoring and protocol guidance' },
-          { title: 'Muscle Preservation',      body: 'Designed to protect lean mass during weight loss' },
-          { title: 'Continuous Monitoring',    body: 'Track symptoms, recovery, and adherence over time' },
-        ].map(({ title, body }) => (
-          <div
-            key={title}
-            style={{
-              background:    'rgba(255,255,255,0.04)',
-              border:        '1px solid rgba(255,255,255,0.08)',
-              borderRadius:  12,
-              padding:       '20px 18px',
-              backdropFilter:'blur(12px)',
-            }}
-          >
-            <p style={{ fontSize: 13, fontWeight: 700, color: '#2DD4BF', margin: '0 0 6px', letterSpacing: '0.02em' }}>
-              {title}
-            </p>
-            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', margin: 0, lineHeight: 1.6 }}>
-              {body}
-            </p>
-          </div>
-        ))}
-      </div>
+export default function HomePage() {
+const [weight, setWeight] = useState("");
+const [protein, setProtein] = useState("");
+const [dose, setDose] = useState("");
+const [result, setResult] = useState<{ score: number; risk: RiskBand } | null>(null);
+const [email, setEmail] = useState("");
+const [submitted, setSubmitted] = useState(false);
 
-      {/* ── CTA cards ── */}
-      <div style={{
-        display:        'flex',
-        gap:            16,
-        flexWrap:       'wrap',
-        justifyContent: 'center',
-        width:          '100%',
-        maxWidth:       560,
-        marginBottom:   48,
-        position:       'relative',
-      }}>
+function handleCalculate() {
+const w = parseFloat(weight);
+const p = parseFloat(protein);
+const d = parseFloat(dose);
+if (!w || !p || !d || w <= 0 || p <= 0 || d <= 0) return;
+const score = computeScore(w, p, d);
+setResult({ score, risk: getRisk(score) });
+}
 
-        {/* Physician — primary CTA */}
-        <div style={{ flex: '1 1 240px', display: 'flex', flexDirection: 'column', gap: 0 }}>
-          <p style={{
-            fontSize:      11,
-            fontWeight:    700,
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-            color:         'rgba(45,212,191,0.7)',
-            margin:        '0 0 8px 2px',
-          }}>
-            For Clinicians
-          </p>
-          <Link
-            href="/doctor/sign-in"
-            style={{
-              background:     '#2DD4BF',
-              color:          '#030D0E',
-              borderRadius:   16,
-              padding:        '28px 24px',
-              textDecoration: 'none',
-              display:        'flex',
-              flexDirection:  'column',
-              gap:            10,
-              transition:     'opacity 0.15s, box-shadow 0.15s',
-              boxShadow:      '0 0 32px rgba(45,212,191,0.15)',
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.opacity   = '0.9';
-              e.currentTarget.style.boxShadow = '0 0 48px rgba(45,212,191,0.28)';
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.opacity   = '1';
-              e.currentTarget.style.boxShadow = '0 0 32px rgba(45,212,191,0.15)';
-            }}
-          >
-            <span style={{ fontSize: 26 }}>🩺</span>
-            <p style={{ fontSize: 17, fontWeight: 900, margin: 0 }}>Physician Login</p>
-            <p style={{ fontSize: 13, opacity: 0.65, margin: 0, lineHeight: 1.55 }}>
-              Monitor patients, review clinical flags, and manage protocols.
-            </p>
-            <p style={{ fontSize: 12, fontWeight: 800, marginTop: 8, letterSpacing: '0.07em', textTransform: 'uppercase' }}>
-              Sign in →
-            </p>
-          </Link>
-        </div>
+async function handleEmailSubmit() {
+if (!email.includes("@")) return;
+setSubmitted(true);
+}
 
-        {/* Patient — secondary CTA */}
-        <div style={{ flex: '1 1 240px', display: 'flex', flexDirection: 'column', gap: 0 }}>
-          <p style={{
-            fontSize:      11,
-            fontWeight:    700,
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-            color:         'rgba(255,255,255,0.3)',
-            margin:        '0 0 8px 2px',
-          }}>
-            For Patients
-          </p>
-          <Link
-            href="/sign-in-new"
-            style={{
-              background:     'transparent',
-              border:         '1px solid rgba(255,255,255,0.12)',
-              color:          '#F8FAFC',
-              borderRadius:   16,
-              padding:        '28px 24px',
-              textDecoration: 'none',
-              display:        'flex',
-              flexDirection:  'column',
-              gap:            10,
-              transition:     'background 0.15s, border-color 0.15s',
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.background   = 'rgba(255,255,255,0.05)';
-              e.currentTarget.style.borderColor  = 'rgba(45,212,191,0.3)';
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.background   = 'transparent';
-              e.currentTarget.style.borderColor  = 'rgba(255,255,255,0.12)';
-            }}
-          >
-            <span style={{ fontSize: 26 }}>📊</span>
-            <p style={{ fontSize: 17, fontWeight: 900, margin: 0 }}>Patient Login</p>
-            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', margin: 0, lineHeight: 1.55 }}>
-              Track your progress and follow your personalized plan.
-            </p>
-            <p style={{ fontSize: 12, fontWeight: 700, marginTop: 8, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.07em', textTransform: 'uppercase' }}>
-              Sign in →
-            </p>
-          </Link>
-          <p style={{
-            fontSize:   11,
-            color:      'rgba(255,255,255,0.2)',
-            marginTop:  8,
-            textAlign:  'center',
-            lineHeight: 1.5,
-          }}>
-            Use requires physician oversight and consent.
-          </p>
-        </div>
+return (
+<main className="min-h-screen bg-white text-slate-900">
 
-      </div>
+{/* Nav */}
+<nav className="border-b border-slate-100 px-6 py-4 flex items-center justify-between max-w-6xl mx-auto">
+<div className="flex items-center gap-1">
+<span className="text-xl font-bold text-slate-900">Myo</span>
+<span className="text-xl font-bold text-teal-600">Guard</span>
+</div>
+<div className="flex gap-3">
+<a href="/sign-in" className="text-sm text-slate-600 hover:text-slate-900 px-4 py-2 rounded-lg border border-slate-200 transition-colors">
+Sign in
+</a>
+<a href="/sign-up" className="text-sm bg-teal-600 text-white px-4 py-2 rounded-lg hover:bg-teal-700 transition-colors">
+Get started
+</a>
+</div>
+</nav>
 
-      {/* ── Trust strip ── */}
-      <div style={{
-        maxWidth:   600,
-        textAlign:  'center',
-        marginBottom: 40,
-        position:   'relative',
-      }}>
-        <p style={{
-          fontSize:   11,
-          color:      'rgba(255,255,255,0.18)',
-          lineHeight: 1.7,
-          margin:     0,
-        }}>
-          This platform provides educational guidance and does not replace medical advice.
-          Use is subject to patient consent and physician oversight.
-        </p>
-      </div>
+{/* Hero */}
+<section className="max-w-6xl mx-auto px-6 py-16 grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
 
-      {/* ── Emergency bypass ── */}
-      <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.1)', textAlign: 'center', position: 'relative' }}>
-        Routing issue?{' '}
-        <Link href="/doctor/direct-access" style={{ color: 'rgba(45,212,191,0.4)', textDecoration: 'none' }}>
-          Direct access →
-        </Link>
-      </p>
+{/* LEFT */}
+<div className="flex flex-col gap-6 pt-4">
+<div className="inline-flex items-center gap-2 bg-teal-50 text-teal-700 text-xs font-medium px-3 py-1.5 rounded-full w-fit border border-teal-100">
+Physician-Formulated · Evidence-Based
+</div>
+<h1 className="text-4xl lg:text-5xl font-bold text-slate-900 leading-tight">
+Protect Muscle.<br />
+<span className="text-teal-600">Optimize GLP-1 Outcomes.</span>
+</h1>
+<p className="text-lg text-slate-500 leading-relaxed max-w-md">
+The clinical standard for muscle preservation during GLP-1 therapy. Physician-designed protocols that calculate your sarcopenia risk and deliver actionable protection targets.
+</p>
+<div className="flex flex-col gap-3 pt-2">
+{[
+"Real-time sarcopenia risk scoring",
+"Personalised protein & fiber targets",
+"Evidence-based supplement guidance",
+"Continuous adherence monitoring",
+].map((f) => (
+<div key={f} className="flex items-center gap-2 text-slate-600 text-sm">
+<div className="w-4 h-4 rounded-full bg-teal-100 flex items-center justify-center">
+<div className="w-2 h-2 rounded-full bg-teal-600" />
+</div>
+{f}
+</div>
+))}
+</div>
+<div className="flex items-center gap-3 pt-2">
+<a href="/sign-up" className="bg-teal-600 text-white px-6 py-3 rounded-xl text-sm font-medium hover:bg-teal-700 transition-colors">
+Start free assessment
+</a>
+<a href="/sign-up/physician" className="text-sm text-slate-600 hover:text-teal-600 transition-colors underline underline-offset-2">
+Are you a clinician?
+</a>
+</div>
+</div>
 
-    </main>
-  );
+{/* RIGHT — Calculator */}
+<div className="flex flex-col gap-4">
+<div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 flex flex-col gap-5">
+<div>
+<h2 className="text-base font-semibold text-slate-900">Sarcopenia Risk Calculator</h2>
+<p className="text-xs text-slate-400 mt-0.5">No account required · Results in seconds</p>
+</div>
+
+<div className="flex flex-col gap-4">
+<label className="flex flex-col gap-1.5">
+<span className="text-xs font-medium text-slate-600">Body weight (kg)</span>
+<input
+type="number"
+min="30"
+max="300"
+placeholder="e.g. 85"
+value={weight}
+onChange={(e) => setWeight(e.target.value)}
+className="border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+/>
+</label>
+
+<label className="flex flex-col gap-1.5">
+<span className="text-xs font-medium text-slate-600">Daily protein intake (g)</span>
+<input
+type="number"
+min="0"
+max="400"
+placeholder="e.g. 80"
+value={protein}
+onChange={(e) => setProtein(e.target.value)}
+className="border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+/>
+</label>
+
+<label className="flex flex-col gap-1.5">
+<span className="text-xs font-medium text-slate-600">Current GLP-1 dose (mg/week)</span>
+<input
+type="number"
+min="0"
+max="15"
+step="0.25"
+placeholder="e.g. 0.5"
+value={dose}
+onChange={(e) => setDose(e.target.value)}
+className="border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+/>
+</label>
+</div>
+
+<button
+onClick={handleCalculate}
+className="w-full bg-teal-600 text-white py-3 rounded-xl text-sm font-medium hover:bg-teal-700 active:scale-95 transition-all"
+>
+Calculate my risk score
+</button>
+
+{result && (
+<div className="flex flex-col gap-4 border-t border-slate-100 pt-4">
+
+{/* Score row */}
+<div className="flex items-center justify-between">
+<div>
+<p className="text-xs text-slate-500 mb-1">MyoGuard Score</p>
+<div className="flex items-baseline gap-2">
+<span className="text-4xl font-bold text-slate-900">{result.score}</span>
+<span className="text-slate-400 text-sm">/100</span>
+</div>
+</div>
+<div className="text-right">
+<p className="text-xs text-slate-500 mb-1">Risk band</p>
+<span className={`text-sm font-semibold ${RISK_META[result.risk].color}`}>
+{RISK_META[result.risk].label}
+</span>
+</div>
+</div>
+
+{/* Bar */}
+<div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+<div
+className={`h-2 rounded-full transition-all ${
+result.risk === "LOW"
+? "bg-teal-500"
+: result.risk === "MODERATE"
+? "bg-amber-400"
+: "bg-red-500"
+}`}
+style={{ width: `${result.score}%` }}
+/>
+</div>
+
+{/* Explanation */}
+<p className="text-xs text-slate-600 leading-relaxed">
+{RISK_META[result.risk].explanation}
+</p>
+
+{/* Blurred protocol preview */}
+<div className="relative rounded-xl border border-slate-200 overflow-hidden">
+<div className="p-4 flex flex-col gap-2 select-none pointer-events-none">
+<p className="text-xs font-semibold text-slate-700">Clinical Protocol — Full Report</p>
+{[
+"Protein target: __ g/day (1.6 g/kg adjusted)",
+"Fibre target: __ g/day (dose-staged)",
+"Hydration baseline: __ ml/day",
+"Supplement stack: Whey · Creatine · Vitamin D · Omega-3",
+"Resistance training: __ sessions/week",
+"Monitoring labs: Ferritin · B12 · Zinc · Magnesium",
+].map((line) => (
+<p key={line} className="text-xs text-slate-400">{line}</p>
+))}
+</div>
+<div className="absolute inset-0 backdrop-blur-sm bg-white/60 flex flex-col items-center justify-center gap-2 p-4">
+<div className="w-8 h-8 rounded-full bg-teal-50 border border-teal-100 flex items-center justify-center">
+<svg className="w-4 h-4 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+<path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+</svg>
+</div>
+<p className="text-xs font-semibold text-slate-800 text-center">Full protocol locked</p>
+<p className="text-xs text-slate-500 text-center">Enter your email to unlock the complete clinical report.</p>
+</div>
+</div>
+
+{/* Email gate */}
+{!submitted ? (
+<div className="flex flex-col gap-2">
+<input
+type="email"
+placeholder="Enter your email address"
+value={email}
+onChange={(e) => setEmail(e.target.value)}
+className="border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+/>
+<button
+onClick={handleEmailSubmit}
+className="w-full border border-teal-600 text-teal-600 py-2.5 rounded-xl text-sm font-medium hover:bg-teal-50 transition-colors"
+>
+Unlock full protocol →
+</button>
+<p className="text-xs text-slate-400 text-center">No spam. Unsubscribe anytime.</p>
+</div>
+) : (
+<div className="bg-teal-50 border border-teal-100 rounded-xl p-3 text-center">
+<p className="text-sm font-medium text-teal-700">Protocol sent to {email}</p>
+<p className="text-xs text-teal-500 mt-0.5">Check your inbox — full clinical report included.</p>
+</div>
+)}
+</div>
+)}
+</div>
+
+<p className="text-xs text-slate-400 text-center px-4">
+MyoGuard Clinical Oversight · For educational use only · Not a substitute for clinical consultation
+</p>
+</div>
+</section>
+
+{/* Evidence strip */}
+<section className="border-t border-slate-100 bg-slate-50 py-10">
+<div className="max-w-6xl mx-auto px-6 text-center flex flex-col gap-3">
+<p className="text-xs text-slate-400 uppercase tracking-widest font-medium">Built on peer-reviewed evidence</p>
+<div className="flex flex-wrap justify-center gap-6 text-xs text-slate-500">
+{[
+"NEJM · STEP 1 Trial",
+"Diabetes & Metabolism 2026",
+"Clinical Obesity · Urbina et al.",
+"EWGSOP2 Sarcopenia Criteria",
+"Joint GLP-1 Advisory 2025",
+].map((s) => (
+<span key={s} className="font-medium">{s}</span>
+))}
+</div>
+</div>
+</section>
+
+{/* Footer */}
+<footer className="border-t border-slate-100 py-8 px-6">
+<div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
+<span>© 2026 MyoGuard Protocol · Meridian Health Holding</span>
+<span>myoguard.health · docb@myoguard.health</span>
+</div>
+</footer>
+
+</main>
+);
 }

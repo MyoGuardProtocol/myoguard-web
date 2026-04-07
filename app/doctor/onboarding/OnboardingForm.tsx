@@ -1,203 +1,228 @@
-'use client';
-
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+"use client";
+import { useState } from "react";
 
 const SPECIALTIES = [
-  'General Practice / Family Medicine',
-  'Internal Medicine',
-  'Endocrinology',
-  'Obesity Medicine',
-  'Cardiology',
-  'Bariatric Medicine',
-  'Sports & Exercise Medicine',
-  'Dietetics / Nutrition',
-  'Other',
+"Internal Medicine",
+"Endocrinology",
+"Family Medicine",
+"Bariatric Medicine",
+"Obesity Medicine",
+"Sports Medicine",
+"General Practice",
+"Cardiology",
+"Nephrology",
+"Other",
 ];
 
 const COUNTRIES = [
-  'United Kingdom',
-  'United States',
-  'Canada',
-  'Australia',
-  'Nigeria',
-  'South Africa',
-  'Germany',
-  'France',
-  'UAE',
-  'India',
-  'Other',
+"Trinidad and Tobago",
+"United States",
+"United Kingdom",
+"Canada",
+"Australia",
+"Jamaica",
+"Barbados",
+"Guyana",
+"India",
+"Nigeria",
+"Other",
 ];
 
 export default function OnboardingForm() {
-  const router  = useRouter();
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState('');
+const [form, setForm] = useState({
+name: "",
+country: "",
+specialty: "",
+license: "",
+});
+const [submitted, setSubmitted] = useState(false);
+const [loading, setLoading] = useState(false);
+const [error, setError] = useState("");
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
+function handleChange(
+e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+) {
+setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+}
 
-    const form = new FormData(e.currentTarget);
+async function handleSubmit(e: React.FormEvent) {
+e.preventDefault();
+if (!form.name.trim() || !form.country || !form.specialty) {
+setError("Please complete all required fields.");
+return;
+}
+setError("");
+setLoading(true);
+try {
+const res = await fetch("/api/doctor/onboarding", {
+method: "POST",
+headers: { "Content-Type": "application/json" },
+body: JSON.stringify(form),
+});
+if (!res.ok) throw new Error("Submission failed");
+setSubmitted(true);
+} catch {
+setError("Something went wrong. Please try again.");
+} finally {
+setLoading(false);
+}
+}
 
-    try {
-      const res = await fetch('/api/doctor/onboarding', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fullName:      form.get('fullName')      as string,
-          country:       form.get('country')       as string,
-          specialty:     form.get('specialty')     as string,
-          licenseNumber: form.get('licenseNumber') as string,
-        }),
-      });
+if (submitted) {
+return (
+<div className="min-h-screen bg-white flex items-center justify-center px-4">
+<div className="max-w-md w-full bg-white border border-slate-200 rounded-2xl shadow-sm p-8 text-center flex flex-col gap-4">
+<div className="w-12 h-12 rounded-full bg-teal-50 border border-teal-100 flex items-center justify-center mx-auto">
+<svg className="w-6 h-6 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+<path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+</svg>
+</div>
+<h2 className="text-lg font-semibold text-slate-900">Application received</h2>
+<p className="text-sm text-slate-500 leading-relaxed">
+Thank you, <strong className="text-slate-700">{form.name}</strong>. Your credentials have been submitted for review.
+</p>
+<div className="bg-amber-50 border border-amber-100 rounded-xl p-4 text-left">
+<p className="text-xs font-semibold text-amber-700 mb-1">Account pending approval</p>
+<p className="text-xs text-amber-600 leading-relaxed">
+Our clinical team reviews all physician credentials within{" "}
+<strong>6–24 hours</strong> before account activation. You will
+receive a confirmation email once approved.
+</p>
+</div>
+<p className="text-xs text-slate-400">
+Questions? Contact us at docb@myoguard.health
+</p>
+</div>
+</div>
+);
+}
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({})) as { error?: string };
-        setError(data.error ?? 'Something went wrong. Please try again.');
-        return;
-      }
+return (
+<div className="min-h-screen bg-white flex items-center justify-center px-4 py-12">
+<div className="max-w-md w-full flex flex-col gap-6">
 
-      router.push('/doctor/dashboard');
-    } catch {
-      setError('Network error. Please check your connection and try again.');
-    } finally {
-      setLoading(false);
-    }
-  }
+{/* Header */}
+<div className="text-center flex flex-col gap-2">
+<div className="flex items-center justify-center gap-1 mb-2">
+<span className="text-xl font-bold text-slate-900">Myo</span>
+<span className="text-xl font-bold text-teal-600">Guard</span>
+</div>
+<h1 className="text-xl font-semibold text-slate-900">Physician registration</h1>
+<p className="text-sm text-slate-500">
+MyoGuard is a credentialed clinical platform. All physician accounts are reviewed before activation.
+</p>
+</div>
 
-  return (
-    <main className="min-h-screen bg-slate-50 font-sans flex flex-col">
+{/* Pending notice */}
+<div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+<p className="text-xs font-semibold text-blue-700 mb-1">Credentialed access</p>
+<p className="text-xs text-blue-600 leading-relaxed">
+Account pending. Our clinical team reviews all credentials within{" "}
+<strong>6–24 hours</strong> before activation.
+</p>
+</div>
 
-      {/* ── Header ── */}
-      <header className="bg-white border-b border-slate-100 px-6 py-4">
-        <div className="max-w-lg mx-auto flex items-center justify-between">
-          <Link href="/" className="flex items-baseline gap-1">
-            <span className="text-xl font-black text-slate-900 tracking-tight">
-              Myo<span className="text-teal-600">Guard</span>
-            </span>
-            <span className="text-slate-400 font-light text-sm ml-0.5">Protocol</span>
-          </Link>
-          <span className="text-xs bg-teal-50 text-teal-700 border border-teal-100 rounded-full px-3 py-1 font-semibold">
-            Physician Setup
-          </span>
-        </div>
-      </header>
+{/* Form */}
+<form
+onSubmit={handleSubmit}
+className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 flex flex-col gap-5"
+>
+{/* Name */}
+<label className="flex flex-col gap-1.5">
+<span className="text-xs font-medium text-slate-700">
+Full name <span className="text-red-500">*</span>
+</span>
+<input
+name="name"
+type="text"
+placeholder="Dr. Jane Smith"
+value={form.name}
+onChange={handleChange}
+required
+className="border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+/>
+</label>
 
-      {/* ── Form ── */}
-      <div className="flex-1 flex items-start justify-center px-6 py-10">
-        <div className="max-w-lg w-full space-y-6">
+{/* Country */}
+<label className="flex flex-col gap-1.5">
+<span className="text-xs font-medium text-slate-700">
+Country <span className="text-red-500">*</span>
+</span>
+<select
+name="country"
+value={form.country}
+onChange={handleChange}
+required
+className="border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+>
+<option value="">Select country</option>
+{COUNTRIES.map((c) => (
+<option key={c} value={c}>{c}</option>
+))}
+</select>
+</label>
 
-          {/* Progress bar */}
-          <div className="flex items-center gap-3">
-            <div className="flex-1 h-1 bg-teal-600 rounded-full" />
-            <span className="text-xs text-slate-400 font-medium whitespace-nowrap">Step 1 of 1</span>
-          </div>
+{/* Specialty */}
+<label className="flex flex-col gap-1.5">
+<span className="text-xs font-medium text-slate-700">
+Specialty <span className="text-red-500">*</span>
+</span>
+<select
+name="specialty"
+value={form.specialty}
+onChange={handleChange}
+required
+className="border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+>
+<option value="">Select specialty</option>
+{SPECIALTIES.map((s) => (
+<option key={s} value={s}>{s}</option>
+))}
+</select>
+</label>
 
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">Set up your physician profile</h1>
-            <p className="text-slate-500 text-sm mt-1 leading-relaxed">
-              Your account will be verified within 24 hours. Full access is unlocked once approved.
-            </p>
-          </div>
+{/* Licence (optional) */}
+<label className="flex flex-col gap-1.5">
+<span className="text-xs font-medium text-slate-700">
+Medical licence number{" "}
+<span className="text-slate-400 font-normal">(optional)</span>
+</span>
+<input
+name="license"
+type="text"
+placeholder="e.g. TT-MED-12345"
+value={form.license}
+onChange={handleChange}
+className="border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+/>
+</label>
 
-          <form
-            onSubmit={handleSubmit}
-            className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5"
-          >
-            {/* Full Name */}
-            <div>
-              <label htmlFor="fullName" className="block text-sm font-semibold text-slate-700 mb-1.5">
-                Full name <span className="text-red-400">*</span>
-              </label>
-              <input
-                id="fullName"
-                name="fullName"
-                type="text"
-                required
-                autoComplete="name"
-                placeholder="Dr. Jane Smith"
-                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition"
-              />
-            </div>
+{error && (
+<p className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+{error}
+</p>
+)}
 
-            {/* Country */}
-            <div>
-              <label htmlFor="country" className="block text-sm font-semibold text-slate-700 mb-1.5">
-                Country <span className="text-red-400">*</span>
-              </label>
-              <select
-                id="country"
-                name="country"
-                required
-                defaultValue=""
-                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition bg-white appearance-none"
-              >
-                <option value="" disabled>Select your country</option>
-                {COUNTRIES.map(c => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </div>
+<button
+type="submit"
+disabled={loading}
+className="w-full bg-teal-600 text-white py-3 rounded-xl text-sm font-medium hover:bg-teal-700 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+>
+{loading ? "Submitting…" : "Submit for review"}
+</button>
 
-            {/* Specialty */}
-            <div>
-              <label htmlFor="specialty" className="block text-sm font-semibold text-slate-700 mb-1.5">
-                Specialty / Role
-                <span className="text-slate-400 font-normal ml-1">(optional)</span>
-              </label>
-              <select
-                id="specialty"
-                name="specialty"
-                defaultValue=""
-                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition bg-white appearance-none"
-              >
-                <option value="">Select your specialty</option>
-                {SPECIALTIES.map(s => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            </div>
+<p className="text-xs text-slate-400 text-center">
+Already approved?{" "}
+<a href="/sign-in" className="text-teal-600 hover:underline">
+Sign in here
+</a>
+</p>
+</form>
 
-            {/* License Number */}
-            <div>
-              <label htmlFor="licenseNumber" className="block text-sm font-semibold text-slate-700 mb-1.5">
-                Medical licence number
-                <span className="text-slate-400 font-normal ml-1">(optional)</span>
-              </label>
-              <input
-                id="licenseNumber"
-                name="licenseNumber"
-                type="text"
-                placeholder="e.g. GMC 1234567"
-                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition"
-              />
-            </div>
-
-            {/* Error */}
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3">
-                <p className="text-sm text-red-700">{error}</p>
-              </div>
-            )}
-
-            {/* Submit */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-teal-600 text-white text-sm font-semibold py-3.5 rounded-xl hover:bg-teal-700 active:bg-teal-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Submitting…' : 'Complete Setup →'}
-            </button>
-
-            <p className="text-center text-xs text-slate-400">
-              By continuing you confirm you are a licensed medical professional.
-            </p>
-          </form>
-        </div>
-      </div>
-    </main>
-  );
+<p className="text-xs text-slate-400 text-center">
+MyoGuard Clinical Oversight · © 2026 Meridian Health Holding
+</p>
+</div>
+</div>
+);
 }
