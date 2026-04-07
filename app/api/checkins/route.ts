@@ -96,9 +96,20 @@ export async function POST(req: NextRequest) {
       : null;
 
   try {
-    // TODO: remove the @ts-expect-error lines once `npx prisma db push && npx prisma generate`
-    // has been run — energyLevel / nauseaLevel were added to schema.prisma but the Prisma
-    // client types won't reflect them until generation is re-run.
+    // Derive recovery status for the check-in week from sleep fields.
+    // Mirrors the engine logic so the persisted value is consistent with assessments.
+    const checkinRecoveryStatus = (() => {
+      if (data.sleepHours === undefined && data.sleepQuality === undefined) return null;
+      const hoursImpaired   = data.sleepHours   !== undefined && data.sleepHours   < 6.5;
+      const qualityImpaired = data.sleepQuality  !== undefined && data.sleepQuality < 3;
+      const severeSleep     = data.sleepHours   !== undefined && data.sleepHours   < 5.5;
+      // For the check-in week we don't have proteinTarget, so use avgProteinG < 80g as proxy
+      const lowProtein      = data.avgProteinG !== undefined && data.avgProteinG < 80;
+      if (severeSleep && lowProtein) return 'critical';
+      if (hoursImpaired || qualityImpaired) return 'impaired';
+      return 'optimal';
+    })();
+
     const checkin = await prisma.weeklyCheckin.create({
       data: {
         userId:            user.id,
@@ -110,6 +121,9 @@ export async function POST(req: NextRequest) {
         avgHydration:      data.avgHydration,
         energyLevel:       data.energyLevel,
         nauseaLevel:       data.nauseaLevel,
+        sleepHours:        data.sleepHours      ?? null,
+        sleepQuality:      data.sleepQuality    ?? null,
+        recoveryStatus:    checkinRecoveryStatus,
         proteinAdherence,
         exerciseAdherence,
         highlights:        [],

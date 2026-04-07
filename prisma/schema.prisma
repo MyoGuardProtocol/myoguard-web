@@ -1,20 +1,249 @@
 generator client {
-  provider        = "prisma-client-js"
-binaryTargets   = ["native", "rhel-openssl-3.0.x"]
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
-  // Prisma 7: connection URLs are NOT defined here.
-  // They live in prisma.config.ts (defineConfig → datasource.url).
-  // See: https://pris.ly/d/config-datasource
   provider = "postgresql"
+}
+
+model User {
+  id                  String               @id @default(cuid())
+  clerkId             String               @unique
+  email               String               @unique
+  fullName            String
+  role                Role                 @default(PATIENT)
+  subscriptionStatus  SubscriptionStatus   @default(FREE)
+  stripeCustomerId    String?
+  stripeSubId         String?
+  referralSlug        String?
+  referralCode        String?              @unique
+  referredById        String?
+  physicianId         String?
+  researchConsent     Boolean              @default(false)
+  consentDate         DateTime?
+  consentVersion      String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  assessments         Assessment[]
+  muscleScores        MuscleScore[]
+  notifications       Notification[]
+  physicianOnboarding PhysicianOnboarding?
+  physicianReviews    PhysicianReview[]
+  progressLogs        ProgressLog[]
+  protocolPlans       ProtocolPlan[]
+  shareCards          ShareCard[]
+  referredBy          User?                @relation("Referrals", fields: [referredById], references: [id])
+  referrals           User[]               @relation("Referrals")
+  profile             UserProfile?
+  weeklyCheckins      WeeklyCheckin[]
+}
+
+model PhysicianProfile {
+  id            String   @id @default(cuid())
+  slug          String   @unique
+  displayName   String
+  clinicName    String?
+  specialty     String?
+  startSheetUrl String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  /// Human-readable code shared with patients: e.g. DR-OKPALA-472
+  /// Patients enter this during onboarding to link their account.
+  referralCode  String?  @unique
+}
+
+model UserProfile {
+  id              String        @id @default(cuid())
+  userId          String        @unique
+  age             Int
+  sex             Sex
+  heightCm        Float
+  weightKg        Float
+  goalWeightKg    Float?
+  activityLevel   ActivityLevel
+  glp1Medication  String
+  glp1DoseMg      Float
+  glp1Stage       Glp1Stage
+  treatmentStart  DateTime
+  baselineProtein Float?
+  updatedAt       DateTime      @updatedAt
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Assessment {
+  id              String           @id @default(cuid())
+  userId          String
+  assessmentDate  DateTime         @default(now())
+  weightKg        Float
+  proteinGrams    Float
+  exerciseDaysWk  Int
+  hydrationLitres Float
+  symptoms        String[]
+  fatigue         Int
+  nausea          Int
+  muscleWeakness  Int
+  score           Float
+  riskBand        RiskBand
+  createdAt       DateTime         @default(now())
+  /// Hours of sleep reported at assessment time
+  sleepHours      Float?
+  /// 1 (Very poor) – 5 (Excellent) — self-reported sleep quality
+  sleepQuality    Int?
+  /// Derived recovery status: 'optimal' | 'impaired' | 'critical'
+  recoveryStatus  String?
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  muscleScore     MuscleScore?
+  physicianReview PhysicianReview?
+  protocolPlan    ProtocolPlan?
+}
+
+model MuscleScore {
+  id             String     @id @default(cuid())
+  userId         String
+  assessmentId   String     @unique
+  score          Float
+  riskBand       RiskBand
+  leanLossEstPct Float
+  proteinTargetG Float
+  explanation    String
+  generatedAt    DateTime   @default(now())
+  assessment     Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ProtocolPlan {
+  id               String     @id @default(cuid())
+  userId           String
+  assessmentId     String     @unique
+  proteinTargetG   Float
+  proteinSources   String[]
+  supplementation  String[]
+  trainingPlan     String
+  hydrationTarget  Float
+  electrolyteNotes String
+  giGuidance       String
+  createdAt        DateTime   @default(now())
+  assessment       Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  user             User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ProgressLog {
+  id              String   @id @default(cuid())
+  userId          String
+  logDate         DateTime @default(now())
+  weightKg        Float
+  proteinGrams    Float
+  workoutsCount   Int
+  hydrationLitres Float
+  energyLevel     Int
+  nauseaLevel     Int
+  notes           String?
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model WeeklyCheckin {
+  id                String    @id @default(cuid())
+  userId            String
+  weekStart         DateTime
+  weekEnd           DateTime
+  avgWeightKg       Float?
+  avgProteinG       Float?
+  totalWorkouts     Int?
+  avgHydration      Float?
+  scoreDelta        Float?
+  proteinAdherence  Float?
+  exerciseAdherence Float?
+  highlights        String[]
+  recommendations   String[]
+  completedAt       DateTime?
+  createdAt         DateTime  @default(now())
+  /// 1 (Very low) – 5 (Excellent) — self-reported from the weekly check-in form
+  energyLevel       Int?
+  /// 1 (None) – 5 (Severe) — self-reported from the weekly check-in form
+  nauseaLevel       Int?
+  /// Hours of sleep reported for the check-in week
+  sleepHours        Float?
+  /// 1 (Very poor) – 5 (Excellent) — self-reported sleep quality
+  sleepQuality      Int?
+  /// Derived recovery status: 'optimal' | 'impaired' | 'critical'
+  recoveryStatus    String?
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ShareCard {
+  id         String   @id @default(cuid())
+  userId     String
+  score      Float
+  riskBand   RiskBand
+  imageUrl   String?
+  shareToken String   @unique @default(cuid())
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ReferralInvite {
+  id           String    @id @default(cuid())
+  token        String    @unique @default(cuid())
+  createdById  String
+  redeemedById String?   @unique
+  expiresAt    DateTime
+  redeemedAt   DateTime?
+  createdAt    DateTime  @default(now())
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  subject   String
+  body      String
+  sentAt    DateTime?
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PhysicianReview {
+  id                String     @id @default(cuid())
+  assessmentId      String     @unique
+  userId            String
+  overallImpression String?
+  followUpDays      Int?
+  note              String?
+  reviewedAt        DateTime
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  assessment        Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  user              User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String
+  action     String
+  targetType String
+  targetId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+}
+
+model PhysicianOnboarding {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  country       String
+  specialty     String?
+  licenseNumber String?
+  submittedAt   DateTime @default(now())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 enum Role {
   PATIENT
   PHYSICIAN
-  PHYSICIAN_PENDING
   ADMIN
+  PHYSICIAN_PENDING
 }
 
 enum Sex {
@@ -57,240 +286,4 @@ enum NotificationType {
   REPORT_READY
   PAYMENT_CONFIRMED
   WELCOME
-}
-
-model User {
-  id                 String             @id @default(cuid())
-  clerkId            String             @unique
-  email              String             @unique
-  fullName           String
-  role               Role               @default(PATIENT)
-  subscriptionStatus SubscriptionStatus @default(FREE)
-  stripeCustomerId   String?
-  stripeSubId        String?
-  referralSlug       String?
-  referralCode       String?            @unique
-  referredById       String?
-  physicianId        String?
-  researchConsent    Boolean            @default(false)
-  consentDate        DateTime?
-  consentVersion     String?
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
-
-  profile               UserProfile?
-  assessments           Assessment[]
-  muscleScores          MuscleScore[]
-  protocolPlans         ProtocolPlan[]
-  progressLogs          ProgressLog[]
-  weeklyCheckins        WeeklyCheckin[]
-  shareCards            ShareCard[]
-  notifications         Notification[]
-  physicianReviews      PhysicianReview[]
-  physicianOnboarding   PhysicianOnboarding?
-  referredBy            User?               @relation("Referrals", fields: [referredById], references: [id])
-  referrals             User[]              @relation("Referrals")
-}
-
-model PhysicianProfile {
-  id            String   @id @default(cuid())
-  slug          String   @unique
-  displayName   String
-  clinicName    String?
-  specialty     String?
-  /// Human-readable code shared with patients: e.g. DR-OKPALA-472
-  /// Patients enter this during onboarding to link their account.
-  referralCode  String?  @unique
-  startSheetUrl String?
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-}
-
-model UserProfile {
-  id              String        @id @default(cuid())
-  userId          String        @unique
-  age             Int
-  sex             Sex
-  heightCm        Float
-  weightKg        Float
-  goalWeightKg    Float?
-  activityLevel   ActivityLevel
-  glp1Medication  String
-  glp1DoseMg      Float
-  glp1Stage       Glp1Stage
-  treatmentStart  DateTime
-  baselineProtein Float?
-  updatedAt       DateTime      @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model Assessment {
-  id              String   @id @default(cuid())
-  userId          String
-  assessmentDate  DateTime @default(now())
-  weightKg        Float
-  proteinGrams    Float
-  exerciseDaysWk  Int
-  hydrationLitres Float
-  symptoms        String[]
-  fatigue         Int
-  nausea          Int
-  muscleWeakness  Int
-  score           Float
-  riskBand        RiskBand
-  createdAt       DateTime @default(now())
-
-  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  muscleScore      MuscleScore?
-  protocolPlan     ProtocolPlan?
-  physicianReview  PhysicianReview?
-}
-
-model MuscleScore {
-  id             String   @id @default(cuid())
-  userId         String
-  assessmentId   String   @unique
-  score          Float
-  riskBand       RiskBand
-  leanLossEstPct Float
-  proteinTargetG Float
-  explanation    String
-  generatedAt    DateTime @default(now())
-
-  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
-}
-
-model ProtocolPlan {
-  id               String   @id @default(cuid())
-  userId           String
-  assessmentId     String   @unique
-  proteinTargetG   Float
-  proteinSources   String[]
-  supplementation  String[]
-  trainingPlan     String
-  hydrationTarget  Float
-  electrolyteNotes String
-  giGuidance       String
-  createdAt        DateTime @default(now())
-
-  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
-}
-
-model ProgressLog {
-  id              String   @id @default(cuid())
-  userId          String
-  logDate         DateTime @default(now())
-  weightKg        Float
-  proteinGrams    Float
-  workoutsCount   Int
-  hydrationLitres Float
-  energyLevel     Int
-  nauseaLevel     Int
-  notes           String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model WeeklyCheckin {
-  id                String    @id @default(cuid())
-  userId            String
-  weekStart         DateTime
-  weekEnd           DateTime
-  avgWeightKg       Float?
-  avgProteinG       Float?
-  totalWorkouts     Int?
-  avgHydration      Float?
-  /// 1 (Very low) – 5 (Excellent) — self-reported from the weekly check-in form
-  energyLevel       Int?
-  /// 1 (None) – 5 (Severe) — self-reported from the weekly check-in form
-  nauseaLevel       Int?
-  scoreDelta        Float?
-  proteinAdherence  Float?
-  exerciseAdherence Float?
-  highlights        String[]
-  recommendations   String[]
-  completedAt       DateTime?
-  createdAt         DateTime  @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model ShareCard {
-  id         String   @id @default(cuid())
-  userId     String
-  score      Float
-  riskBand   RiskBand
-  imageUrl   String?
-  shareToken String   @unique @default(cuid())
-  createdAt  DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model ReferralInvite {
-  id           String    @id @default(cuid())
-  token        String    @unique @default(cuid())
-  createdById  String
-  redeemedById String?   @unique
-  expiresAt    DateTime
-  redeemedAt   DateTime?
-  createdAt    DateTime  @default(now())
-}
-
-model Notification {
-  id        String           @id @default(cuid())
-  userId    String
-  type      NotificationType
-  subject   String
-  body      String
-  sentAt    DateTime?
-  readAt    DateTime?
-  createdAt DateTime         @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-// One review per assessment — upserted each time the physician saves.
-// overallImpression and followUpDays are nullable so partial saves are
-// valid (e.g. note-only or follow-up-only saves).
-model PhysicianReview {
-  id                String   @id @default(cuid())
-  assessmentId      String   @unique
-  userId            String
-  overallImpression String?                   // 'stable' | 'monitoring' | 'intervention'
-  followUpDays      Int?                      // 7 | 14 | 21 | 30
-  note              String?
-  reviewedAt        DateTime
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
-  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model AuditLog {
-  id         String   @id @default(cuid())
-  actorId    String
-  action     String
-  targetType String
-  targetId   String?
-  metadata   Json?
-  createdAt  DateTime @default(now())
-}
-
-// Stores self-reported onboarding data submitted during physician sign-up.
-// Created at PHYSICIAN_PENDING stage; retained after promotion to PHYSICIAN.
-model PhysicianOnboarding {
-  id            String   @id @default(cuid())
-  userId        String   @unique
-  country       String
-  specialty     String?
-  licenseNumber String?
-  submittedAt   DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
