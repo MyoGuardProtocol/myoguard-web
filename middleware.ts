@@ -30,7 +30,7 @@ export default clerkMiddleware(async (auth, req) => {
   if (isProtectedDoctorRoute(req)) {
     // Override Clerk's default sign-in redirect so unauthenticated physicians
     // land on the physician sign-in page, not the patient /sign-in-new route.
-    await auth.protect({ signInUrl: '/doctor/sign-in' });
+    await auth.protect();
   }
 
   if (isProtectedAdminRoute(req)) {
