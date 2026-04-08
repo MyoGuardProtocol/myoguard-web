@@ -129,7 +129,25 @@ export default function HomePage() {
 
   async function handleEmailSubmit() {
     if (!email.includes("@")) return;
-    setSubmitted(true);
+    if (!result) return;
+    setFormError("");
+    try {
+      const res = await fetch("/api/protocol-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          score: result.composite,
+          leanScore: result.leanScore,
+          recoveryScore: result.recoveryScore,
+          risk: result.risk,
+        }),
+      });
+      if (!res.ok) throw new Error("Send failed");
+      setSubmitted(true);
+    } catch {
+      setFormError("Could not send your report. Please try again.");
+    }
   }
 
   const sleepLabel =
