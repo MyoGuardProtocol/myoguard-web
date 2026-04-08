@@ -8,7 +8,6 @@ const SPECIALTIES = [
   "Bariatric Medicine",
   "Obesity Medicine",
   "Sports Medicine",
-  "General Practice",
   "Cardiology",
   "Nephrology",
   "Other",
@@ -57,7 +56,12 @@ export default function OnboardingForm() {
       const res = await fetch("/api/doctor/onboarding", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          fullName: form.name,
+          country: form.country,
+          specialty: form.specialty,
+          licenseNumber: form.license,
+        }),
       });
       if (!res.ok) throw new Error("Submission failed");
       setSubmitted(true);
