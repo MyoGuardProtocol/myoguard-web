@@ -2,6 +2,7 @@ import { auth, currentUser } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/src/lib/prisma';
 import Link from 'next/link';
+import { SignOutButton } from '@clerk/nextjs';
 
 /**
  * /doctor/dashboard — Role-aware physician entry point.
@@ -87,9 +88,22 @@ export default async function DoctorDashboardPage() {
             </span>
             <span className="text-slate-400 font-light text-sm ml-0.5">Protocol</span>
           </Link>
-          <span className="text-xs bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-3 py-1 font-semibold">
-            Pending Verification
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-3 py-1 font-semibold">
+              Pending Verification
+            </span>
+            <Link href="/" className="text-slate-400 hover:text-slate-600 transition-colors" aria-label="Home">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round"
+                  d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+              </svg>
+            </Link>
+            <SignOutButton redirectUrl="/">
+              <button className="text-xs text-slate-400 hover:text-slate-600 transition-colors">
+                Sign out
+              </button>
+            </SignOutButton>
+          </div>
         </div>
       </header>
 
@@ -178,9 +192,11 @@ export default async function DoctorDashboardPage() {
         )}
 
         <div className="text-center">
-          <Link href="/sign-out" className="text-sm text-slate-400 hover:text-slate-600 transition-colors">
-            Sign out
-          </Link>
+          <SignOutButton redirectUrl="/">
+            <button className="text-sm text-slate-400 hover:text-slate-600 transition-colors">
+              Sign out
+            </button>
+          </SignOutButton>
         </div>
       </div>
     </main>

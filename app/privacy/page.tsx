@@ -165,12 +165,12 @@ export default function PrivacyPolicy() {
 
         {/* Back to homepage */}
         <div className="mt-8 text-center">
-          <Link
+          <a
             href="/"
-            className="inline-block bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm px-6 py-3 rounded-xl transition-colors"
+            className="inline-flex items-center gap-2 bg-teal-600 text-white px-6 py-3 rounded-xl text-sm font-medium hover:bg-teal-700 transition-colors"
           >
-            ← Back to Calculator
-          </Link>
+            ← Back to home
+          </a>
         </div>
 
         <p className="mt-6 text-xs text-slate-400 text-center">

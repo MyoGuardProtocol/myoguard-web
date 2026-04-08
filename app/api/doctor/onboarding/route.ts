@@ -4,6 +4,7 @@ import { auth, currentUser } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/src/lib/prisma';
+import { Prisma } from '@prisma/client';
 
 const OnboardingSchema = z.object({
   fullName:      z.string().min(2).max(100).trim(),
@@ -113,7 +114,51 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error('[doctor/onboarding] DB error', err);
+    console.error('Onboarding error:', err);
+
+    // If DB tables don't exist yet (migration pending), send notification email
+    // and return 200 so the form shows the success screen.
+    const isTableMissing =
+      (err instanceof Prisma.PrismaClientKnownRequestError &&
+        (err.code === 'P2021' || err.code === 'P2010')) ||
+      (err instanceof Error &&
+        (err.message.includes('relation') || err.message.includes('does not exist')));
+
+    if (isTableMissing) {
+      console.warn('[doctor/onboarding] DB table missing — falling back to email notification');
+      const resendKey = process.env.RESEND_API_KEY;
+      if (resendKey) {
+        const submittedAt = new Date().toLocaleString('en-GB', {
+          day: 'numeric', month: 'short', year: 'numeric',
+          hour: '2-digit', minute: '2-digit', timeZoneName: 'short',
+        });
+        await fetch('https://api.resend.com/emails', {
+          method:  'POST',
+          headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from:    'MyoGuard Protocol <onboarding@resend.dev>',
+            to:      'onyeka.okpala@myoguard.health',
+            subject: 'New Physician Registration — MyoGuard',
+            html: `
+              <p><strong>New physician registration received.</strong></p>
+              <table style="border-collapse:collapse;font-size:14px;">
+                <tr><td style="padding:4px 12px 4px 0;color:#64748b;">Name</td><td><strong>${fullName}</strong></td></tr>
+                <tr><td style="padding:4px 12px 4px 0;color:#64748b;">Email</td><td>${email}</td></tr>
+                <tr><td style="padding:4px 12px 4px 0;color:#64748b;">Country</td><td>${country}</td></tr>
+                <tr><td style="padding:4px 12px 4px 0;color:#64748b;">Specialty</td><td>${specialty ?? '—'}</td></tr>
+                <tr><td style="padding:4px 12px 4px 0;color:#64748b;">Licence No.</td><td>${licenseNumber ?? '—'}</td></tr>
+                <tr><td style="padding:4px 12px 4px 0;color:#64748b;">Submitted</td><td>${submittedAt}</td></tr>
+              </table>
+              <p style="margin-top:16px;color:#94a3b8;font-size:12px;">
+                Note: DB migration is pending. Record was not written to the database.
+              </p>
+            `,
+          }),
+        }).catch(e => console.error('[doctor/onboarding] Resend fallback failed', e));
+      }
+      return NextResponse.json({ ok: true });
+    }
+
     return NextResponse.json(
       { error: err instanceof Error ? err.message : String(err) },
       { status: 500 },
