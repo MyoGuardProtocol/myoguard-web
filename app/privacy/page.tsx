@@ -12,7 +12,7 @@ export default function PrivacyPolicy() {
             <p className="text-xs text-slate-500 mt-0.5">Physician-Formulated · Data-Driven Muscle Protection</p>
           </div>
           <span className="text-xs bg-teal-50 text-teal-700 border border-teal-200 rounded-full px-3 py-1 font-medium">
-            Dr. B, MBBS
+            MyoGuard Clinical Oversight
           </span>
         </div>
       </header>
@@ -174,7 +174,7 @@ export default function PrivacyPolicy() {
         </div>
 
         <p className="mt-6 text-xs text-slate-400 text-center">
-          © 2026 MyoGuard Protocol · Dr. B, MBBS · Governing law: Trinidad and Tobago
+          © 2026 MyoGuard Protocol · MyoGuard Clinical Oversight · Governing law: Trinidad and Tobago
         </p>
       </div>
     </main>

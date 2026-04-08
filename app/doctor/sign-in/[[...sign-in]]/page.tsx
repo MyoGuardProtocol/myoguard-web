@@ -35,26 +35,26 @@ export default async function PhysicianSignInPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center px-6 py-12">
+    <div className="min-h-screen bg-slate-50 font-sans flex flex-col items-center justify-center px-6 py-12">
 
       {/* Brand header */}
       <div className="mb-6 text-center">
-        <Link href="/doctor" className="text-xl font-bold text-white tracking-tight hover:opacity-80 transition-opacity">
-          Myo<span className="text-teal-400">Guard</span>
+        <Link href="/doctor" className="text-xl font-bold text-slate-900 tracking-tight hover:opacity-80 transition-opacity">
+          Myo<span className="text-teal-600">Guard</span>
         </Link>
-        <p className="text-xs text-slate-400 mt-1 tracking-wide uppercase">Physician Portal</p>
+        <p className="text-xs text-slate-500 mt-1 tracking-wide uppercase">Physician Portal</p>
       </div>
 
       {/* Context card */}
-      <div className="w-full max-w-sm bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4 text-center mb-4">
-        <p className="text-sm font-bold text-white mb-1">Clinical Access</p>
-        <p className="text-xs text-slate-400 leading-relaxed">
+      <div className="w-full max-w-sm bg-white border border-slate-200 rounded-2xl shadow-sm px-5 py-4 text-center mb-4">
+        <p className="text-sm font-bold text-slate-900 mb-1">Clinical Access</p>
+        <p className="text-xs text-slate-500 leading-relaxed">
           Sign in to your physician command center. Patient risk scores,
           protocol oversight, and muscle-protection flags — all in one place.
         </p>
-        <div className="mt-3 pt-3 border-t border-slate-700 flex items-center justify-center gap-3">
-          <span className="text-xs text-slate-500">No physician account?</span>
-          <Link href="/doctor/sign-up" className="text-xs font-semibold text-teal-400 hover:underline">
+        <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-center gap-3">
+          <span className="text-xs text-slate-400">No physician account?</span>
+          <Link href="/doctor/sign-up" className="text-xs font-semibold text-teal-600 hover:underline">
             Register →
           </Link>
         </div>
@@ -75,10 +75,10 @@ export default async function PhysicianSignInPage() {
       />
 
       <Link
-        href="/doctor"
-        className="mt-4 text-xs text-slate-500 hover:text-slate-300 transition-colors"
+        href="/"
+        className="mt-4 text-xs text-slate-400 hover:text-slate-600 transition-colors"
       >
-        ← Back to Physician Portal
+        ← Back to MyoGuard
       </Link>
     </div>
   );
