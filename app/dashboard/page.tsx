@@ -1,721 +1,798 @@
-import { auth, currentUser } from '@clerk/nextjs/server';
-import { redirect } from 'next/navigation';
-import { prisma } from '@/src/lib/prisma';
-import Link from 'next/link';
-import PostAuthSync from '@/src/components/ui/PostAuthSync';
-import ReferralSync from '@/src/components/ui/ReferralSync';
-import OnboardingRedirect from '@/src/components/ui/OnboardingRedirect';
-import AssessmentHeroPlaceholder from '@/src/components/ui/AssessmentHeroPlaceholder';
-import ContributingFactors, { type Factor, type ImpactLevel } from '@/src/components/ui/ContributingFactors';
-import WeeklyFocusCard from '@/src/components/ui/WeeklyFocusCard';
-import DashboardHeader from '@/src/components/ui/DashboardHeader';
-import {
-  generateWeeklyFocus,
-  type CheckinWindow,
-  type ProtocolTargets,
-  type RiskBand as AdaptiveRiskBand,
-} from '@/src/lib/adaptiveProtocol';
+"use client";
+import { useState } from "react";
 
-// ─── Module-level DB helper ───────────────────────────────────────────────────
-// Defined at module scope so TypeScript can infer the return type via
-// Awaited<ReturnType<typeof fetchDashboardUser>>.
+// ── Types ────────────────────────────────────────────────────────────────────
 
-const USER_SELECT = {
-  id:                 true,
-  fullName:           true,
-  role:               true,
-  physicianId:        true,
-  subscriptionStatus: true,
-  // GLP-1 medication/dose data (set via /onboarding — may be null if skipped)
-  profile: {
-    select: {
-      glp1Medication: true,
-      glp1DoseMg:     true,
-      glp1Stage:      true,
-    },
-  },
-  assessments: {
-    orderBy: { assessmentDate: 'desc' as const },
-    take:    10,
-    // include returns ALL Assessment scalar fields (weightKg, proteinGrams,
-    // exerciseDaysWk, hydrationLitres, symptoms, fatigue, muscleWeakness, nausea)
-    // plus the selected relation fields below.
-    include: {
-      muscleScore: {
-        select: {
-          score:          true,
-          riskBand:       true,
-          leanLossEstPct: true,
-          proteinTargetG: true,
-        },
-      },
-      // ProtocolPlan supplies the targets used by the weekly focus engine.
-      // Only present on assessments saved after the protocol persistence build.
-      protocolPlan: {
-        select: {
-          proteinTargetG:  true,
-          hydrationTarget: true,
-        },
-      },
-    },
-  },
-  // 4 weeks needed for trend analysis in the weekly focus engine.
-  weeklyCheckins: {
-    orderBy: { weekStart: 'desc' as const },
-    take:    4,
-    select: {
-      id:            true,
-      weekStart:     true,
-      avgProteinG:   true,
-      totalWorkouts: true,
-      avgHydration:  true,
-      avgWeightKg:   true,
-      energyLevel:   true,
-      nauseaLevel:   true,
-    },
-  },
-} as const;
+type RiskLevel = "HIGH" | "MODERATE" | "LOW";
 
-async function fetchDashboardUser(clerkId: string) {
-  return prisma.user.findUnique({
-    where:  { clerkId },
-    select: USER_SELECT,
-  });
+interface Patient {
+id: string;
+name: string;
+age: number;
+glp1Agent: string;
+glp1Dose: string;
+muscleScore: number;
+giSymptom: string;
+proteinAdherence: number; // percent
+lastSeen: string;
+riskLevel: RiskLevel;
+riskFactor: string;
+proteinTarget: number;
+proteinActual: number;
+weeklyCheckins: number[];
 }
 
-type DashboardUser = NonNullable<Awaited<ReturnType<typeof fetchDashboardUser>>>;
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Mock data ────────────────────────────────────────────────────────────────
 
-const RISK_META: Record<string, {
-  label:   string;
-  colour:  string;
-  bg:      string;
-  border:  string;
-  dot:     string;
-}> = {
-  LOW:      { label: 'Low Risk',      colour: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200', dot: 'bg-emerald-500' },
-  MODERATE: { label: 'Moderate Risk', colour: 'text-amber-700',   bg: 'bg-amber-50',   border: 'border-amber-200',   dot: 'bg-amber-500'   },
-  HIGH:     { label: 'High Risk',     colour: 'text-orange-700',  bg: 'bg-orange-50',  border: 'border-orange-200',  dot: 'bg-orange-500'  },
-  CRITICAL: { label: 'Critical Risk', colour: 'text-red-700',     bg: 'bg-red-50',     border: 'border-red-200',     dot: 'bg-red-500'     },
+const PATIENTS: Patient[] = [
+{
+id: "1",
+name: "M. Celestine",
+age: 54,
+glp1Agent: "Semaglutide",
+glp1Dose: "2.4 mg",
+muscleScore: 28,
+giSymptom: "Gastroparesis symptoms",
+proteinAdherence: 41,
+lastSeen: "2h ago",
+riskLevel: "HIGH",
+riskFactor: "72h Protein Deficit + Gastroparesis",
+proteinTarget: 136,
+proteinActual: 56,
+weeklyCheckins: [45, 38, 41, 35, 41],
+},
+{
+id: "2",
+name: "R. Bartholomew",
+age: 61,
+glp1Agent: "Tirzepatide",
+glp1Dose: "10 mg",
+muscleScore: 34,
+giSymptom: "Nausea + constipation",
+proteinAdherence: 52,
+lastSeen: "1d ago",
+riskLevel: "HIGH",
+riskFactor: "High-dose tirzepatide + Low protein",
+proteinTarget: 148,
+proteinActual: 77,
+weeklyCheckins: [60, 55, 52, 50, 52],
+},
+{
+id: "3",
+name: "T. Marchand",
+age: 47,
+glp1Agent: "Semaglutide",
+glp1Dose: "1.0 mg",
+muscleScore: 58,
+giSymptom: "Mild nausea only",
+proteinAdherence: 74,
+lastSeen: "3d ago",
+riskLevel: "MODERATE",
+riskFactor: "Protein adequacy borderline",
+proteinTarget: 112,
+proteinActual: 83,
+weeklyCheckins: [70, 72, 68, 74, 74],
+},
+{
+id: "4",
+name: "A. Prentice",
+age: 39,
+glp1Agent: "Liraglutide",
+glp1Dose: "1.8 mg",
+muscleScore: 82,
+giSymptom: "None",
+proteinAdherence: 91,
+lastSeen: "5d ago",
+riskLevel: "LOW",
+riskFactor: "On target",
+proteinTarget: 104,
+proteinActual: 95,
+weeklyCheckins: [85, 88, 90, 91, 91],
+},
+{
+id: "5",
+name: "D. Kowlessar",
+age: 58,
+glp1Agent: "Tirzepatide",
+glp1Dose: "5 mg",
+muscleScore: 44,
+giSymptom: "Constipation",
+proteinAdherence: 63,
+lastSeen: "1d ago",
+riskLevel: "MODERATE",
+riskFactor: "GI burden reducing absorption",
+proteinTarget: 128,
+proteinActual: 81,
+weeklyCheckins: [58, 61, 63, 60, 63],
+},
+];
+
+const RISK_CONFIG: Record<
+RiskLevel,
+{ label: string; bg: string; border: string; text: string; dot: string; badge: string }
+> = {
+HIGH: {
+label: "High Risk",
+bg: "bg-red-50",
+border: "border-red-200",
+text: "text-red-700",
+dot: "bg-red-500",
+badge: "bg-red-100 text-red-700",
+},
+MODERATE: {
+label: "Moderate",
+bg: "bg-amber-50",
+border: "border-amber-200",
+text: "text-amber-700",
+dot: "bg-amber-400",
+badge: "bg-amber-100 text-amber-700",
+},
+LOW: {
+label: "On Target",
+bg: "bg-teal-50",
+border: "border-teal-200",
+text: "text-teal-700",
+dot: "bg-teal-500",
+badge: "bg-teal-100 text-teal-700",
+},
 };
 
-const SCORE_TRACK: Record<string, string> = {
-  LOW:      'bg-emerald-500',
-  MODERATE: 'bg-amber-500',
-  HIGH:     'bg-orange-500',
-  CRITICAL: 'bg-red-500',
-};
+// ── Share Kit Modal ──────────────────────────────────────────────────────────
 
-function formatDate(d: Date) {
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+function ShareKit({ onClose }: { onClose: () => void }) {
+const [copied, setCopied] = useState(false);
+const inviteUrl = "https://myoguard.health/invite/dr-b";
+
+function handleCopy() {
+navigator.clipboard.writeText(inviteUrl);
+setCopied(true);
+setTimeout(() => setCopied(false), 2000);
 }
 
-// ─── Contributing-factor derivation ──────────────────────────────────────────
-// Translates raw DB fields from the latest Assessment + UserProfile into the
-// five Factor objects rendered by <ContributingFactors />.
+return (
+<div
+style={{
+minHeight: 400,
+background: "rgba(0,0,0,0.5)",
+display: "flex",
+alignItems: "center",
+justifyContent: "center",
+}}
+className="fixed inset-0 z-50 px-4"
+onClick={onClose}
+>
+<div
+className="bg-white rounded-2xl border border-slate-200 shadow-xl p-6 w-full max-w-sm flex flex-col gap-5"
+onClick={(e) => e.stopPropagation()}
+>
+<div className="flex items-center justify-between">
+<div>
+<h3 className="text-sm font-semibold text-slate-900">Physician Share Kit</h3>
+<p className="text-xs text-slate-400 mt-0.5">
+Show patient in exam room — links automatically
+</p>
+</div>
+<button
+onClick={onClose}
+className="text-slate-400 hover:text-slate-600 text-lg leading-none"
+>
+✕
+</button>
+</div>
 
-type LatestAssessment = NonNullable<DashboardUser['assessments'][number]>;
-type UserProfile      = NonNullable<DashboardUser['profile']>;
+{/* QR placeholder */}
+<div className="bg-slate-50 border border-slate-200 rounded-xl p-6 flex flex-col items-center gap-3">
+<div className="w-32 h-32 bg-white border border-slate-300 rounded-lg flex items-center justify-center">
+<div className="grid grid-cols-5 gap-0.5">
+{Array.from({ length: 25 }).map((_, i) => (
+<div
+key={i}
+className={`w-4 h-4 rounded-sm ${
+[0,1,2,3,4,5,9,10,14,15,19,20,21,22,23,24,7,12,17].includes(i)
+? "bg-slate-800"
+: "bg-white"
+}`}
+/>
+))}
+</div>
+</div>
+<p className="text-xs text-slate-500 text-center">
+Patient scans → auto-linked to your profile
+</p>
+</div>
 
-function deriveFactors(
-  a:       LatestAssessment,
-  profile: UserProfile | null,
-): Factor[] {
-  // ── 1. Protein ────────────────────────────────────────────────────────────
-  const proteinMin = Math.round(a.weightKg * 1.4);   // standard muscle-protective floor
-  const gapG       = Math.round(a.proteinGrams - proteinMin);
-  const gapPct     = a.proteinGrams / proteinMin;
+{/* Link copy */}
+<div className="flex gap-2">
+<div className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-500 font-mono truncate bg-slate-50">
+{inviteUrl}
+</div>
+<button
+onClick={handleCopy}
+className="bg-teal-600 text-white px-3 py-2 rounded-lg text-xs font-medium hover:bg-teal-700 transition-colors whitespace-nowrap"
+>
+{copied ? "Copied!" : "Copy"}
+</button>
+</div>
 
-  const proteinImpact: ImpactLevel =
-    gapPct >= 1.0 ? 'LOW' : gapPct >= 0.9 ? 'MODERATE' : 'HIGH';
+{/* SMS */}
+<button className="w-full border border-slate-200 text-slate-700 py-2.5 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors">
+Send via SMS
+</button>
 
-  const proteinState = gapPct >= 1.0
-    ? `${Math.round(a.proteinGrams)}g / day · +${gapG}g above minimum`
-    : `${Math.round(a.proteinGrams)}g / day · ${gapG}g below minimum`;
-
-  const proteinDetail = gapPct >= 1.0
-    ? `Your protein target meets the muscle-protective minimum of ${proteinMin}g/day for your body weight. Keep it up.`
-    : `Your current protein intake is below the ${proteinMin}g/day minimum needed to protect muscle during GLP-1 therapy. Prioritise protein at every meal.`;
-
-  // ── 2. Activity ───────────────────────────────────────────────────────────
-  const activityDays   = a.exerciseDaysWk;
-  const activityLevel  = activityDays >= 5 ? 'active' : activityDays >= 3 ? 'moderate' : 'sedentary';
-  const activityLabel  = activityLevel === 'active'    ? 'Active (5+ days / week)'
-                       : activityLevel === 'moderate'  ? 'Moderately Active (3–4 days / week)'
-                       : 'Sedentary (< 2 days / week)';
-  const activityImpact: ImpactLevel = activityLevel === 'active' ? 'LOW'
-                                    : activityLevel === 'moderate' ? 'MODERATE'
-                                    : 'HIGH';
-  const activityDetail = activityLevel === 'active'
-    ? 'Your exercise frequency is the strongest protective factor against GLP-1-associated muscle loss. Maintain or increase resistance training.'
-    : activityLevel === 'moderate'
-    ? 'Moderate activity provides good muscle protection. Adding 1–2 more resistance sessions per week can meaningfully reduce your lean mass risk.'
-    : 'Sedentary activity is the biggest single driver of muscle loss during GLP-1 therapy. Starting with 2× weekly resistance sessions has the highest impact on your score.';
-
-  // ── 3. GLP-1 Dose ────────────────────────────────────────────────────────
-  const HIGH_DOSE_THRESHOLDS: Record<string, number> = {
-    semaglutide: 1.0, tirzepatide: 5.0,
-  };
-
-  let glp1State:  string;
-  let glp1Impact: ImpactLevel;
-  let glp1Detail: string;
-
-  if (!profile || !profile.glp1Medication || !profile.glp1DoseMg) {
-    glp1State  = 'Profile not set up';
-    glp1Impact = 'MODERATE';
-    glp1Detail = 'Complete your profile to get a personalised GLP-1 dose risk analysis.';
-  } else {
-    const medName     = profile.glp1Medication.includes('tirzepatide') ? 'Tirzepatide' : 'Semaglutide';
-    const medKey      = medName.toLowerCase() as 'semaglutide' | 'tirzepatide';
-    const threshold   = HIGH_DOSE_THRESHOLDS[medKey] ?? 1.0;
-    const isHighDose  = profile.glp1DoseMg > threshold;
-    const stage       = profile.glp1Stage ?? '';
-    const stageLabel  = stage === 'MAINTENANCE' ? 'maintenance phase'
-                      : stage === 'DOSE_ESCALATION' ? 'dose-escalation phase'
-                      : stage === 'INITIATION' ? 'initiation phase'
-                      : 'active treatment';
-
-    glp1State  = `${medName} ${profile.glp1DoseMg}mg · ${stageLabel}`;
-    glp1Impact = isHighDose ? 'HIGH' : 'MODERATE';
-    glp1Detail = isHighDose
-      ? `At ${profile.glp1DoseMg}mg, ${medName} significantly suppresses appetite, making it harder to hit protein targets. Extra focus on high-protein, low-volume foods is essential.`
-      : `At ${profile.glp1DoseMg}mg, ${medName} provides moderate appetite suppression. Hitting your protein target is achievable with consistent meal planning.`;
-  }
-
-  // ── 4. Symptoms ──────────────────────────────────────────────────────────
-  const musculoSymptoms = ['Muscle weakness', 'Fatigue'];
-  const giSymptoms      = ['Nausea', 'Constipation', 'Bloating', 'Reduced appetite'];
-
-  const hasMusculo = a.symptoms.some(s => musculoSymptoms.includes(s));
-  const hasGI      = a.symptoms.some(s => giSymptoms.includes(s));
-
-  const symptomsImpact: ImpactLevel = hasMusculo ? 'HIGH' : hasGI ? 'MODERATE' : 'LOW';
-
-  const topSymptoms = a.symptoms.slice(0, 3);
-  const symptomsState = topSymptoms.length
-    ? topSymptoms.join(' · ')
-    : 'None reported';
-
-  const symptomsDetail = hasMusculo
-    ? 'Fatigue and muscle weakness are early signs of sarcopenic change during GLP-1 therapy. Prioritising protein and resistance training is critical right now.'
-    : hasGI
-    ? 'GI symptoms like nausea and constipation can reduce your ability to eat enough protein. Smaller, high-protein meals and increased hydration can help.'
-    : 'No concerning symptoms reported. This positively supports your muscle-protection profile.';
-
-  // ── 5. Hydration ─────────────────────────────────────────────────────────
-  const hydrationState  = `${a.hydrationLitres.toFixed(1)}L / day target`;
-  const hydrationImpact: ImpactLevel = 'LOW';
-  const hydrationDetail = `Aim for ${a.hydrationLitres.toFixed(1)}L of water daily. Adequate hydration supports muscle protein synthesis and reduces GLP-1 GI side effects.`;
-
-  return [
-    { icon: '🍗', label: 'Protein Intake',  state: proteinState,   detail: proteinDetail,   impact: proteinImpact   },
-    { icon: '🏃', label: 'Activity Level',  state: activityLabel,  detail: activityDetail,  impact: activityImpact  },
-    { icon: '💊', label: 'GLP-1 Dose',      state: glp1State,      detail: glp1Detail,      impact: glp1Impact      },
-    { icon: '⚡', label: 'Symptoms',        state: symptomsState,  detail: symptomsDetail,  impact: symptomsImpact  },
-    { icon: '💧', label: 'Hydration',       state: hydrationState, detail: hydrationDetail, impact: hydrationImpact },
-  ];
+<p className="text-xs text-slate-400 text-center">
+Patient data is automatically linked after sign-up
+</p>
+</div>
+</div>
+);
 }
-// ─────────────────────────────────────────────────────────────────────────────
 
-export default async function DashboardPage() {
-  const { userId } = await auth();
-  if (!userId) redirect('/sign-in');
+// ── Spark line ───────────────────────────────────────────────────────────────
 
-  // ── Fetch user ─────────────────────────────────────────────────────────────
-  // Three-phase load — handles every first-login race condition safely:
-  //
-  //   Phase 1 — fetchDashboardUser (findUnique by clerkId, indexed)
-  //     Happy path: row exists and is up-to-date. Done.
-  //
-  //   Phase 2a — findUnique by email
-  //     The Clerk webhook may have already created the row using the email
-  //     as the primary key before the clerkId was attached (or the row was
-  //     seeded manually). If so, UPDATE that row to stamp the current clerkId
-  //     so Phase 1 works on every subsequent visit.
-  //     This is the fix for: "Unique constraint failed on the fields: (email)"
-  //     — the old upsert(where:{clerkId}) always fell through to CREATE when
-  //     Phase 1 missed, hitting the unique email constraint on the existing row.
-  //
-  //   Phase 2b — create
-  //     Neither clerkId nor email exists in the DB. Truly new user.
-  //
-  // All phases are wrapped in try/catch. A DB error does NOT crash the page;
-  // we render a limited but functional dashboard shell instead of 503.
-  let user: DashboardUser | null = null;
-  let dbError: string | null = null;
+function Sparkline({ data, color }: { data: number[]; color: string }) {
+const max = Math.max(...data);
+const min = Math.min(...data);
+const range = max - min || 1;
+const w = 60;
+const h = 24;
+const points = data
+.map((v, i) => {
+const x = (i / (data.length - 1)) * w;
+const y = h - ((v - min) / range) * h;
+return `${x},${y}`;
+})
+.join(" ");
 
-  try {
-    user = await fetchDashboardUser(userId);
+return (
+<svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
+<polyline
+points={points}
+fill="none"
+stroke={color}
+strokeWidth="1.5"
+strokeLinecap="round"
+strokeLinejoin="round"
+/>
+</svg>
+);
+}
 
-    if (!user) {
-      // Phases 2a/2b — need the Clerk identity to resolve email + display name
-      console.log('[dashboard] no row by clerkId — checking email / provisioning');
-      const clerkUser = await currentUser();
-      if (!clerkUser) redirect('/sign-in-new');
+// ── Patient row ──────────────────────────────────────────────────────────────
 
-      const email     = clerkUser.emailAddresses[0]?.emailAddress ?? '';
-      const firstName = clerkUser.firstName ?? '';
-      const lastName  = clerkUser.lastName  ?? '';
-      const fullName  = [firstName, lastName].filter(Boolean).join(' ') || 'MyoGuard User';
+function PatientRow({
+p,
+onClick,
+}: {
+p: Patient;
+onClick: (p: Patient) => void;
+}) {
+const cfg = RISK_CONFIG[p.riskLevel];
+const pctBar = Math.round((p.proteinActual / p.proteinTarget) * 100);
+const sparkColor =
+p.riskLevel === "HIGH"
+? "#ef4444"
+: p.riskLevel === "MODERATE"
+? "#f59e0b"
+: "#14b8a6";
 
-      try {
-        // Phase 2a — does a row already exist for this email?
-        const byEmail = await prisma.user.findUnique({
-          where:  { email },
-          select: { id: true },
-        });
+return (
+<tr
+className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors"
+onClick={() => onClick(p)}
+>
+<td className="py-3 px-4">
+<div className="flex items-center gap-2">
+<div className={`w-2 h-2 rounded-full flex-shrink-0 ${cfg.dot}`} />
+<div>
+<p className="text-sm font-medium text-slate-900">{p.name}</p>
+<p className="text-xs text-slate-400">Age {p.age}</p>
+</div>
+</div>
+</td>
+<td className="py-3 px-4">
+<p className="text-xs text-slate-700 font-medium">{p.glp1Agent}</p>
+<p className="text-xs text-slate-400">{p.glp1Dose}/wk</p>
+</td>
+<td className="py-3 px-4">
+<div className="flex items-center gap-2">
+<span
+className={`text-sm font-bold ${
+p.muscleScore < 40
+? "text-red-600"
+: p.muscleScore < 70
+? "text-amber-600"
+: "text-teal-600"
+}`}
+>
+{p.muscleScore}
+</span>
+<span className="text-xs text-slate-400">/100</span>
+</div>
+</td>
+<td className="py-3 px-4">
+<div className="flex flex-col gap-1">
+<div className="flex items-center justify-between">
+<span className="text-xs text-slate-500">{pctBar}%</span>
+</div>
+<div className="w-20 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+<div
+className={`h-1.5 rounded-full ${
+pctBar < 60
+? "bg-red-400"
+: pctBar < 80
+? "bg-amber-400"
+: "bg-teal-500"
+}`}
+style={{ width: `${pctBar}%` }}
+/>
+</div>
+<span className="text-xs text-slate-400">
+{p.proteinActual}g / {p.proteinTarget}g
+</span>
+</div>
+</td>
+<td className="py-3 px-4 hidden md:table-cell">
+<Sparkline data={p.weeklyCheckins} color={sparkColor} />
+</td>
+<td className="py-3 px-4">
+<span
+className={`inline-block text-xs font-medium px-2 py-1 rounded-full ${cfg.badge}`}
+>
+{cfg.label}
+</span>
+</td>
+<td className="py-3 px-4">
+<p className="text-xs text-slate-500 max-w-[140px] leading-snug">
+{p.riskFactor}
+</p>
+</td>
+<td className="py-3 px-4">
+<span className="text-xs text-slate-400">{p.lastSeen}</span>
+</td>
+</tr>
+);
+}
 
-        if (byEmail) {
-          // Row exists (created by webhook or seed) but lacks this clerkId.
-          // Attach the clerkId so future lookups hit Phase 1 directly.
-          console.log('[dashboard] found row by email — attaching clerkId for', email);
-          user = await prisma.user.update({
-            where:  { id: byEmail.id },
-            data:   { clerkId: userId },
-            select: USER_SELECT,
-          });
-        } else {
-          // Phase 2b — no row by clerkId, no row by email: safe to create.
-          console.log('[dashboard] provisioning new user row for', email);
-          user = await prisma.user.create({
-            data:   { clerkId: userId, email, fullName, role: 'PATIENT', subscriptionStatus: 'FREE' },
-            select: USER_SELECT,
-          });
-        }
-      } catch (provisionErr: unknown) {
-        const msg = provisionErr instanceof Error ? provisionErr.message : String(provisionErr);
-        console.error('[dashboard] user provisioning FAILED:', msg);
-        dbError = msg;
-      }
-    }
-  } catch (fetchErr: unknown) {
-    const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
-    console.error('[dashboard] fetchDashboardUser FAILED:', msg);
-    dbError = msg;
-  }
+// ── Patient detail drawer ────────────────────────────────────────────────────
 
-  // ── DB unavailable — render a limited but functional shell ───────────────
-  // We do NOT redirect away or show a hard 503. The user is authenticated and
-  // their session is valid; the DB being temporarily unreachable should not
-  // log them out or prevent them using the app at all.
-  if (!user) {
-    // Decode a display name from the Clerk session if available (no DB needed)
-    let shellName: string | null = null;
-    try {
-      const clerkUser = await currentUser();
-      shellName = clerkUser?.firstName ?? null;
-    } catch { /* ignore */ }
+function PatientDrawer({
+patient,
+onClose,
+}: {
+patient: Patient;
+onClose: () => void;
+}) {
+const cfg = RISK_CONFIG[patient.riskLevel];
+const pct = Math.round((patient.proteinActual / patient.proteinTarget) * 100);
 
-    const isTimeout = dbError?.includes('ETIMEDOUT') || dbError?.includes('timeout') || dbError?.includes('ENOTFOUND');
+return (
+<div className="fixed inset-0 z-40 flex justify-end" onClick={onClose}>
+<div
+className="w-full max-w-sm bg-white border-l border-slate-200 h-full overflow-y-auto p-6 flex flex-col gap-6 shadow-xl"
+onClick={(e) => e.stopPropagation()}
+>
+<div className="flex items-center justify-between">
+<div>
+<h3 className="text-base font-semibold text-slate-900">
+{patient.name}
+</h3>
+<p className="text-xs text-slate-400">
+Age {patient.age} · Last active {patient.lastSeen}
+</p>
+</div>
+<button
+onClick={onClose}
+className="text-slate-400 hover:text-slate-600"
+>
+✕
+</button>
+</div>
 
-    return (
-      <main className="min-h-screen bg-slate-50 font-sans">
-        <DashboardHeader />
+{/* Risk alert */}
+<div
+className={`rounded-xl border p-4 flex flex-col gap-1 ${cfg.bg} ${cfg.border}`}
+>
+<p className={`text-xs font-semibold ${cfg.text}`}>
+{cfg.label} — Action Required
+</p>
+<p className={`text-xs ${cfg.text} opacity-80`}>{patient.riskFactor}</p>
+</div>
 
-        <div className="max-w-[1200px] mx-auto px-6 lg:px-8 py-8 space-y-8">
+{/* Score */}
+<div className="flex flex-col gap-2">
+<p className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+Muscle Retention Score
+</p>
+<div className="flex items-baseline gap-2">
+<span
+className={`text-4xl font-bold ${
+patient.muscleScore < 40
+? "text-red-600"
+: patient.muscleScore < 70
+? "text-amber-600"
+: "text-teal-600"
+}`}
+>
+{patient.muscleScore}
+</span>
+<span className="text-slate-400">/100</span>
+</div>
+<div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+<div
+className={`h-2 rounded-full ${
+patient.muscleScore < 40
+? "bg-red-500"
+: patient.muscleScore < 70
+? "bg-amber-400"
+: "bg-teal-500"
+}`}
+style={{ width: `${patient.muscleScore}%` }}
+/>
+</div>
+</div>
 
-          {/* ── Welcome ── */}
-          <div>
-            <h1 className="text-xl font-semibold text-slate-800">
-              Welcome back{shellName ? `, ${shellName}` : ''}
-            </h1>
-            <p className="text-slate-500 text-sm mt-1">Your muscle-protection dashboard</p>
-          </div>
+{/* Protocol stats */}
+<div className="grid grid-cols-2 gap-3">
+{[
+{ label: "GLP-1 Agent", value: patient.glp1Agent },
+{ label: "Current Dose", value: patient.glp1Dose + "/wk" },
+{ label: "Protein Target", value: patient.proteinTarget + "g/day" },
+{ label: "Actual Intake", value: patient.proteinActual + "g/day" },
+{ label: "Adherence", value: pct + "%" },
+{ label: "GI Burden", value: patient.giSymptom },
+].map((item) => (
+<div
+key={item.label}
+className="bg-slate-50 rounded-xl p-3 flex flex-col gap-1"
+>
+<p className="text-xs text-slate-400">{item.label}</p>
+<p className="text-sm font-medium text-slate-800">{item.value}</p>
+</div>
+))}
+</div>
 
-          {/* DB unavailable notice */}
-          <div className="bg-amber-50 border border-amber-200 rounded-xl px-6 py-5">
-            <p className="text-sm font-semibold text-amber-800 mb-1">
-              {isTimeout ? 'Database connection timed out' : 'Profile data temporarily unavailable'}
-            </p>
-            <p className="text-xs text-amber-700 leading-relaxed mb-4">
-              {isTimeout
-                ? 'We could not reach the database within 8 seconds. This usually means the Supabase project is paused (free tier auto-pauses after inactivity) or outbound port 6543 is blocked on this network.'
-                : 'Your assessment history and saved data could not be loaded right now. You can still take a new assessment.'}
-            </p>
-            <div className="flex items-center gap-3 flex-wrap">
-              <a
-                href="/dashboard"
-                className="inline-flex items-center gap-1 text-xs font-semibold text-amber-800 bg-amber-100 hover:bg-amber-200 border border-amber-300 rounded-lg px-3 py-2 transition-colors"
-              >
-                ↻ Retry
-              </a>
-              <Link href="/dashboard/assessment" className="text-xs font-medium text-amber-700 hover:underline">
-                Take a new assessment →
-              </Link>
-            </div>
-          </div>
+{/* Trend */}
+<div className="flex flex-col gap-2">
+<p className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+5-Week Adherence Trend
+</p>
+<div className="bg-slate-50 rounded-xl p-4">
+<Sparkline
+data={patient.weeklyCheckins}
+color={
+patient.riskLevel === "HIGH"
+? "#ef4444"
+: patient.riskLevel === "MODERATE"
+? "#f59e0b"
+: "#14b8a6"
+}
+/>
+<div className="flex justify-between mt-2">
+{patient.weeklyCheckins.map((v, i) => (
+<span key={i} className="text-xs text-slate-400">
+{v}%
+</span>
+))}
+</div>
+</div>
+</div>
 
-          {/* Quick actions — always available even when DB is down */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-sm">
-            <Link
-              href="/checkin"
-              className="flex items-center justify-between bg-white border border-slate-200 rounded-xl p-4 hover:border-slate-300 hover:shadow-sm transition-all"
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-lg">📋</span>
-                <div>
-                  <p className="text-sm font-semibold text-slate-800">Check-in</p>
-                  <p className="text-xs text-slate-500">Log metrics</p>
-                </div>
-              </div>
-              <span className="text-slate-300 text-sm">→</span>
-            </Link>
-            <Link
-              href="/dashboard/assessment"
-              className="flex items-center justify-between bg-green-600 hover:bg-green-700 rounded-xl p-4 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-lg">🔄</span>
-                <div>
-                  <p className="text-sm font-semibold text-white">Assess</p>
-                  <p className="text-xs text-green-200">New assessment</p>
-                </div>
-              </div>
-              <span className="text-green-300 text-sm">→</span>
-            </Link>
-          </div>
+{/* Actions */}
+<div className="flex flex-col gap-2">
+<button className="w-full bg-teal-600 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-teal-700 transition-colors">
+Send protocol update
+</button>
+<button className="w-full border border-slate-200 text-slate-700 py-2.5 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors">
+Request check-in
+</button>
+<button className="w-full border border-red-100 text-red-600 py-2.5 rounded-xl text-sm font-medium hover:bg-red-50 transition-colors">
+Flag for urgent review
+</button>
+</div>
+</div>
+</div>
+);
+}
 
-        </div>
-      </main>
-    );
-  }
+// ── Main dashboard ───────────────────────────────────────────────────────────
 
-  // Role-based routing — physicians who land on /dashboard are sent to their portal.
-  // PHYSICIAN_PENDING → holding screen; PHYSICIAN → full patient list.
-  if (user.role === 'PHYSICIAN')         redirect('/doctor/patients');
-  if (user.role === 'PHYSICIAN_PENDING') redirect('/doctor/dashboard');
+export default function DashboardPage() {
+const [showShare, setShowShare] = useState(false);
+const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+const [filter, setFilter] = useState<RiskLevel | "ALL">("ALL");
 
-  const latestAssessment = user.assessments[0];
-  const latestScore      = latestAssessment?.muscleScore?.score ?? null;
-  const latestBand       = latestAssessment?.muscleScore?.riskBand ?? null;
-  const prevScore        = user.assessments[1]?.muscleScore?.score ?? null;
-  const delta            = latestScore !== null && prevScore !== null
-    ? Math.round(latestScore - prevScore)
-    : null;
-  const isPremium        = user.subscriptionStatus === 'ACTIVE';
-  // Extract first actual given name, skipping honorifics so "Dr Onyeka Okpala"
-  // produces "Onyeka" not "Dr" in the greeting.
-  const HONORIFICS       = ['Dr', 'Dr.', 'Prof', 'Prof.', 'Mr', 'Mrs', 'Ms', 'Miss'];
-  const nameParts        = (user.fullName ?? '').split(' ').filter(Boolean);
-  const firstName        = nameParts.find(p => !HONORIFICS.includes(p)) ?? nameParts[0] ?? null;
+const highRisk = PATIENTS.filter((p) => p.riskLevel === "HIGH");
+const filtered =
+filter === "ALL" ? PATIENTS : PATIENTS.filter((p) => p.riskLevel === filter);
 
+const now = new Date();
+const hour = now.getHours();
+const greeting =
+hour < 5
+? "Still at it"
+: hour < 12
+? "Good morning"
+: hour < 17
+? "Good afternoon"
+: hour < 21
+? "Good evening"
+: "Good evening";
 
-  // Derive factors only when an assessment exists
-  const factors = latestAssessment
-    ? deriveFactors(latestAssessment, user.profile ?? null)
-    : [];
+return (
+<div className="min-h-screen bg-slate-950 text-white">
 
-  // ── Weekly protocol focus ─────────────────────────────────────────────────
-  // Computed server-side from the last 4 check-ins + the latest protocol plan.
-  // Always rendered — WeeklyFocusCard handles the zero-data empty state itself.
-  const latestPlan        = latestAssessment?.protocolPlan  ?? null;
-  const latestMuscleScore = latestAssessment?.muscleScore   ?? null;
+{/* Top bar */}
+<header className="border-b border-slate-800 px-6 py-4">
+<div className="max-w-7xl mx-auto flex items-center justify-between">
+<div className="flex items-center gap-4">
+<div className="flex items-center gap-1">
+<span className="text-lg font-bold text-white">Myo</span>
+<span className="text-lg font-bold text-teal-400">Guard</span>
+</div>
+<div className="hidden sm:block h-4 w-px bg-slate-700" />
+<span className="hidden sm:block text-xs text-slate-400 font-medium uppercase tracking-wider">
+Clinical Command Center
+</span>
+</div>
 
-  const checkinWindow: CheckinWindow[] = user.weeklyCheckins.map(c => ({
-    weekStart:     c.weekStart,
-    avgProteinG:   c.avgProteinG   ?? null,
-    totalWorkouts: c.totalWorkouts ?? null,
-    avgHydration:  c.avgHydration  ?? null,
-    avgWeightKg:   c.avgWeightKg   ?? null,
-    energyLevel:   c.energyLevel   ?? null,
-    nauseaLevel:   c.nauseaLevel   ?? null,
-  }));
+<div className="flex items-center gap-3">
+{/* Time */}
+<span className="text-xs text-slate-500 hidden md:block">
+{now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+</span>
 
-  // Only compute when we have protocol targets (requires a completed assessment)
-  const weeklyFocus = latestMuscleScore
-    ? generateWeeklyFocus(checkinWindow, {
-        proteinTargetG:  latestPlan?.proteinTargetG  ?? latestMuscleScore.proteinTargetG,
-        hydrationTarget: latestPlan?.hydrationTarget ?? 2.5,
-        riskBand:        latestMuscleScore.riskBand   as AdaptiveRiskBand,
-      } satisfies ProtocolTargets)
-    : null;
+{/* Alerts badge */}
+<div className="relative">
+<button className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center hover:bg-slate-700 transition-colors">
+<svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+<path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+</svg>
+</button>
+{highRisk.length > 0 && (
+<div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
+<span className="text-xs text-white font-bold">{highRisk.length}</span>
+</div>
+)}
+</div>
 
-  const daysSinceLastCheckin = user.weeklyCheckins[0]
-    ? Math.floor((Date.now() - user.weeklyCheckins[0].weekStart.getTime()) / (1000 * 60 * 60 * 24))
-    : null;
+{/* Share kit — floating CTA */}
+<button
+onClick={() => setShowShare(true)}
+className="flex items-center gap-2 bg-teal-600 hover:bg-teal-500 text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors"
+>
+<svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+<path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+</svg>
+Invite Patient
+</button>
 
-  const hasCheckinData =
-    weeklyFocus !== null && weeklyFocus.snapshot.weeksAnalysed > 0;
-  // ─────────────────────────────────────────────────────────────────────────
+<div className="w-8 h-8 rounded-full bg-teal-600 flex items-center justify-center text-xs font-bold">
+Dr
+</div>
+</div>
+</div>
+</header>
 
-  // ── Connected physician display name (patients only) ─────────────────────
-  // user.physicianId is an informal FK to User.id (no Prisma @relation).
-  // Resolve: physician User → referralSlug → PhysicianProfile.displayName.
-  let connectedPhysicianName: string | null = null;
-  if (user.physicianId) {
-    try {
-      const physicianUser = await prisma.user.findUnique({
-        where:  { id: user.physicianId },
-        select: { referralSlug: true, fullName: true },
-      });
-      if (physicianUser?.referralSlug) {
-        const profile = await prisma.physicianProfile.findUnique({
-          where:  { slug: physicianUser.referralSlug },
-          select: { displayName: true },
-        });
-        connectedPhysicianName = profile?.displayName ?? physicianUser.fullName ?? null;
-      } else {
-        connectedPhysicianName = physicianUser?.fullName ?? null;
-      }
-    } catch {
-      // Non-critical — omit the banner on DB error
-    }
-  }
-  // ─────────────────────────────────────────────────────────────────────────
+<main className="max-w-7xl mx-auto px-6 py-8 flex flex-col gap-8">
 
-  return (
-    <main className="min-h-screen bg-slate-50 font-sans">
-      {/* Silently syncs a pending guest assessment to the DB after first login */}
-      <PostAuthSync />
-      {/* Links patient to referring physician if mgReferredBy cookie is present */}
-      <ReferralSync />
-      {/* Redirects first-time users (no profile) to /onboarding to complete setup */}
-      <OnboardingRedirect hasProfile={!!user.profile} />
+{/* Greeting */}
+<div className="flex items-start justify-between">
+<div>
+<h1 className="text-xl font-semibold text-white">
+{greeting}, Dr. Okpala.
+</h1>
+<p className="text-sm text-slate-400 mt-1">
+{highRisk.length > 0
+? `${highRisk.length} patient${highRisk.length > 1 ? "s" : ""} require${highRisk.length === 1 ? "s" : ""} attention tonight.`
+: "All patients within target range."}
+</p>
+</div>
+<div className="text-right hidden sm:block">
+<p className="text-xs text-slate-500">
+{now.toLocaleDateString("en-GB", {
+weekday: "long",
+day: "numeric",
+month: "long",
+year: "numeric",
+})}
+</p>
+</div>
+</div>
 
-      {/* ── Header ── */}
-      <DashboardHeader plan={isPremium ? 'premium' : 'free'} />
+{/* ── SECTION 1: Triage header ── */}
+{highRisk.length > 0 && (
+<div className="flex flex-col gap-3">
+<div className="flex items-center gap-2">
+<div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+<h2 className="text-xs font-semibold text-red-400 uppercase tracking-widest">
+Triage — Immediate Attention
+</h2>
+</div>
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+{highRisk.map((p) => (
+<button
+key={p.id}
+onClick={() => setSelectedPatient(p)}
+className="bg-slate-900 border border-red-900 rounded-xl p-4 text-left hover:border-red-700 transition-colors flex flex-col gap-3"
+>
+<div className="flex items-center justify-between">
+<div className="flex items-center gap-2">
+<div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+<span className="text-sm font-medium text-white">{p.name}</span>
+</div>
+<span className="text-xs bg-red-900 text-red-300 px-2 py-0.5 rounded-full font-medium">
+Score {p.muscleScore}
+</span>
+</div>
+<div className="flex flex-col gap-1">
+<p className="text-xs text-slate-400">
+{p.glp1Agent} {p.glp1Dose}/wk
+</p>
+<p className="text-xs text-red-400 font-medium">
+⚠ {p.riskFactor}
+</p>
+</div>
+<div className="flex items-center justify-between">
+<div className="flex flex-col gap-1 flex-1">
+<div className="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
+<div
+className="h-1 bg-red-500 rounded-full"
+style={{
+width: `${Math.round(
+(p.proteinActual / p.proteinTarget) * 100
+)}%`,
+}}
+/>
+</div>
+<p className="text-xs text-slate-500">
+Protein {p.proteinActual}g / {p.proteinTarget}g
+</p>
+</div>
+<span className="text-xs text-slate-500 ml-3">{p.lastSeen}</span>
+</div>
+</button>
+))}
+</div>
+</div>
+)}
 
-      <div className="max-w-[1200px] mx-auto px-6 lg:px-8 py-8">
+{/* ── SECTION 2: KPI strip ── */}
+<div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+{[
+{
+label: "Total patients",
+value: PATIENTS.length.toString(),
+sub: "Active on protocol",
+color: "text-white",
+},
+{
+label: "High risk",
+value: PATIENTS.filter((p) => p.riskLevel === "HIGH").length.toString(),
+sub: "Score < 40",
+color: "text-red-400",
+},
+{
+label: "Avg muscle score",
+value: Math.round(
+PATIENTS.reduce((a, p) => a + p.muscleScore, 0) / PATIENTS.length
+).toString(),
+sub: "Across active cohort",
+color: "text-teal-400",
+},
+{
+label: "Avg protein adherence",
+value:
+Math.round(
+PATIENTS.reduce((a, p) => a + p.proteinAdherence, 0) /
+PATIENTS.length
+) + "%",
+sub: "Of 1.6 g/kg target",
+color: "text-amber-400",
+},
+].map((k) => (
+<div
+key={k.label}
+className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col gap-1"
+>
+<p className="text-xs text-slate-500">{k.label}</p>
+<p className={`text-2xl font-bold ${k.color}`}>{k.value}</p>
+<p className="text-xs text-slate-600">{k.sub}</p>
+</div>
+))}
+</div>
 
-        {/* ── Welcome ── */}
-        <div className="mb-8">
-          <h1 className="text-xl font-semibold text-slate-800">
-            Welcome back{firstName ? `, ${firstName}` : ''}
-          </h1>
-          <p className="text-slate-500 text-sm mt-1">Your muscle-protection dashboard</p>
-        </div>
+{/* ── SECTION 3: Patient table ── */}
+<div className="flex flex-col gap-4">
+<div className="flex items-center justify-between">
+<h2 className="text-sm font-semibold text-slate-300">
+Patient Panel
+</h2>
+{/* Filter tabs */}
+<div className="flex gap-1 bg-slate-900 border border-slate-800 rounded-lg p-1">
+{(["ALL", "HIGH", "MODERATE", "LOW"] as const).map((f) => (
+<button
+key={f}
+onClick={() => setFilter(f)}
+className={`text-xs px-3 py-1.5 rounded-md font-medium transition-colors ${
+filter === f
+? "bg-slate-700 text-white"
+: "text-slate-500 hover:text-slate-300"
+}`}
+>
+{f === "ALL" ? "All" : RISK_CONFIG[f].label}
+</button>
+))}
+</div>
+</div>
 
-        {/* ── Physician banner (full width, above grid) ── */}
-        {connectedPhysicianName && (
-          <div className="flex items-center gap-3 bg-teal-50 border border-teal-100 rounded-xl px-5 py-4 mb-8">
-            <span className="text-lg flex-shrink-0">👨‍⚕️</span>
-            <div className="flex-1 min-w-0">
-              <p className="text-[11px] font-semibold text-teal-700 uppercase tracking-wide">
-                Under Physician Care
-              </p>
-              <p className="text-sm font-medium text-teal-900 mt-0.5">
-                Connected to {connectedPhysicianName}
-              </p>
-            </div>
-            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-3 py-1 flex-shrink-0 uppercase tracking-wide">
-              Active
-            </span>
-          </div>
-        )}
+<div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+<div className="overflow-x-auto">
+<table className="w-full">
+<thead>
+<tr className="border-b border-slate-800">
+{[
+"Patient",
+"GLP-1 Agent",
+"Score",
+"Protein",
+"Trend",
+"Status",
+"Risk Factor",
+"Last Active",
+].map((h) => (
+<th
+key={h}
+className={`text-left text-xs font-medium text-slate-500 px-4 py-3 uppercase tracking-wider ${
+h === "Trend" ? "hidden md:table-cell" : ""
+}`}
+>
+{h}
+</th>
+))}
+</tr>
+</thead>
+<tbody>
+{filtered.map((p) => (
+<PatientRow
+key={p.id}
+p={p}
+onClick={setSelectedPatient}
+/>
+))}
+</tbody>
+</table>
+</div>
+</div>
+</div>
 
-        {/* ══════════════════════════════════════════════════════════════════════
-            TWO-COLUMN GRID
-            Left (main):    score hero · factors · weekly focus · history
-            Right (sidebar): actions · portal · report · upgrade
-        ══════════════════════════════════════════════════════════════════════ */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8">
+{/* ── SECTION 4: Share kit promo strip ── */}
+<div className="bg-slate-900 border border-teal-900 rounded-xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+<div className="flex flex-col gap-1">
+<p className="text-sm font-semibold text-white">
+Refer a patient in 10 seconds
+</p>
+<p className="text-xs text-slate-400">
+Show the QR code in your exam room. Patient signs up and links to your profile automatically — no manual entry.
+</p>
+</div>
+<button
+onClick={() => setShowShare(true)}
+className="flex-shrink-0 bg-teal-600 hover:bg-teal-500 text-white px-5 py-2.5 rounded-xl text-sm font-medium transition-colors"
+>
+Open Share Kit
+</button>
+</div>
 
-          {/* ── Main column ───────────────────────────────────────────────── */}
-          <div className="space-y-8">
+</main>
 
-            {/* Score hero */}
-            {latestScore !== null && latestBand ? (
-              <Link
-                href="/dashboard/journey"
-                className="block bg-slate-900 hover:bg-slate-800 rounded-xl p-8 transition-colors group"
-              >
-                <div className="flex items-start justify-between mb-6">
-                  <div>
-                    <p className="text-[10px] font-bold text-teal-400 uppercase tracking-[0.15em] mb-2">
-                      Your MyoGuard Journey
-                    </p>
-                    <div className="flex items-baseline gap-1.5">
-                      <span className="font-mono text-6xl font-black text-white tabular-nums leading-none">
-                        {Math.round(latestScore)}
-                      </span>
-                      <span className="text-2xl text-slate-500 font-light">/100</span>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col items-end gap-2 mt-1">
-                    {(() => {
-                      const rm = RISK_META[latestBand] ?? RISK_META.HIGH;
-                      return (
-                        <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border ${rm.bg} ${rm.border} ${rm.colour}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${rm.dot}`} />
-                          {rm.label}
-                        </span>
-                      );
-                    })()}
-                    {delta !== null && (
-                      <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${
-                        delta > 0
-                          ? 'bg-emerald-900/60 text-emerald-400 border-emerald-700'
-                          : delta < 0
-                          ? 'bg-red-900/60 text-red-400 border-red-700'
-                          : 'bg-slate-700 text-slate-400 border-slate-600'
-                      }`}>
-                        {delta > 0 ? '↑' : delta < 0 ? '↓' : '→'} <span className="font-mono">{Math.abs(delta)}</span> pts
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="h-2 rounded-full bg-slate-700 overflow-hidden mb-4">
-                  <div
-                    className={`h-full rounded-full transition-all ${SCORE_TRACK[latestBand] ?? 'bg-teal-500'}`}
-                    style={{ width: `${Math.round(latestScore)}%` }}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-slate-400">
-                    {latestScore < 80
-                      ? `${80 - Math.round(latestScore)} points from Low Risk`
-                      : 'In the optimal Low Risk zone ✓'}
-                  </p>
-                  <span className="text-xs font-semibold text-teal-400 group-hover:text-teal-300 transition-colors flex items-center gap-1">
-                    View journey →
-                  </span>
-                </div>
-              </Link>
-            ) : (
-              <AssessmentHeroPlaceholder />
-            )}
-
-            {/* Contributing factors */}
-            {factors.length > 0 && <ContributingFactors factors={factors} />}
-
-            {/* Weekly protocol focus */}
-            {latestScore !== null && (
-              <WeeklyFocusCard
-                focus={weeklyFocus}
-                hasData={hasCheckinData}
-                daysSinceLastCheckin={daysSinceLastCheckin}
-              />
-            )}
-
-            {/* Assessment history */}
-            {user.assessments.length > 0 && (
-              <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-                <div className="px-6 pt-5 pb-4 border-b border-slate-100">
-                  <p className="text-sm font-semibold text-slate-700">Assessment History</p>
-                </div>
-                <div className="divide-y divide-slate-100">
-                  {user.assessments.slice(0, 5).map((a) => {
-                    const band  = a.muscleScore?.riskBand;
-                    const score = a.muscleScore?.score;
-                    const rm    = band ? (RISK_META[band] ?? RISK_META.HIGH) : null;
-                    return (
-                      <Link key={a.id} href={`/dashboard/results/${a.id}`} className="flex items-center justify-between px-6 py-4 hover:bg-slate-50 transition-colors">
-                        <div>
-                          <p className="text-sm font-medium text-slate-700">
-                            {formatDate(a.assessmentDate)}
-                          </p>
-                          <p className="text-xs text-slate-400 mt-0.5">
-                            {a.weightKg}kg · {a.proteinGrams}g protein target
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          {score != null && (
-                            <span className="font-mono text-sm font-bold text-slate-800 tabular-nums">
-                              {Math.round(score)}/100
-                            </span>
-                          )}
-                          {rm && band && (
-                            <span className={`text-xs font-medium border rounded-full px-2.5 py-0.5 ${rm.bg} ${rm.border} ${rm.colour}`}>
-                              {rm.label}
-                            </span>
-                          )}
-                        </div>
-                      </Link>
-                    );
-                  })}
-                  {user.assessments.length > 5 && (
-                    <div className="px-6 py-4 text-center">
-                      <Link href="/dashboard/journey" className="text-xs text-teal-600 hover:underline font-medium">
-                        View full history in Journey →
-                      </Link>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-          </div>
-
-          {/* ── Sidebar ───────────────────────────────────────────────────── */}
-          <div className="space-y-6">
-
-            {/* Quick actions */}
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <h2 className="text-sm font-semibold text-slate-700 mb-4">Quick Actions</h2>
-              <div className="space-y-3">
-                <Link
-                  href="/dashboard/assessment"
-                  className="flex items-center justify-between w-full bg-green-600 hover:bg-green-700 text-white rounded-lg px-5 py-2.5 font-semibold text-sm transition-colors"
-                >
-                  New Assessment
-                  <span>→</span>
-                </Link>
-                <Link
-                  href="/checkin"
-                  className="flex items-center justify-between w-full border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg px-5 py-2.5 font-medium text-sm transition-colors"
-                >
-                  <span className="flex items-center gap-2">
-                    <span>📋</span>
-                    Weekly Check-in
-                  </span>
-                  <span className="text-slate-400 text-xs tabular-nums">
-                    {user.weeklyCheckins[0] ? formatDate(user.weeklyCheckins[0].weekStart) : '→'}
-                  </span>
-                </Link>
-              </div>
-              {latestAssessment && (
-                <p className="text-xs text-slate-400 mt-4 text-center">
-                  Last assessed {formatDate(latestAssessment.assessmentDate)}
-                </p>
-              )}
-            </div>
-
-
-
-            {/* Physician report */}
-            {latestScore !== null && (
-              <Link
-                href="/dashboard/report"
-                className="block bg-white rounded-xl shadow-sm p-6 hover:shadow transition-all"
-              >
-                <div className="flex items-start gap-3">
-                  <span className="text-xl flex-shrink-0">🩺</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-800 mb-1">Physician Report</p>
-                    <p className="text-xs text-slate-500 leading-snug">
-                      Print or share a clinical summary with your doctor
-                    </p>
-                  </div>
-                </div>
-                <p className="text-xs font-semibold text-teal-600 mt-4 text-right">View report →</p>
-              </Link>
-            )}
-
-            {/* Upgrade (free users with a score) */}
-            {!isPremium && latestScore !== null && (
-              <div className="bg-slate-900 rounded-xl p-6 text-white">
-                <p className="font-semibold text-sm mb-2">Upgrade to Premium</p>
-                <p className="text-slate-400 text-xs leading-relaxed mb-5">
-                  Unlock physician report exports, advanced trend analytics, and priority protocol updates.
-                </p>
-                <form action="/api/stripe/checkout" method="POST">
-                  <button
-                    type="submit"
-                    className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold text-sm px-5 py-2.5 rounded-lg transition-colors"
-                  >
-                    Upgrade Now →
-                  </button>
-                </form>
-              </div>
-            )}
-
-          </div>
-        </div>
-      </div>
-    </main>
-  );
+{/* Modals */}
+{showShare && <ShareKit onClose={() => setShowShare(false)} />}
+{selectedPatient && (
+<PatientDrawer
+patient={selectedPatient}
+onClose={() => setSelectedPatient(null)}
+/>
+)}
+</div>
+);
 }
