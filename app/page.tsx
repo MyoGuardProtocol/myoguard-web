@@ -162,6 +162,11 @@ export default function HomePage() {
     sleepHours >= 5.5 ? "text-orange-500" :
     "text-red-500";
 
+  // Progress indicator — 4 required fields
+  const fieldsComplete = [!!weight, !!protein, !!selectedDrug, !!giSymptom].filter(Boolean).length;
+  const totalFields = 4;
+  const canCalculate = !!(weight && protein && selectedDrug && giSymptom);
+
   return (
     <main className="min-h-screen bg-white text-slate-900">
 
@@ -221,6 +226,27 @@ export default function HomePage() {
               Are you a clinician?
             </a>
           </div>
+
+          {/* Social proof / credibility block */}
+          <div className="border-t border-slate-100 pt-6 flex flex-col gap-3">
+            <p className="text-xs text-slate-400 uppercase tracking-widest font-medium">
+              Trusted by clinicians
+            </p>
+            <div className="flex flex-col gap-2">
+              {[
+                "Used by physicians across Caribbean and North America",
+                "Grounded in NEJM, EWGSOP2, and 2026 clinical literature",
+                "GDPR and HIPAA-aligned data handling",
+              ].map((t) => (
+                <div key={t} className="flex items-start gap-2">
+                  <div className="w-4 h-4 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <div className="w-2 h-2 rounded-full bg-teal-600" />
+                  </div>
+                  <p className="text-xs text-slate-500">{t}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* RIGHT — Calculator */}
@@ -229,9 +255,33 @@ export default function HomePage() {
             <div>
               <h2 className="text-base font-semibold text-slate-900">Sarcopenia Risk Calculator</h2>
               <p className="text-xs text-slate-400 mt-0.5">No account required · Clinical parameters · Results in seconds</p>
+
+              {/* Progress indicator */}
+              <div className="flex items-center gap-2 mt-3">
+                <div className="flex gap-1">
+                  {Array.from({ length: totalFields }).map((_, i) => (
+                    <div
+                      key={i}
+                      className={`h-1 w-6 rounded-full transition-all ${
+                        i < fieldsComplete ? "bg-teal-500" : "bg-slate-100"
+                      }`}
+                    />
+                  ))}
+                </div>
+                <span className="text-xs text-slate-400">
+                  {fieldsComplete < totalFields
+                    ? `${totalFields - fieldsComplete} field${totalFields - fieldsComplete > 1 ? "s" : ""} remaining`
+                    : "Ready to calculate"}
+                </span>
+              </div>
             </div>
 
             <div className="flex flex-col gap-4">
+
+              {/* Body metrics section */}
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
+                Body metrics
+              </p>
 
               {/* Weight */}
               <label className="flex flex-col gap-1.5">
@@ -252,6 +302,11 @@ export default function HomePage() {
                   className="border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
               </label>
+
+              {/* GLP-1 therapy section */}
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mt-2">
+                GLP-1 therapy
+              </p>
 
               {/* GLP-1 dropdown */}
               <label className="flex flex-col gap-1.5">
@@ -284,6 +339,11 @@ export default function HomePage() {
                 </select>
               </label>
 
+              {/* Symptoms & lifestyle section */}
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mt-2">
+                Symptoms &amp; lifestyle
+              </p>
+
               {/* GI symptoms */}
               <label className="flex flex-col gap-1.5">
                 <span className="text-xs font-medium text-slate-600">GI symptoms on current dose</span>
@@ -298,6 +358,11 @@ export default function HomePage() {
                 </select>
                 <span className="text-xs text-slate-400">GI burden directly impairs nutrient absorption and protein adequacy</span>
               </label>
+
+              {/* Recovery environment section */}
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mt-2">
+                Recovery environment
+              </p>
 
               {/* Sleep SLIDER */}
               <div className="flex flex-col gap-2">
@@ -333,40 +398,78 @@ export default function HomePage() {
               <p className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{formError}</p>
             )}
 
+            {/* Premium calculate button */}
             <button
               onClick={handleCalculate}
-              className="w-full bg-teal-600 text-white py-3 rounded-xl text-sm font-medium hover:bg-teal-700 active:scale-95 transition-all"
+              disabled={!canCalculate}
+              className={`w-full py-3.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
+                canCalculate
+                  ? "bg-teal-600 text-white hover:bg-teal-700 active:scale-95 shadow-sm shadow-teal-200"
+                  : "bg-slate-100 text-slate-400 cursor-not-allowed"
+              }`}
             >
-              Calculate my risk score
+              {canCalculate ? (
+                <>
+                  Calculate my risk score
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                </>
+              ) : (
+                "Complete all fields to calculate"
+              )}
             </button>
 
             {/* Results */}
             {result && (
-              <div className="flex flex-col gap-4 border-t border-slate-100 pt-4">
+              <div className="flex flex-col gap-4 border-t border-slate-100 pt-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
 
-                {/* Composite score */}
-                <div className="flex items-center justify-between">
+                {/* Composite score — dramatic card */}
+                <div className="bg-slate-50 rounded-2xl p-4 flex items-center justify-between">
                   <div>
                     <p className="text-xs text-slate-500 mb-1">MyoGuard Composite Score</p>
                     <div className="flex items-baseline gap-2">
-                      <span className="text-4xl font-bold text-slate-900">{result.composite}</span>
-                      <span className="text-slate-400 text-sm">/100</span>
+                      <span className={`text-6xl font-bold tracking-tight ${
+                        result.risk === "LOW" ? "text-teal-600" :
+                        result.risk === "MODERATE" ? "text-amber-600" :
+                        "text-red-600"
+                      }`}>
+                        {result.composite}
+                      </span>
+                      <span className="text-slate-400 text-lg">/100</span>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-xs text-slate-500 mb-1">Risk band</p>
-                    <span className={`text-sm font-semibold ${RISK_META[result.risk].color}`}>
-                      {RISK_META[result.risk].label}
-                    </span>
+                  <div className={`px-4 py-2 rounded-full text-sm font-semibold ${
+                    result.risk === "LOW"
+                      ? "bg-teal-100 text-teal-700"
+                      : result.risk === "MODERATE"
+                      ? "bg-amber-100 text-amber-700"
+                      : "bg-red-100 text-red-700"
+                  }`}>
+                    {RISK_META[result.risk].label}
                   </div>
                 </div>
 
-                {/* Composite bar */}
-                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div
-                    className={`h-2 rounded-full transition-all ${RISK_META[result.risk].bar}`}
-                    style={{ width: `${result.composite}%` }}
-                  />
+                {/* Gradient risk bar */}
+                <div className="flex flex-col gap-1">
+                  <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden relative">
+                    <div
+                      className="absolute inset-0 rounded-full"
+                      style={{
+                        background: "linear-gradient(to right, #ef4444 0%, #f59e0b 40%, #14b8a6 70%, #0d9488 100%)",
+                      }}
+                    />
+                    <div
+                      className="absolute top-0 right-0 h-full bg-slate-100 rounded-r-full transition-all duration-700"
+                      style={{ width: `${100 - result.composite}%` }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-slate-400">
+                    <span>0 — High Risk</span>
+                    <span>40</span>
+                    <span>70</span>
+                    <span>100 — Low Risk</span>
+                  </div>
                 </div>
 
                 {/* Sub-scores */}
@@ -395,10 +498,29 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                {/* Explanation */}
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  {RISK_META[result.risk].explanation}
-                </p>
+                {/* Clinical alert box */}
+                <div className={`rounded-xl border p-4 ${
+                  result.risk === "LOW"
+                    ? "bg-teal-50 border-teal-100"
+                    : result.risk === "MODERATE"
+                    ? "bg-amber-50 border-amber-100"
+                    : "bg-red-50 border-red-100"
+                }`}>
+                  <p className={`text-xs font-semibold mb-1 uppercase tracking-wider ${
+                    result.risk === "LOW" ? "text-teal-700" :
+                    result.risk === "MODERATE" ? "text-amber-700" :
+                    "text-red-700"
+                  }`}>
+                    Clinical Assessment
+                  </p>
+                  <p className={`text-sm leading-relaxed ${
+                    result.risk === "LOW" ? "text-teal-800" :
+                    result.risk === "MODERATE" ? "text-amber-800" :
+                    "text-red-800"
+                  }`}>
+                    {RISK_META[result.risk].explanation}
+                  </p>
+                </div>
 
                 {/* Blurred protocol */}
                 <div className="relative rounded-xl border border-slate-200 overflow-hidden">
@@ -428,26 +550,74 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                {/* Email gate */}
+                {/* Dark email gate */}
                 {!submitted ? (
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-3 bg-slate-900 rounded-2xl p-5">
+                    <div>
+                      <p className="text-sm font-semibold text-white">
+                        Unlock your full MyoGuard Protocol
+                      </p>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Receive your complete clinical report, personalised targets, and supplement stack.
+                      </p>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      {[
+                        "Exact protein target in grams for your weight",
+                        "GI-staged fibre protocol",
+                        "Personalised supplement stack",
+                        "Monitoring lab recommendations",
+                      ].map((b) => (
+                        <div key={b} className="flex items-center gap-2">
+                          <div className="w-4 h-4 rounded-full bg-teal-500 flex items-center justify-center flex-shrink-0">
+                            <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                          <span className="text-xs text-slate-300">{b}</span>
+                        </div>
+                      ))}
+                    </div>
                     <input
-                      type="email" placeholder="Enter your email address"
-                      value={email} onChange={(e) => setEmail(e.target.value)}
-                      className="border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      type="email"
+                      placeholder="Enter your email address"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="border border-slate-700 bg-slate-800 rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
                     />
                     <button
                       onClick={handleEmailSubmit}
-                      className="w-full border border-teal-600 text-teal-600 py-2.5 rounded-xl text-sm font-medium hover:bg-teal-50 transition-colors"
+                      className="w-full bg-teal-600 text-white py-3 rounded-xl text-sm font-semibold hover:bg-teal-500 transition-colors flex items-center justify-center gap-2"
                     >
-                      Unlock full protocol →
+                      Send my protocol report
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                      </svg>
                     </button>
-                    <p className="text-xs text-slate-400 text-center">No spam. Unsubscribe anytime.</p>
+                    <div className="flex items-center justify-center gap-4">
+                      <a href="/sign-up" className="text-xs text-teal-400 hover:underline">
+                        Create free account instead →
+                      </a>
+                      <span className="text-slate-600 text-xs">·</span>
+                      <span className="text-xs text-slate-500">No spam. Unsubscribe anytime.</span>
+                    </div>
                   </div>
                 ) : (
-                  <div className="bg-teal-50 border border-teal-100 rounded-xl p-3 text-center">
-                    <p className="text-sm font-medium text-teal-700">Protocol sent to {email}</p>
-                    <p className="text-xs text-teal-500 mt-0.5">Check your inbox — full clinical report included.</p>
+                  <div className="bg-teal-50 border border-teal-100 rounded-2xl p-5 text-center flex flex-col gap-2">
+                    <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center mx-auto">
+                      <svg className="w-5 h-5 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <p className="text-sm font-semibold text-teal-800">
+                      Protocol report sent to {email}
+                    </p>
+                    <p className="text-xs text-teal-600">
+                      Check your inbox — full clinical report included.
+                    </p>
+                    <a href="/sign-up" className="text-xs text-teal-700 font-medium hover:underline mt-1">
+                      Create a free account to track progress over time →
+                    </a>
                   </div>
                 )}
               </div>
