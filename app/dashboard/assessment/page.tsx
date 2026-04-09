@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { z } from 'zod';
 import DashboardHeader from '@/src/components/ui/DashboardHeader';
 
-// ─── Symptoms list (mirrors main form + protocol engine) ──────────────────────
+// ─── Symptoms list ───────────────────────────────────────────────────────────
 const SYMPTOMS = [
   'Constipation',
   'Nausea',
@@ -14,6 +14,47 @@ const SYMPTOMS = [
   'Fatigue',
   'Reduced appetite',
   'Bloating',
+];
+
+// ─── GLP-1 drug + dose catalogue ─────────────────────────────────────────────
+const GLP1_DRUGS = [
+  // Semaglutide injectable
+  { label: 'Ozempic 0.25 mg/wk — initiation dose',      value: 0.25, max: 2.0,  type: 'injectable' },
+  { label: 'Ozempic 0.5 mg/wk — standard maintenance',  value: 0.5,  max: 2.0,  type: 'injectable' },
+  { label: 'Ozempic 1.0 mg/wk — full dose',             value: 1.0,  max: 2.0,  type: 'injectable' },
+  { label: 'Ozempic 2.0 mg/wk — maximum',               value: 2.0,  max: 2.0,  type: 'injectable' },
+  // Wegovy (higher dose semaglutide)
+  { label: 'Wegovy 0.25 mg/wk — initiation',            value: 0.25, max: 2.4,  type: 'injectable' },
+  { label: 'Wegovy 0.5 mg/wk',                          value: 0.5,  max: 2.4,  type: 'injectable' },
+  { label: 'Wegovy 1.0 mg/wk',                          value: 1.0,  max: 2.4,  type: 'injectable' },
+  { label: 'Wegovy 1.7 mg/wk',                          value: 1.7,  max: 2.4,  type: 'injectable' },
+  { label: 'Wegovy 2.4 mg/wk — maximum',                value: 2.4,  max: 2.4,  type: 'injectable' },
+  // Oral semaglutide
+  { label: 'Rybelsus 3 mg/day — initiation (oral)',     value: 0.1,  max: 0.5,  type: 'oral' },
+  { label: 'Rybelsus 7 mg/day (oral)',                  value: 0.23, max: 0.5,  type: 'oral' },
+  { label: 'Rybelsus 14 mg/day — maximum (oral)',       value: 0.46, max: 0.5,  type: 'oral' },
+  // Tirzepatide
+  { label: 'Mounjaro/Zepbound 2.5 mg/wk — initiation', value: 2.5,  max: 15,   type: 'injectable' },
+  { label: 'Mounjaro/Zepbound 5 mg/wk',                value: 5,    max: 15,   type: 'injectable' },
+  { label: 'Mounjaro/Zepbound 7.5 mg/wk',              value: 7.5,  max: 15,   type: 'injectable' },
+  { label: 'Mounjaro/Zepbound 10 mg/wk',               value: 10,   max: 15,   type: 'injectable' },
+  { label: 'Mounjaro/Zepbound 12.5 mg/wk',             value: 12.5, max: 15,   type: 'injectable' },
+  { label: 'Mounjaro/Zepbound 15 mg/wk — maximum',     value: 15,   max: 15,   type: 'injectable' },
+  // Liraglutide
+  { label: 'Victoza 0.6 mg/day — initiation',          value: 0.6,  max: 1.8,  type: 'injectable' },
+  { label: 'Victoza 1.2 mg/day',                       value: 1.2,  max: 1.8,  type: 'injectable' },
+  { label: 'Victoza 1.8 mg/day — maximum',             value: 1.8,  max: 1.8,  type: 'injectable' },
+  // Saxenda
+  { label: 'Saxenda 0.6 mg/day — initiation',          value: 0.6,  max: 3.0,  type: 'injectable' },
+  { label: 'Saxenda 1.2 mg/day',                       value: 1.2,  max: 3.0,  type: 'injectable' },
+  { label: 'Saxenda 1.8 mg/day',                       value: 1.8,  max: 3.0,  type: 'injectable' },
+  { label: 'Saxenda 2.4 mg/day',                       value: 2.4,  max: 3.0,  type: 'injectable' },
+  { label: 'Saxenda 3.0 mg/day — maximum',             value: 3.0,  max: 3.0,  type: 'injectable' },
+  // Dulaglutide
+  { label: 'Trulicity 0.75 mg/wk — initiation',        value: 0.75, max: 4.5,  type: 'injectable' },
+  { label: 'Trulicity 1.5 mg/wk',                      value: 1.5,  max: 4.5,  type: 'injectable' },
+  { label: 'Trulicity 3.0 mg/wk',                      value: 3.0,  max: 4.5,  type: 'injectable' },
+  { label: 'Trulicity 4.5 mg/wk — maximum',            value: 4.5,  max: 4.5,  type: 'injectable' },
 ];
 
 // ─── Client-side validation schema ───────────────────────────────────────────
@@ -25,16 +66,7 @@ const FormSchema = z.object({
       v => { const n = parseFloat(v); return !isNaN(n) && n >= 30 && n <= 250; },
       'Please enter a weight between 30 and 250 kg',
     ),
-  medication: z.enum(['semaglutide', 'tirzepatide'], {
-    errorMap: () => ({ message: 'Please select your medication' }),
-  }),
-  doseMg: z
-    .string()
-    .min(1, 'Dose is required')
-    .refine(
-      v => { const n = parseFloat(v); return !isNaN(n) && n > 0; },
-      'Please enter a valid weekly dose (e.g. 1.0)',
-    ),
+  drugLabel: z.string().min(1, 'Please select your GLP-1 medication and dose'),
   exerciseDaysWk: z
     .string()
     .min(1, 'Please enter a number between 0 and 7')
@@ -53,8 +85,7 @@ const FormSchema = z.object({
 
 type FormData = {
   weightKg:        string;
-  medication:      'semaglutide' | 'tirzepatide';
-  doseMg:          string;
+  drugLabel:       string;
   exerciseDaysWk:  string;
   hydrationLitres: string;
   symptoms:        string[];
@@ -69,7 +100,7 @@ function daysToActivity(days: number): 'sedentary' | 'moderate' | 'active' {
   return 'sedentary';
 }
 
-// ─── Shared input class builders ──────────────────────────────────────────────
+// ─── Shared input class builders ─────────────────────────────────────────────
 const baseInput =
   'w-full border rounded-lg px-4 py-3 text-sm text-slate-800 bg-white ' +
   'placeholder-slate-400 focus:outline-none focus:ring-2 transition-colors';
@@ -86,27 +117,24 @@ function inputCls(hasError: boolean) {
 export default function AssessmentPage() {
   const router = useRouter();
 
-  const [form, setForm] = useState<FormData>({
+  const [form, setFormState] = useState<FormData>({
     weightKg:        '',
-    medication:      'semaglutide',
-    doseMg:          '',
+    drugLabel:       '',
     exerciseDaysWk:  '',
     hydrationLitres: '',
     symptoms:        [],
   });
 
-  // fieldErrors appear after first submit attempt; revalidate on every change after that
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [serverError, setServerError] = useState('');
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
+  // ── Helpers ──────────────────────────────────────────────────────────────
   const setField = <K extends keyof FormData>(key: K, value: FormData[K]) => {
     const next = { ...form, [key]: value };
-    setForm(next);
+    setFormState(next);
 
-    // Live-revalidate once the user has attempted submission
     if (submitAttempted && key !== 'symptoms') {
       const partial = FormSchema.shape[key as keyof typeof FormSchema.shape];
       const result  = partial.safeParse(value);
@@ -118,7 +146,7 @@ export default function AssessmentPage() {
   };
 
   const toggleSymptom = (s: string) => {
-    setForm(prev => ({
+    setFormState(prev => ({
       ...prev,
       symptoms: prev.symptoms.includes(s)
         ? prev.symptoms.filter(x => x !== s)
@@ -126,7 +154,6 @@ export default function AssessmentPage() {
     }));
   };
 
-  // ── Validate all fields, return errors map ─────────────────────────────────
   const validate = (): FieldErrors => {
     const result = FormSchema.safeParse(form);
     if (result.success) return {};
@@ -138,26 +165,28 @@ export default function AssessmentPage() {
     return errs;
   };
 
-  // ── Submit ─────────────────────────────────────────────────────────────────
+  // ── Submit ───────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     setSubmitAttempted(true);
     setServerError('');
 
     const errs = validate();
     setFieldErrors(errs);
-    if (Object.keys(errs).length > 0) return; // stop — show inline errors
+    if (Object.keys(errs).length > 0) return;
 
     setLoading(true);
     try {
-      const days = parseInt(form.exerciseDaysWk, 10);
+      const days         = parseInt(form.exerciseDaysWk, 10);
+      const selectedDrug = GLP1_DRUGS.find(d => d.label === form.drugLabel);
+      const isTirz       = form.drugLabel.toLowerCase().includes('mounjaro') ||
+                           form.drugLabel.toLowerCase().includes('zepbound');
 
-      // Build payload that matches AssessmentInputSchema
       const payload = {
-        weight:        form.weightKg,           // API expects string
+        weight:        form.weightKg,
         unit:          'kg' as const,
-        medication:    form.medication,
-        doseMg:        parseFloat(form.doseMg),
-        activityLevel: daysToActivity(days),    // maps 0-7 days → sedentary/moderate/active
+        medication:    isTirz ? 'tirzepatide' : 'semaglutide',
+        doseMg:        selectedDrug?.value ?? 0,
+        activityLevel: daysToActivity(days),
         symptoms:      form.symptoms,
       };
 
@@ -184,19 +213,16 @@ export default function AssessmentPage() {
   return (
     <main className="min-h-screen bg-slate-50 font-sans">
 
-      {/* Header */}
       <DashboardHeader />
 
       <div className="max-w-[1200px] mx-auto px-6 lg:px-8 py-8">
 
-        {/* Breadcrumb */}
         <div className="mb-8">
           <Link href="/dashboard" className="text-xs font-medium text-slate-500 hover:text-teal-600 transition-colors">
             ← Back to Dashboard
           </Link>
         </div>
 
-        {/* Form — constrained to readable width, centered */}
         <div className="max-w-xl mx-auto">
 
           <div className="mb-8">
@@ -231,54 +257,68 @@ export default function AssessmentPage() {
             )}
           </div>
 
-          {/* ── Medication ── */}
+          {/* ── GLP-1 Medication + Dose (grouped select) ── */}
           <div>
-            <label htmlFor="medication" className="block text-sm font-semibold text-slate-700 mb-1.5">
-              GLP-1 Medication
+            <label htmlFor="drugLabel" className="block text-sm font-semibold text-slate-700 mb-1.5">
+              GLP-1 Medication &amp; Dose
             </label>
             <select
-              id="medication"
-              value={form.medication}
-              onChange={e => setField('medication', e.target.value as FormData['medication'])}
-              className={inputCls(!!fieldErrors.medication)}
+              id="drugLabel"
+              value={form.drugLabel}
+              onChange={e => setField('drugLabel', e.target.value)}
+              className={inputCls(!!fieldErrors.drugLabel)}
             >
-              <option value="semaglutide">Semaglutide (Ozempic / Wegovy)</option>
-              <option value="tirzepatide">Tirzepatide (Zepbound / Mounjaro)</option>
+              <option value="">Select your GLP-1 medication and dose</option>
+              <optgroup label="Ozempic (semaglutide injectable — diabetes)">
+                {GLP1_DRUGS.filter(d => d.label.startsWith('Ozempic')).map(d => (
+                  <option key={d.label} value={d.label}>{d.label}</option>
+                ))}
+              </optgroup>
+              <optgroup label="Wegovy (semaglutide injectable — weight loss)">
+                {GLP1_DRUGS.filter(d => d.label.startsWith('Wegovy')).map(d => (
+                  <option key={d.label} value={d.label}>{d.label}</option>
+                ))}
+              </optgroup>
+              <optgroup label="Rybelsus (semaglutide oral tablet)">
+                {GLP1_DRUGS.filter(d => d.label.startsWith('Rybelsus')).map(d => (
+                  <option key={d.label} value={d.label}>{d.label}</option>
+                ))}
+              </optgroup>
+              <optgroup label="Mounjaro / Zepbound (tirzepatide)">
+                {GLP1_DRUGS.filter(d => d.label.startsWith('Mounjaro')).map(d => (
+                  <option key={d.label} value={d.label}>{d.label}</option>
+                ))}
+              </optgroup>
+              <optgroup label="Victoza (liraglutide — diabetes)">
+                {GLP1_DRUGS.filter(d => d.label.startsWith('Victoza')).map(d => (
+                  <option key={d.label} value={d.label}>{d.label}</option>
+                ))}
+              </optgroup>
+              <optgroup label="Saxenda (liraglutide — weight loss)">
+                {GLP1_DRUGS.filter(d => d.label.startsWith('Saxenda')).map(d => (
+                  <option key={d.label} value={d.label}>{d.label}</option>
+                ))}
+              </optgroup>
+              <optgroup label="Trulicity (dulaglutide)">
+                {GLP1_DRUGS.filter(d => d.label.startsWith('Trulicity')).map(d => (
+                  <option key={d.label} value={d.label}>{d.label}</option>
+                ))}
+              </optgroup>
             </select>
-            {fieldErrors.medication && (
+            {fieldErrors.drugLabel && (
               <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
-                <span aria-hidden>⚠</span> {fieldErrors.medication}
+                <span aria-hidden>⚠</span> {fieldErrors.drugLabel}
               </p>
             )}
+            <p className="mt-1.5 text-xs text-slate-400">
+              Oral semaglutide (Rybelsus) doses are normalised to injectable equivalents for scoring
+              purposes. If your medication is not listed, select the closest equivalent.
+            </p>
           </div>
 
-          {/* ── Weekly dose ── */}
-          <div>
-            <label htmlFor="doseMg" className="block text-sm font-semibold text-slate-700 mb-1.5">
-              Current Weekly Dose (mg)
-            </label>
-            <input
-              id="doseMg"
-              type="number"
-              inputMode="decimal"
-              placeholder="e.g. 1.0"
-              min={0.1}
-              step={0.25}
-              value={form.doseMg}
-              onChange={e => setField('doseMg', e.target.value)}
-              className={inputCls(!!fieldErrors.doseMg)}
-            />
-            {fieldErrors.doseMg && (
-              <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
-                <span aria-hidden>⚠</span> {fieldErrors.doseMg}
-              </p>
-            )}
-          </div>
-
-          {/* ── Exercise days + Hydration (side by side on ≥sm) ── */}
+          {/* ── Exercise days + Hydration ── */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
 
-            {/* Exercise days */}
             <div>
               <label htmlFor="exerciseDaysWk" className="block text-sm font-semibold text-slate-700 mb-1.5">
                 Exercise Days / Week
@@ -304,7 +344,6 @@ export default function AssessmentPage() {
               )}
             </div>
 
-            {/* Hydration */}
             <div>
               <label htmlFor="hydrationLitres" className="block text-sm font-semibold text-slate-700 mb-1.5">
                 Water Intake (litres / day)
