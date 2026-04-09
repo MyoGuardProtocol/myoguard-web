@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useUser } from "@clerk/nextjs";
 
 const GLP1_DRUGS = [
   { label: "Semaglutide 0.25 mg/wk — initiation (Ozempic)", value: 0.25, max: 2.4 },
@@ -94,6 +95,7 @@ const RISK_META: Record<RiskBand, {
 };
 
 export default function HomePage() {
+  const { isSignedIn } = useUser();
   const [weight, setWeight] = useState("");
   const [protein, setProtein] = useState("");
   const [selectedDrug, setSelectedDrug] = useState("");
@@ -550,8 +552,23 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                {/* Dark email gate */}
-                {!submitted ? (
+                {/* Email gate / signed-in CTA */}
+                {isSignedIn ? (
+                  <div className="flex flex-col gap-3 bg-teal-50 border border-teal-100 rounded-2xl p-5">
+                    <p className="text-sm font-semibold text-teal-800">
+                      You are signed in
+                    </p>
+                    <p className="text-xs text-teal-600">
+                      Your protocol report has been sent to your email. Save this assessment to your dashboard to track progress over time.
+                    </p>
+                    <a
+                      href="/dashboard/assessment"
+                      className="w-full bg-teal-600 text-white py-3 rounded-xl text-sm font-medium text-center hover:bg-teal-700 transition-colors"
+                    >
+                      Go to my dashboard →
+                    </a>
+                  </div>
+                ) : !submitted ? (
                   <div className="flex flex-col gap-3 bg-slate-900 rounded-2xl p-5">
                     <div>
                       <p className="text-sm font-semibold text-white">

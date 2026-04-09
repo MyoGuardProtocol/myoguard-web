@@ -103,50 +103,81 @@ export default async function ReportPage() {
   const { userId: clerkId } = await auth();
   if (!clerkId) redirect('/sign-in');
 
-  const user = await prisma.user.findUnique({
-    where:  { clerkId },
-    select: {
-      id:       true,
-      fullName: true,
-      email:    true,
-      profile:  {
-        select: {
-          age:           true,
-          sex:           true,
-          glp1Medication: true,
-          glp1DoseMg:    true,
-          glp1Stage:     true,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let user: any = null;
+  try {
+    user = await prisma.user.findUnique({
+      where:  { clerkId },
+      select: {
+        id:       true,
+        fullName: true,
+        email:    true,
+        profile:  {
+          select: {
+            age:           true,
+            sex:           true,
+            glp1Medication: true,
+            glp1DoseMg:    true,
+            glp1Stage:     true,
+          },
         },
-      },
-      assessments: {
-        orderBy: { assessmentDate: 'desc' },
-        take:    5,
-        include: {
-          muscleScore: {
-            select: {
-              score:          true,
-              riskBand:       true,
-              leanLossEstPct: true,
-              proteinTargetG: true,
-              explanation:    true,
+        assessments: {
+          orderBy: { assessmentDate: 'desc' },
+          take:    5,
+          include: {
+            muscleScore: {
+              select: {
+                score:          true,
+                riskBand:       true,
+                leanLossEstPct: true,
+                proteinTargetG: true,
+                explanation:    true,
+              },
             },
           },
         },
-      },
-      weeklyCheckins: {
-        orderBy: { weekStart: 'desc' },
-        take:    4,
-        select: {
-          weekStart:          true,
-          avgProteinG:        true,
-          totalWorkouts:      true,
-          avgHydration:       true,
-          proteinAdherence:   true,
-          exerciseAdherence:  true,
+        weeklyCheckins: {
+          orderBy: { weekStart: 'desc' },
+          take:    4,
+          select: {
+            weekStart:          true,
+            avgProteinG:        true,
+            totalWorkouts:      true,
+            avgHydration:       true,
+            proteinAdherence:   true,
+            exerciseAdherence:  true,
+          },
         },
       },
-    },
-  });
+    });
+  } catch (err) {
+    console.error('[/dashboard/report] DB query failed:', err);
+    // DB tables missing or unreachable — show empty state rather than 500
+    return (
+      <main className="min-h-screen bg-slate-50 font-sans">
+        <DashboardHeader />
+        <div className="flex items-center justify-center px-5 py-20">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 max-w-sm w-full text-center">
+            <div className="w-12 h-12 rounded-full bg-teal-100 flex items-center justify-center mx-auto mb-4">
+              <svg className="w-6 h-6 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <p className="text-slate-800 font-semibold mb-2">No protocol on file yet</p>
+            <p className="text-sm text-slate-500 mb-5 leading-relaxed">
+              Complete your first assessment to generate your personalised MyoGuard Protocol report.
+            </p>
+            <Link
+              href="/dashboard/assessment"
+              className="bg-teal-600 text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-teal-700 transition-colors inline-block"
+            >
+              Take assessment →
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   if (!user) redirect('/dashboard');
 
@@ -861,7 +892,7 @@ export default async function ReportPage() {
                 <div className="px-4 py-3 border-t border-slate-100">
                   <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-2">Reported Symptoms</p>
                   <div className="flex flex-wrap gap-1.5">
-                    {latestAssessment.symptoms.map(s => (
+                    {latestAssessment.symptoms.map((s: string) => (
                       <span key={s} className="text-xs bg-slate-100 text-slate-700 border border-slate-200 rounded-full px-2.5 py-0.5">
                         {s}
                       </span>
@@ -891,7 +922,7 @@ export default async function ReportPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {user.weeklyCheckins.map(c => (
+                    {user.weeklyCheckins.map((c: { weekStart: Date; avgProteinG: number | null; totalWorkouts: number | null; avgHydration: number | null; proteinAdherence: number | null; exerciseAdherence: number | null }) => (
                       <tr key={c.weekStart.toISOString()}>
                         <td className="px-4 py-2.5 text-slate-700">{shortDate(c.weekStart)}</td>
                         <td className="px-4 py-2.5 text-slate-800 tabular-nums font-medium">

@@ -146,7 +146,7 @@ export default async function PatientDashboardPage() {
                   </div>
                   <p className="text-sm text-slate-500 text-center">No assessment yet</p>
                   <Link
-                    href="/"
+                    href="/dashboard/assessment"
                     className="text-xs text-teal-600 font-semibold hover:underline"
                   >
                     Take your first assessment →
@@ -216,7 +216,7 @@ export default async function PatientDashboardPage() {
               </p>
               <div className="flex flex-col gap-2">
                 <Link
-                  href="/"
+                  href="/dashboard/assessment"
                   className="flex items-center gap-3 px-4 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-medium transition-colors"
                 >
                   <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -245,13 +245,6 @@ export default async function PatientDashboardPage() {
               </div>
             </div>
 
-            {/* Are you a clinician? */}
-            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-center">
-              <p className="text-xs text-slate-500 mb-2">Are you a clinician?</p>
-              <Link href="/doctor" className="text-xs text-teal-600 font-semibold hover:underline">
-                Access Physician Portal →
-              </Link>
-            </div>
           </div>
 
         </div>
