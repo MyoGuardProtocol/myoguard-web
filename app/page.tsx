@@ -61,9 +61,6 @@ function computeRecoveryScore(sleepHours: number): number {
   return 14;
 }
 
-function computeComposite(leanScore: number, recoveryScore: number): number {
-  return Math.round(leanScore * 0.7 + recoveryScore * 0.3);
-}
 
 const RISK_META: Record<RiskBand, {
   label: string;
@@ -125,7 +122,8 @@ export default function HomePage() {
 
     const leanScore = computeLeanMassScore(w, p, drug.value, drug.max, gi.value);
     const recoveryScore = computeRecoveryScore(sleepHours);
-    const composite = computeComposite(leanScore, recoveryScore);
+    const composite = leanScore;
+    // Sleep is a recovery indicator only, not a risk score input
     setResult({ leanScore, recoveryScore, composite, risk: getRisk(composite) });
   }
 
@@ -153,10 +151,10 @@ export default function HomePage() {
   }
 
   const sleepLabel =
-    sleepHours >= 7.5 ? "Optimal" :
-    sleepHours >= 6.5 ? "Mild deficit" :
-    sleepHours >= 5.5 ? "Moderate deficit" :
-    "Significant deficit";
+    sleepHours >= 7.5 ? "Optimal for muscle recovery" :
+    sleepHours >= 6.5 ? "Mild recovery deficit" :
+    sleepHours >= 5.5 ? "Moderate recovery deficit" :
+    "Significant recovery impairment";
 
   const sleepColor =
     sleepHours >= 7.5 ? "text-teal-600" :
@@ -377,7 +375,7 @@ export default function HomePage() {
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-medium text-slate-600">
-                    Anabolic Recovery Environment — sleep duration
+                    Recovery Environment Indicator (informational)
                   </span>
                   <div className="flex items-center gap-1.5">
                     <span className="text-sm font-bold text-slate-900">{sleepHours}h</span>
@@ -398,7 +396,7 @@ export default function HomePage() {
                   <span>9h</span>
                 </div>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  Nocturnal GH and IGF-1 secretion — the primary anabolic signals for muscle protein synthesis — are sleep-dependent. Chronic deficit elevates cortisol and impairs recovery. Factored as a recovery modifier, not a diagnostic criterion.
+                  Sleep duration is displayed as a recovery context indicator. Nocturnal GH and IGF-1 secretion support muscle protein synthesis — adequate sleep optimises your protocol outcomes. This parameter is not incorporated into the sarcopenia risk score.
                 </p>
               </div>
             </div>
@@ -484,7 +482,7 @@ export default function HomePage() {
                 {/* Sub-scores */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-slate-50 rounded-xl p-3 flex flex-col gap-1">
-                    <p className="text-xs text-slate-500">Lean Mass Risk</p>
+                    <p className="text-xs text-slate-500">Lean Mass Risk Score</p>
                     <div className="flex items-baseline gap-1">
                       <span className={`text-xl font-bold ${
                         result.leanScore >= 70 ? "text-teal-600" :
@@ -495,15 +493,11 @@ export default function HomePage() {
                     <p className="text-xs text-slate-400">Protein + dose + GI</p>
                   </div>
                   <div className="bg-slate-50 rounded-xl p-3 flex flex-col gap-1">
-                    <p className="text-xs text-slate-500">Recovery Environment</p>
+                    <p className="text-xs text-slate-500">Recovery Indicator</p>
                     <div className="flex items-baseline gap-1">
-                      <span className={`text-xl font-bold ${
-                        result.recoveryScore >= 70 ? "text-teal-600" :
-                        result.recoveryScore >= 40 ? "text-amber-600" : "text-red-600"
-                      }`}>{result.recoveryScore}</span>
-                      <span className="text-xs text-slate-400">/100</span>
+                      <span className={`text-xl font-bold ${sleepColor}`}>{sleepHours}h</span>
                     </div>
-                    <p className="text-xs text-slate-400">GH/IGF-1 context</p>
+                    <p className={`text-xs font-medium ${sleepColor}`}>{sleepLabel}</p>
                   </div>
                 </div>
 
