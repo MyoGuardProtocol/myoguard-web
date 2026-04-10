@@ -221,7 +221,14 @@ export default function HomePage() {
             ))}
           </div>
           <div className="flex items-center gap-3 pt-2">
-            <a href="/sign-up" className="bg-teal-600 text-white px-6 py-3 rounded-xl text-sm font-medium hover:bg-teal-700 transition-colors">
+            <a
+              href="#calculator"
+              onClick={(e) => {
+                e.preventDefault();
+                document.getElementById("calculator")?.scrollIntoView({ behavior: "smooth" });
+              }}
+              className="bg-teal-600 text-white px-6 py-3 rounded-xl text-sm font-medium hover:bg-teal-700 transition-colors cursor-pointer"
+            >
               Start free assessment
             </a>
             <a href="/sign-up/physician" className="text-sm text-slate-600 hover:text-teal-600 transition-colors underline underline-offset-2">
@@ -252,7 +259,7 @@ export default function HomePage() {
         </div>
 
         {/* RIGHT — Calculator */}
-        <div className="flex flex-col gap-4">
+        <div id="calculator" className="flex flex-col gap-4">
           <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 flex flex-col gap-5">
             <div>
               <h2 className="text-base font-semibold text-slate-900">Sarcopenia Risk Calculator</h2>
