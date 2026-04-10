@@ -176,30 +176,55 @@ export default function AssessmentPage() {
 
     setLoading(true);
     try {
+      const weight       = parseFloat(form.weightKg);
       const days         = parseInt(form.exerciseDaysWk, 10);
       const selectedDrug = GLP1_DRUGS.find(d => d.label === form.drugLabel);
+      const doseMg       = selectedDrug?.value ?? 0;
       const isTirz       = form.drugLabel.toLowerCase().includes('mounjaro') ||
                            form.drugLabel.toLowerCase().includes('zepbound');
 
+      // Derive a composite score locally (50-point base, adjusted by exercise and dose adherence)
+      const exerciseBonus  = Math.min(days * 5, 25);
+      const doseRatio      = selectedDrug ? doseMg / selectedDrug.max : 0.5;
+      const composite      = Math.min(100, Math.round(50 + exerciseBonus + doseRatio * 25));
+      const leanScore      = Math.min(100, Math.round(40 + exerciseBonus + doseRatio * 20));
+      const recoveryScore  = Math.min(100, Math.round(50 + exerciseBonus * 0.8));
+      const risk: 'LOW' | 'MODERATE' | 'HIGH' =
+        composite >= 70 ? 'LOW' : composite >= 45 ? 'MODERATE' : 'HIGH';
+
+      const giSymptoms = form.symptoms.filter(s =>
+        ['Nausea', 'Constipation', 'Bloating'].includes(s)
+      ).join(', ') || 'None';
+
       const payload = {
-        weight:        form.weightKg,
-        unit:          'kg' as const,
-        medication:    isTirz ? 'tirzepatide' : 'semaglutide',
-        doseMg:        selectedDrug?.value ?? 0,
-        activityLevel: daysToActivity(days),
-        symptoms:      form.symptoms,
+        composite,
+        leanScore,
+        recoveryScore,
+        risk,
+        weight,
+        protein:    Math.round(weight * 1.6),
+        drug:       isTirz ? 'tirzepatide' : 'semaglutide',
+        giSymptoms,
+        sleepHours: 7,
       };
 
-      const res  = await fetch('/api/assessment', {
+      const res = await fetch('/api/assessment/save', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify(payload),
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? 'Something went wrong. Please try again.');
+      if (!res.ok) {
+        const text = await res.text();
+        console.error('Save failed:', text);
+        setServerError('Could not save assessment. Please try again.');
+        return;
+      }
 
-      router.push('/dashboard/results/' + data.assessmentId);
+      const json = await res.json();
+      if (json.ok) {
+        router.push('/dashboard/report');
+      }
     } catch (e) {
       setServerError(e instanceof Error ? e.message : 'Something went wrong. Please try again.');
     } finally {
