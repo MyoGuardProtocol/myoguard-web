@@ -29,10 +29,11 @@ export default async function AdminPhysiciansPage() {
     where:   { role: 'PHYSICIAN_PENDING' },
     orderBy: { createdAt: 'desc' },
     select: {
-      id:        true,
-      fullName:  true,
-      email:     true,
-      createdAt: true,
+      id:         true,
+      fullName:   true,
+      email:      true,
+      npiNumber:  true,
+      createdAt:  true,
       physicianOnboarding: {
         select: {
           country:       true,
@@ -123,6 +124,12 @@ export default async function AdminPhysiciansPage() {
                 <div className="flex gap-3">
                   <dt className="text-slate-400 text-xs w-20 flex-shrink-0">Specialty</dt>
                   <dd className="text-slate-700 text-xs">{p.physicianOnboarding.specialty}</dd>
+                </div>
+              )}
+              {p.npiNumber && (
+                <div className="flex gap-3">
+                  <dt className="text-slate-400 text-xs w-20 flex-shrink-0">NPI</dt>
+                  <dd className="text-slate-700 text-xs font-mono">{p.npiNumber}</dd>
                 </div>
               )}
               {p.physicianOnboarding?.licenseNumber && (

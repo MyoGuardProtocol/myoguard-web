@@ -5,11 +5,12 @@ import { NextResponse } from "next/server";
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { fullName, email, country, specialty, licenseNumber } = body as {
+    const { fullName, email, country, specialty, npiNumber, licenseNumber } = body as {
       fullName: string;
       email: string;
       country: string;
       specialty: string;
+      npiNumber?: string;
       licenseNumber?: string;
     };
 
@@ -94,6 +95,10 @@ export async function POST(req: Request) {
                   <td style="padding: 10px 16px; color: #475569;">${specialty}</td>
                 </tr>
                 <tr style="background: #F1F5F9;">
+                  <td style="padding: 10px 16px; font-weight: bold; color: #0F172A;">NPI Number</td>
+                  <td style="padding: 10px 16px; color: #475569;">${npiNumber ?? "Not provided"}</td>
+                </tr>
+                <tr>
                   <td style="padding: 10px 16px; font-weight: bold; color: #0F172A;">Licence Number</td>
                   <td style="padding: 10px 16px; color: #475569;">${licenseNumber ?? "Not provided"}</td>
                 </tr>

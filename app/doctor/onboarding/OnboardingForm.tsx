@@ -75,7 +75,7 @@ const COUNTRIES = [
 
 export default function OnboardingForm() {
   const [form, setForm] = useState({
-    name: "", email: "", country: "", specialty: "", license: "",
+    name: "", email: "", country: "", specialty: "", npi: "", license: "",
   });
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -104,7 +104,8 @@ export default function OnboardingForm() {
           email: form.email,
           country: form.country,
           specialty: form.specialty,
-          licenseNumber: form.license,
+          npiNumber: form.npi || undefined,
+          licenseNumber: form.license || undefined,
         }),
       });
       if (!res.ok) throw new Error("Submission failed");
@@ -248,6 +249,21 @@ export default function OnboardingForm() {
                 <option key={s} value={s}>{s}</option>
               ))}
             </select>
+          </label>
+
+          <label className="flex flex-col gap-1.5">
+            <span className="text-xs font-medium text-slate-700">
+              NPI number{" "}
+              <span className="text-slate-400 font-normal">(optional — US physicians)</span>
+            </span>
+            <input
+              name="npi"
+              type="text"
+              placeholder="e.g. 1234567890"
+              value={form.npi}
+              onChange={handleChange}
+              className="border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
           </label>
 
           <label className="flex flex-col gap-1.5">

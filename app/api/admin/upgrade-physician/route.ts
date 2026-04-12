@@ -106,10 +106,10 @@ export async function POST(req: NextRequest) {
     (nameSlug || target.id.slice(0, 8));
 
   try {
-    // 1. Promote role + set referralSlug
+    // 1. Promote role + set referralSlug + mark as verified
     await prisma.user.update({
       where: { id: userId },
-      data:  { role: 'PHYSICIAN', referralSlug: derivedSlug },
+      data:  { role: 'PHYSICIAN', referralSlug: derivedSlug, isVerified: true },
     });
 
     // 2. Generate a unique patient referral code (DR-LASTNAME-NNN)
