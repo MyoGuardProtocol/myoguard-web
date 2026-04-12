@@ -20,6 +20,8 @@ model User {
   referralCode        String?              @unique
   referredById        String?
   physicianId         String?
+  isVerified          Boolean              @default(false)
+  npiNumber           String?
   researchConsent     Boolean              @default(false)
   consentDate         DateTime?
   consentVersion      String?
@@ -93,6 +95,8 @@ model Assessment {
   sleepQuality    Int?
   /// Derived recovery status: 'optimal' | 'impaired' | 'critical'
   recoveryStatus  String?
+  /// Hand-grip dynamometer reading in kg — used for grip-velocity triage
+  gripStrengthKg  Float?
   user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   muscleScore     MuscleScore?
   physicianReview PhysicianReview?
@@ -217,6 +221,20 @@ model PhysicianReview {
   updatedAt         DateTime   @updatedAt
   assessment        Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
   user              User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Tracks cumulative physician review time per patient per billing month.
+// Used to determine CPT 99470 eligibility (≥ 10 minutes of documented review).
+model PhysicianReviewSession {
+  id                String   @id @default(cuid())
+  physicianId       String
+  patientId         String
+  billingMonth      String   // "YYYY-MM"
+  cumulativeSeconds Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([physicianId, patientId, billingMonth])
 }
 
 model AuditLog {

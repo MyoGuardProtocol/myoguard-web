@@ -43,7 +43,9 @@ export async function GET(
   if (!ownership) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   // ───────────────────────────────────────────────────────────────────────────
 
-  const [assessments, checkins] = await Promise.all([
+  const billingMonth = new Date().toISOString().slice(0, 7); // "YYYY-MM"
+
+  const [assessments, checkins, reviewSession] = await Promise.all([
     prisma.assessment.findMany({
       where:   { userId: patientId },
       orderBy: { assessmentDate: 'desc' },
@@ -95,7 +97,21 @@ export async function GET(
         totalWorkouts:    true,
       },
     }),
+    prisma.physicianReviewSession.findUnique({
+      where: {
+        physicianId_patientId_billingMonth: {
+          physicianId: physician.id,
+          patientId,
+          billingMonth,
+        },
+      },
+      select: { cumulativeSeconds: true },
+    }),
   ]);
 
-  return NextResponse.json({ assessments, checkins });
+  return NextResponse.json({
+    assessments,
+    checkins,
+    priorMonthSeconds: reviewSession?.cumulativeSeconds ?? 0,
+  });
 }

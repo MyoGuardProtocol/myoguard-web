@@ -3,6 +3,34 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import PatientDrawer from './PatientDrawer';
 
+// ─── CPT helpers ─────────────────────────────────────────────────────────────
+
+function billingMonth(): string {
+  return new Date().toISOString().slice(0, 7); // "YYYY-MM"
+}
+
+function cptKey(patientId: string): string {
+  return `myo_cpt_${patientId}_${billingMonth()}`;
+}
+
+function loadCptSeconds(patientId: string): number {
+  try {
+    return parseInt(localStorage.getItem(cptKey(patientId)) ?? '0', 10) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+function saveCptSeconds(patientId: string, seconds: number) {
+  try { localStorage.setItem(cptKey(patientId), String(seconds)); } catch { /* noop */ }
+}
+
+function fmtMinSec(totalSeconds: number): string {
+  const m   = Math.floor(totalSeconds / 60);
+  const sec = totalSeconds % 60;
+  return `${m}:${sec.toString().padStart(2, '0')}`;
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type PatientRow = {
@@ -36,13 +64,16 @@ const BAND_META: Record<string, { label: string; color: string; bg: string; glow
 };
 
 const FLAG_COLOUR: Record<string, string> = {
-  'Sleep Critical': '#F43F5E',
-  'Sleep Deficit':  '#FB923C',
-  'Protein Gap':    '#FB923C',
-  'Sedentary':      '#FCD34D',
-  'Muscle Weakness':'#A78BFA',
-  'Fatigue':        '#A78BFA',
-  'High Lean Risk': '#F43F5E',
+  'Sleep Critical':  '#F43F5E',
+  'Sleep Deficit':   '#FB923C',
+  'Protein Deficit': '#F43F5E',
+  'Protein Gap':     '#FB923C',
+  'Urgent GI Alert': '#FB923C',
+  'Grip Decline':    '#F43F5E',
+  'Sedentary':       '#FCD34D',
+  'Muscle Weakness': '#A78BFA',
+  'Fatigue':         '#A78BFA',
+  'High Lean Risk':  '#F43F5E',
 };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -101,10 +132,54 @@ function FlagChip({ flag }: { flag: string }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function PatientCommandCenter({ patients }: { patients: PatientRow[] }) {
+export default function PatientCommandCenter({
+  patients,
+  isVerified,
+}: {
+  patients:   PatientRow[];
+  isVerified: boolean;
+}) {
   const [search,        setSearch]        = useState('');
   const [bandFilter,    setBandFilter]    = useState<string | null>(null);
   const [activePatient, setActivePatient] = useState<PatientRow | null>(null);
+
+  // ── CPT 99470 session timer ─────────────────────────────────────────────────
+  const [cptSeconds,    setCptSeconds]    = useState(0);
+  const cptSecondsRef   = useRef(0); // stale-closure mirror
+  const cptPatientRef   = useRef<string | null>(null);
+
+  // Load accumulated seconds when drawer opens; persist every second
+  useEffect(() => {
+    if (!activePatient) {
+      // Drawer closed — save whatever is in ref and reset display
+      if (cptPatientRef.current) {
+        saveCptSeconds(cptPatientRef.current, cptSecondsRef.current);
+      }
+      cptPatientRef.current  = null;
+      cptSecondsRef.current  = 0;
+      setCptSeconds(0);
+      return;
+    }
+
+    // New patient opened — load prior accumulated seconds
+    const prior = loadCptSeconds(activePatient.id);
+    cptPatientRef.current  = activePatient.id;
+    cptSecondsRef.current  = prior;
+    setCptSeconds(prior);
+
+    const tick = setInterval(() => {
+      cptSecondsRef.current += 1;
+      setCptSeconds(s => s + 1);
+      if (cptPatientRef.current) {
+        saveCptSeconds(cptPatientRef.current, cptSecondsRef.current);
+      }
+    }, 1000);
+
+    return () => clearInterval(tick);
+  }, [activePatient?.id]);
+
+  const cptEligible = Math.floor(cptSeconds / 60) >= 10;
+  // ───────────────────────────────────────────────────────────────────────────
 
   const searchRef                   = useRef<HTMLInputElement>(null);
   const rowRefs                     = useRef<(HTMLButtonElement | null)[]>([]);
@@ -160,6 +235,7 @@ export default function PatientCommandCenter({ patients }: { patients: PatientRo
       {/* ── Drawer ─────────────────────────────────────────────────────────── */}
       <PatientDrawer
         patient={activePatient}
+        isVerified={isVerified}
         onClose={() => setActivePatient(null)}
       />
 
@@ -187,6 +263,40 @@ export default function PatientCommandCenter({ patients }: { patients: PatientRo
             }} />
             <span style={{ fontSize: 13, color: '#FDA4AF', fontWeight: 600 }}>
               {criticalPlusHigh} patient{criticalPlusHigh !== 1 ? 's' : ''} require{criticalPlusHigh === 1 ? 's' : ''} clinical attention
+            </span>
+          </div>
+        )}
+
+        {/* ── CPT 99470 timer banner (verified physicians only) ────────────── */}
+        {activePatient && isVerified && (
+          <div style={{
+            display:      'flex',
+            alignItems:   'center',
+            justifyContent: 'space-between',
+            padding:      '8px 14px',
+            borderRadius: 8,
+            marginBottom: 12,
+            background:   cptEligible ? 'rgba(34,197,94,0.08)' : 'rgba(255,255,255,0.03)',
+            border:       `1px solid ${cptEligible ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.08)'}`,
+            transition:   'all 0.3s',
+          }}>
+            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>
+              Reviewing: <strong style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>{activePatient.fullName}</strong>
+            </span>
+            <span style={{
+              fontSize:      10,
+              fontWeight:    800,
+              padding:       '3px 10px',
+              borderRadius:  6,
+              letterSpacing: '0.07em',
+              background:    cptEligible ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.06)',
+              color:         cptEligible ? '#4ADE80' : 'rgba(255,255,255,0.4)',
+              border:        `1px solid ${cptEligible ? 'rgba(34,197,94,0.35)' : 'rgba(255,255,255,0.1)'}`,
+              transition:    'all 0.3s',
+            }}>
+              {cptEligible
+                ? '99470: ELIGIBLE ✓'
+                : `99470: PENDING (${fmtMinSec(cptSeconds)} / 10:00)`}
             </span>
           </div>
         )}

@@ -18,15 +18,21 @@ const GLP1_DRUGS = [
   { label: "Dulaglutide 1.5 mg/wk — max (Trulicity)", value: 1.5, max: 1.5 },
 ];
 
-const GI_SYMPTOMS = [
-  { label: "None", value: 0 },
-  { label: "Mild nausea only", value: 5 },
-  { label: "Nausea + reduced appetite", value: 10 },
-  { label: "Constipation", value: 8 },
-  { label: "Nausea + constipation", value: 14 },
-  { label: "Vomiting episodes", value: 18 },
-  { label: "Gastroparesis symptoms (bloating, early satiety)", value: 20 },
-  { label: "Severe GI intolerance — multiple symptoms", value: 25 },
+const SYMPTOM_OPTIONS = [
+  { label: "Constipation",     penalty: 8  },
+  { label: "Nausea",           penalty: 5  },
+  { label: "Vomiting",         penalty: 18 },
+  { label: "Muscle weakness",  penalty: 6  },
+  { label: "Fatigue",          penalty: 4  },
+  { label: "Reduced appetite", penalty: 10 },
+  { label: "Bloating",         penalty: 8  },
+  { label: "Gastroparesis",    penalty: 20 },
+];
+
+const ACTIVITY_OPTIONS = [
+  { label: "Sedentary", subtitle: "Little/no exercise", bonus: 0  },
+  { label: "Moderate",  subtitle: "3-5x per week",      bonus: 5  },
+  { label: "Active",    subtitle: "Daily training",      bonus: 10 },
 ];
 
 type RiskBand = "LOW" | "MODERATE" | "HIGH";
@@ -42,12 +48,13 @@ function computeLeanMassScore(
   proteinG: number,
   drugValue: number,
   drugMax: number,
-  giPenalty: number
+  giPenalty: number,
+  activityBonus: number,
 ): number {
   const target = weightKg * 1.6;
   const adequacy = Math.min(proteinG / target, 1);
   const dosePenalty = Math.min(drugValue / drugMax, 1) * 20;
-  const raw = adequacy * 100 - dosePenalty - giPenalty;
+  const raw = adequacy * 100 - dosePenalty - giPenalty + activityBonus;
   return Math.max(0, Math.min(100, Math.round(raw)));
 }
 
@@ -93,37 +100,48 @@ const RISK_META: Record<RiskBand, {
 
 export default function HomePage() {
   const { isSignedIn } = useUser();
-  const [weight, setWeight] = useState("");
-  const [protein, setProtein] = useState("");
-  const [selectedDrug, setSelectedDrug] = useState("");
-  const [giSymptom, setGiSymptom] = useState("");
-  const [sleepHours, setSleepHours] = useState(7);
+  const [weight,           setWeight]           = useState("");
+  const [protein,          setProtein]          = useState("");
+  const [selectedDrug,     setSelectedDrug]     = useState("");
+  const [symptoms,         setSymptoms]         = useState<string[]>([]);
+  const [activityLevel,    setActivityLevel]    = useState<string | null>(null);
+  const [disclaimerChecked, setDisclaimerChecked] = useState(false);
+  const [sleepHours,       setSleepHours]       = useState(7);
   const [result, setResult] = useState<{
     leanScore: number;
     recoveryScore: number;
     composite: number;
     risk: RiskBand;
   } | null>(null);
-  const [email, setEmail] = useState("");
+  const [email,     setEmail]     = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [formError, setFormError] = useState("");
 
   function handleCalculate() {
     setFormError("");
-    const w = parseFloat(weight);
-    const p = parseFloat(protein);
+    if (!disclaimerChecked) {
+      setFormError("Please confirm you understand this tool provides educational information only.");
+      return;
+    }
+    const w    = parseFloat(weight);
+    const p    = parseFloat(protein);
     const drug = GLP1_DRUGS.find((d) => d.label === selectedDrug);
-    const gi = GI_SYMPTOMS.find((s) => s.label === giSymptom);
 
-    if (!w || !p || !drug || !gi) {
+    if (!w || !p || !drug || !activityLevel) {
       setFormError("Please complete all fields before calculating.");
       return;
     }
 
-    const leanScore = computeLeanMassScore(w, p, drug.value, drug.max, gi.value);
+    const giPenalty = Math.min(
+      SYMPTOM_OPTIONS
+        .filter((s) => symptoms.includes(s.label))
+        .reduce((sum, s) => sum + s.penalty, 0),
+      25,
+    );
+    const actBonus   = ACTIVITY_OPTIONS.find((a) => a.label === activityLevel)?.bonus ?? 0;
+    const leanScore  = computeLeanMassScore(w, p, drug.value, drug.max, giPenalty, actBonus);
     const recoveryScore = computeRecoveryScore(sleepHours);
-    const composite = leanScore;
-    // Sleep is a recovery indicator only, not a risk score input
+    const composite  = leanScore;
     setResult({ leanScore, recoveryScore, composite, risk: getRisk(composite) });
   }
 
@@ -162,10 +180,10 @@ export default function HomePage() {
     sleepHours >= 5.5 ? "text-orange-500" :
     "text-red-500";
 
-  // Progress indicator — 4 required fields
-  const fieldsComplete = [!!weight, !!protein, !!selectedDrug, !!giSymptom].filter(Boolean).length;
+  // Progress indicator — 4 required fields (symptoms optional)
+  const fieldsComplete = [!!weight, !!protein, !!selectedDrug, !!activityLevel].filter(Boolean).length;
   const totalFields = 4;
-  const canCalculate = !!(weight && protein && selectedDrug && giSymptom);
+  const canCalculate = !!(weight && protein && selectedDrug && activityLevel);
 
   return (
     <main className="min-h-screen bg-white text-slate-900">
@@ -351,20 +369,68 @@ export default function HomePage() {
                 Symptoms &amp; lifestyle
               </p>
 
-              {/* GI symptoms */}
-              <label className="flex flex-col gap-1.5">
+              {/* GI symptoms — multi-select grid */}
+              <div className="flex flex-col gap-2">
                 <span className="text-xs font-medium text-slate-600">GI symptoms on current dose</span>
-                <select
-                  value={giSymptom} onChange={(e) => setGiSymptom(e.target.value)}
-                  className="border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
-                >
-                  <option value="">Select symptom burden</option>
-                  {GI_SYMPTOMS.map(s => (
-                    <option key={s.label} value={s.label}>{s.label}</option>
-                  ))}
-                </select>
-                <span className="text-xs text-slate-400">GI burden directly impairs nutrient absorption and protein adequacy</span>
-              </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {SYMPTOM_OPTIONS.map((s) => {
+                    const selected = symptoms.includes(s.label);
+                    return (
+                      <button
+                        key={s.label}
+                        type="button"
+                        onClick={() =>
+                          setSymptoms((prev) =>
+                            prev.includes(s.label)
+                              ? prev.filter((x) => x !== s.label)
+                              : [...prev, s.label],
+                          )
+                        }
+                        className={`px-3 py-2 rounded-lg border text-xs font-medium text-left transition-colors ${
+                          selected
+                            ? "bg-teal-600 text-white border-teal-600"
+                            : "bg-white text-slate-600 border-slate-200 hover:border-teal-300"
+                        }`}
+                      >
+                        {s.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                {symptoms.length === 0 && (
+                  <span className="text-xs text-slate-400">Select none if no symptoms</span>
+                )}
+                <span className="text-xs text-slate-400">
+                  GI burden directly impairs nutrient absorption and protein adequacy
+                </span>
+              </div>
+
+              {/* Activity level cards */}
+              <div className="flex flex-col gap-2">
+                <span className="text-xs font-medium text-slate-600">Activity level <span className="text-red-400">*</span></span>
+                <div className="grid grid-cols-3 gap-2">
+                  {ACTIVITY_OPTIONS.map((a) => {
+                    const selected = activityLevel === a.label;
+                    return (
+                      <button
+                        key={a.label}
+                        type="button"
+                        onClick={() => setActivityLevel(a.label)}
+                        className={`flex flex-col items-center gap-1 px-2 py-3 rounded-xl border text-center transition-colors ${
+                          selected
+                            ? "bg-teal-600 text-white border-teal-600"
+                            : "bg-white text-slate-600 border-slate-200 hover:border-teal-300"
+                        }`}
+                      >
+                        <span className="text-xs font-semibold">{a.label}</span>
+                        <span className={`text-xs leading-tight ${selected ? "text-teal-100" : "text-slate-400"}`}>
+                          {a.subtitle}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
               {/* Recovery environment section */}
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mt-2">
@@ -400,6 +466,21 @@ export default function HomePage() {
                 </p>
               </div>
             </div>
+
+            {/* Educational Disclaimer */}
+            <label className="flex items-start gap-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={disclaimerChecked}
+                onChange={(e) => setDisclaimerChecked(e.target.checked)}
+                className="mt-0.5 accent-teal-600 w-4 h-4 flex-shrink-0"
+              />
+              <span className="text-xs text-slate-500 leading-relaxed">
+                I understand this tool provides{" "}
+                <strong className="text-slate-700">educational information only</strong> and
+                is not a substitute for professional medical consultation.
+              </span>
+            </label>
 
             {formError && (
               <p className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{formError}</p>
@@ -478,6 +559,58 @@ export default function HomePage() {
                     <span>100 — Low Risk</span>
                   </div>
                 </div>
+
+                {/* Contributing Factors 2×2 */}
+                {(() => {
+                  const w = parseFloat(weight);
+                  const proteinTarget = w > 0 ? w * 1.6 : 0;
+                  const proteinPct    = proteinTarget > 0 ? (parseFloat(protein) / proteinTarget) * 100 : 0;
+                  const giPenalty     = Math.min(
+                    SYMPTOM_OPTIONS.filter((s) => symptoms.includes(s.label))
+                      .reduce((sum, s) => sum + s.penalty, 0),
+                    25,
+                  );
+                  const factors = [
+                    {
+                      label: "Protein adequacy",
+                      value: proteinTarget > 0 ? `${Math.round(proteinPct)}%` : "—",
+                      tier:  proteinPct >= 90 ? "teal" : proteinPct >= 75 ? "amber" : "red",
+                    },
+                    {
+                      label: "GI burden",
+                      value: giPenalty === 0 ? "None" : giPenalty <= 14 ? "Moderate" : "High",
+                      tier:  giPenalty === 0 ? "teal" : giPenalty <= 14 ? "amber" : "red",
+                    },
+                    {
+                      label: "Recovery environment",
+                      value: `${sleepHours}h sleep`,
+                      tier:  sleepHours >= 7.5 ? "teal" : sleepHours >= 6 ? "amber" : "red",
+                    },
+                    {
+                      label: "Activity level",
+                      value: activityLevel ?? "—",
+                      tier:  activityLevel === "Active" ? "teal" : activityLevel === "Moderate" ? "amber" : "red",
+                    },
+                  ] as const;
+                  const palette = {
+                    teal:  { bg: "bg-teal-50",  border: "border-teal-100", label: "text-teal-600",  value: "text-teal-700"  },
+                    amber: { bg: "bg-amber-50", border: "border-amber-100",label: "text-amber-600", value: "text-amber-700" },
+                    red:   { bg: "bg-red-50",   border: "border-red-100",  label: "text-red-600",   value: "text-red-700"   },
+                  };
+                  return (
+                    <div className="grid grid-cols-2 gap-2">
+                      {factors.map((f) => {
+                        const c = palette[f.tier];
+                        return (
+                          <div key={f.label} className={`rounded-xl border p-3 ${c.bg} ${c.border}`}>
+                            <p className={`text-xs font-medium mb-1 ${c.label}`}>{f.label}</p>
+                            <p className={`text-sm font-bold ${c.value}`}>{f.value}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
 
                 {/* Sub-scores */}
                 <div className="grid grid-cols-2 gap-3">
@@ -633,9 +766,13 @@ export default function HomePage() {
                     <p className="text-xs text-teal-600">
                       Check your inbox — full clinical report included.
                     </p>
-                    <a href="/sign-up" className="text-xs text-teal-700 font-medium hover:underline mt-1">
-                      Create a free account to track progress over time →
-                    </a>
+                    <p className="text-xs text-teal-700 mt-1">
+                      or{" "}
+                      <a href="/sign-up" className="font-medium underline hover:text-teal-800">
+                        create a free account
+                      </a>{" "}
+                      to track progress over time
+                    </p>
                   </div>
                 )}
               </div>

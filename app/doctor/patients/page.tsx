@@ -29,38 +29,95 @@ const RECOVERY_ORDER: Record<string, number> = {
   optimal:  2,
 };
 
+// Returns true when the most recent grip reading has declined > 15 % from the
+// oldest grip baseline found within the preceding 28 days.
+function hasGripVelocityDecline(
+  assessments: { gripStrengthKg: number | null; assessmentDate: Date }[],
+): boolean {
+  const withGrip = assessments.filter(a => a.gripStrengthKg != null);
+  if (withGrip.length < 2) return false;
+
+  // assessments are ordered desc (newest first)
+  const current  = withGrip[0];
+  const windowMs = 28 * 24 * 60 * 60 * 1000;
+  const cutoff   = new Date(current.assessmentDate.getTime() - windowMs);
+
+  const baseline = withGrip
+    .filter(a => a !== current && a.assessmentDate >= cutoff)
+    .at(-1); // oldest within window
+
+  if (!baseline) return false;
+
+  const declinePct = ((baseline.gripStrengthKg! - current.gripStrengthKg!) / baseline.gripStrengthKg!) * 100;
+  return declinePct > 15;
+}
+
+// Returns true when the 3 most recent ProgressLog entries all fall below 75 % of the
+// protein target AND were logged within a 72-hour window (consecutive-day proxy).
+function has72hProteinDeficit(
+  logs:   { logDate: Date; proteinGrams: number }[],
+  target: number,
+): boolean {
+  if (logs.length < 3) return false;
+  const sorted = [...logs].sort((a, b) => b.logDate.getTime() - a.logDate.getTime());
+  const top3   = sorted.slice(0, 3);
+  if (!top3.every(l => l.proteinGrams < target * 0.75)) return false;
+  // All three entries must span no more than 72 hours
+  const spanMs = top3[0].logDate.getTime() - top3[2].logDate.getTime();
+  return spanMs <= 72 * 60 * 60 * 1000;
+}
+
 function getFlags(
   patient: {
-    recoveryStatus: string | null;
-    proteinGrams:   number;
-    weightKg:       number;
-    proteinTargetG: number | null;
-    exerciseDaysWk: number;
-    symptoms:       string[];
-    leanLossEstPct: number | null;
+    recoveryStatus:    string | null;
+    proteinGrams:      number;
+    weightKg:          number;
+    proteinTargetG:    number | null;
+    exerciseDaysWk:    number;
+    symptoms:          string[];
+    leanLossEstPct:    number | null;
+    recentProteinLogs: { logDate: Date; proteinGrams: number }[];
+    gripAssessments:   { gripStrengthKg: number | null; assessmentDate: Date }[];
   },
 ): string[] {
-  const flags: string[] = [];
+  const priority: string[] = [];
+  const flags:    string[] = [];
 
-  // Recovery-based flags take priority
-  if (patient.recoveryStatus === 'critical') flags.push('Sleep Critical');
+  // ── Priority override: Urgent GI Alert ────────────────────────────────────
+  // Fires when Nausea + Constipation co-present, or Vomiting is reported.
+  // Always occupies the first flag slot regardless of other conditions.
+  const hasNausea       = patient.symptoms.includes('Nausea');
+  const hasConstipation = patient.symptoms.includes('Constipation');
+  const hasVomiting     = patient.symptoms.includes('Vomiting');
+  if ((hasNausea && hasConstipation) || hasVomiting) priority.push('Urgent GI Alert');
+
+  // ── Recovery-based flags ──────────────────────────────────────────────────
+  if (patient.recoveryStatus === 'critical')      flags.push('Sleep Critical');
   else if (patient.recoveryStatus === 'impaired') flags.push('Sleep Deficit');
 
-  // Protein gap
+  // ── Protein ───────────────────────────────────────────────────────────────
   const target = patient.proteinTargetG ?? patient.weightKg * 1.4;
-  if (patient.proteinGrams < target * 0.9) flags.push('Protein Gap');
+  if (has72hProteinDeficit(patient.recentProteinLogs, target)) {
+    flags.push('Protein Deficit');
+  } else if (patient.proteinGrams < target * 0.9) {
+    flags.push('Protein Gap');
+  }
 
-  // Activity
+  // ── Activity ──────────────────────────────────────────────────────────────
   if (patient.exerciseDaysWk <= 1) flags.push('Sedentary');
 
-  // Symptoms
+  // ── Symptoms ──────────────────────────────────────────────────────────────
   if (patient.symptoms.includes('Muscle weakness')) flags.push('Muscle Weakness');
   if (patient.symptoms.includes('Fatigue'))         flags.push('Fatigue');
 
-  // Lean risk
+  // ── Grip velocity ─────────────────────────────────────────────────────────
+  if (hasGripVelocityDecline(patient.gripAssessments)) flags.push('Grip Decline');
+
+  // ── Lean risk ─────────────────────────────────────────────────────────────
   if (patient.leanLossEstPct != null && patient.leanLossEstPct >= 18) flags.push('High Lean Risk');
 
-  return flags.slice(0, 3);
+  // Priority flags are always shown first; total capped at 3
+  return [...priority, ...flags].slice(0, 3);
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -71,7 +128,7 @@ export default async function PatientsPage() {
 
   const physician = await prisma.user.findUnique({
     where:  { clerkId },
-    select: { id: true, role: true, fullName: true, referralSlug: true },
+    select: { id: true, role: true, fullName: true, referralSlug: true, isVerified: true },
   });
 
   if (!physician)                            redirect('/dashboard');
@@ -92,7 +149,7 @@ export default async function PatientsPage() {
       email:    true,
       assessments: {
         orderBy: { assessmentDate: 'desc' },
-        take:    2,
+        take:    10,
         select: {
           id:             true,
           assessmentDate: true,
@@ -103,6 +160,7 @@ export default async function PatientsPage() {
           symptoms:       true,
           riskBand:       true,
           recoveryStatus: true,
+          gripStrengthKg: true,
           muscleScore: {
             select: {
               score:          true,
@@ -111,6 +169,14 @@ export default async function PatientsPage() {
               proteinTargetG: true,
             },
           },
+        },
+      },
+      progressLogs: {
+        orderBy: { logDate: 'desc' },
+        take:    3,
+        select: {
+          logDate:      true,
+          proteinGrams: true,
         },
       },
     },
@@ -133,13 +199,15 @@ export default async function PatientsPage() {
         prevScore:          prev?.muscleScore?.score ?? null,
         band:               (ms?.riskBand as string)  ?? latest.riskBand as string,
         flags:              getFlags({
-          recoveryStatus: latest.recoveryStatus,
-          proteinGrams:   latest.proteinGrams,
-          weightKg:       latest.weightKg,
-          proteinTargetG: ms?.proteinTargetG ?? null,
-          exerciseDaysWk: latest.exerciseDaysWk,
-          symptoms:       latest.symptoms,
-          leanLossEstPct: ms?.leanLossEstPct ?? null,
+          recoveryStatus:    latest.recoveryStatus,
+          proteinGrams:      latest.proteinGrams,
+          weightKg:          latest.weightKg,
+          proteinTargetG:    ms?.proteinTargetG ?? null,
+          exerciseDaysWk:    latest.exerciseDaysWk,
+          symptoms:          latest.symptoms,
+          leanLossEstPct:    ms?.leanLossEstPct ?? null,
+          recentProteinLogs: p.progressLogs,
+          gripAssessments:   p.assessments,
         }),
         leanLossPct:        ms?.leanLossEstPct         ?? null,
         lastAssessmentDate: latest.assessmentDate.toISOString(),
@@ -167,7 +235,7 @@ export default async function PatientsPage() {
           doctorName={physician.fullName}
         />
       </div>
-      <PatientCommandCenter patients={patients} />
+      <PatientCommandCenter patients={patients} isVerified={physician.isVerified} />
     </main>
   );
 }
