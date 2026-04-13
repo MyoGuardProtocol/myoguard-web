@@ -72,8 +72,13 @@ export async function POST(req: Request) {
       // Continue — email fallback is still valuable but buttons will be broken
     }
 
-    console.log("[onboarding] application id:", applicationId);
+    const approveUrl = `https://myoguard.health/api/admin/physician-quick-action?id=${applicationId}&action=APPROVE&token=${process.env.ADMIN_ACTION_TOKEN}`;
+    const rejectUrl  = `https://myoguard.health/api/admin/physician-quick-action?id=${applicationId}&action=REJECT&token=${process.env.ADMIN_ACTION_TOKEN}`;
+
+    console.log("[onboarding] application.id:", applicationId);
+    console.log("[onboarding] approve URL:", approveUrl);
     console.log("[onboarding] token:", process.env.ADMIN_ACTION_TOKEN?.slice(0, 8) + "...");
+    console.log("[onboarding] form data:", { name: fullName, email, country, specialty });
 
     // Admin notification email
     await resend.emails.send({
@@ -102,11 +107,11 @@ export async function POST(req: Request) {
       </p>
     </div>
     <div style="display: flex; gap: 12px; margin-top: 24px;">
-      <a href="https://myoguard.health/api/admin/physician-quick-action?id=${applicationId}&action=APPROVE&token=${process.env.ADMIN_ACTION_TOKEN}"
+      <a href="${approveUrl}"
          style="flex: 1; display: block; text-align: center; background: #0d9488; color: #ffffff; padding: 14px; border-radius: 10px; font-size: 14px; font-weight: 600; text-decoration: none;">
         ✓ Approve &amp; Activate
       </a>
-      <a href="https://myoguard.health/api/admin/physician-quick-action?id=${applicationId}&action=REJECT&token=${process.env.ADMIN_ACTION_TOKEN}"
+      <a href="${rejectUrl}"
          style="flex: 1; display: block; text-align: center; background: #ffffff; color: #dc2626; padding: 14px; border-radius: 10px; font-size: 14px; font-weight: 600; text-decoration: none; border: 2px solid #dc2626;">
         ✕ Reject
       </a>
@@ -120,11 +125,12 @@ export async function POST(req: Request) {
     });
 
     // Physician confirmation email
-    await resend.emails.send({
-      from:    "MyoGuard Protocol <noreply@myoguard.health>",
-      to:      email,
-      subject: "Your MyoGuard Physician Application — Received",
-      html: `
+    try {
+      const physicianEmailResult = await resend.emails.send({
+        from:    "MyoGuard Protocol <noreply@myoguard.health>",
+        to:      email,
+        subject: "Your MyoGuard Physician Application — Received",
+        html: `
 <div style="font-family: -apple-system, sans-serif; max-width: 580px; margin: 0 auto; background: #ffffff;">
   <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 32px 24px; border-radius: 12px 12px 0 0; text-align: center;">
     <h1 style="margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px;">
@@ -164,8 +170,12 @@ export async function POST(req: Request) {
     © 2026 MyoGuard Protocol · Meridian Health Holding · myoguard.health
   </p>
 </div>
-      `,
-    });
+        `,
+      });
+      console.log("[onboarding] physician email result:", physicianEmailResult);
+    } catch (err) {
+      console.error("[onboarding] physician email failed:", err);
+    }
 
     return NextResponse.json({ ok: true });
 
