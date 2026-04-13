@@ -68,9 +68,12 @@ export async function POST(req: Request) {
       });
       applicationId = saved.id;
     } catch (dbError: unknown) {
-      console.error("[onboarding] DB save failed:", dbError);
-      // Continue — email fallback is still valuable
+      console.error("[onboarding] DB save failed — applicationId will be empty:", dbError);
+      // Continue — email fallback is still valuable but buttons will be broken
     }
+
+    console.log("[onboarding] application id:", applicationId);
+    console.log("[onboarding] token:", process.env.ADMIN_ACTION_TOKEN?.slice(0, 8) + "...");
 
     // Admin notification email
     await resend.emails.send({
