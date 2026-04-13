@@ -470,17 +470,30 @@ export default function HomePage() {
             </div>
 
             {/* Educational Disclaimer */}
-            <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-4">
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={disclaimerChecked}
-                  onChange={(e) => setDisclaimerChecked(e.target.checked)}
-                  className="mt-0.5 w-5 h-5 flex-shrink-0 accent-teal-600"
-                />
+            <div className="bg-amber-50 border-2 border-amber-400 rounded-xl p-4 mt-2">
+              <label className="flex items-start gap-3 cursor-pointer select-none">
+                <div className="relative flex-shrink-0 mt-0.5">
+                  <input
+                    type="checkbox"
+                    checked={disclaimerChecked}
+                    onChange={(e) => setDisclaimerChecked(e.target.checked)}
+                    className="sr-only"
+                  />
+                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                    disclaimerChecked
+                      ? "bg-teal-600 border-teal-600"
+                      : "bg-white border-amber-400"
+                  }`}>
+                    {disclaimerChecked && (
+                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </div>
+                </div>
                 <div className="flex flex-col gap-1">
-                  <span className="text-xs font-semibold text-amber-800">
-                    ⚠ Required before calculating
+                  <span className="text-xs font-bold text-amber-800">
+                    Required before calculating
                   </span>
                   <span className="text-xs text-amber-700 leading-relaxed">
                     I understand this tool provides educational nutritional
