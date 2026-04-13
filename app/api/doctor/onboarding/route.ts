@@ -44,8 +44,9 @@ export async function POST(req: Request) {
     }
 
     // Save application to database (upsert in case physician resubmits)
+    let applicationId = "";
     try {
-      await prisma.physicianApplication.upsert({
+      const saved = await prisma.physicianApplication.upsert({
         where: { email },
         update: {
           name:      fullName,
@@ -65,6 +66,7 @@ export async function POST(req: Request) {
           status:    "PENDING",
         },
       });
+      applicationId = saved.id;
     } catch (dbError: unknown) {
       console.error("[onboarding] DB save failed:", dbError);
       // Continue — email fallback is still valuable
@@ -95,6 +97,16 @@ export async function POST(req: Request) {
       <p style="margin: 0; font-size: 13px; color: #92400e;">
         <strong>Action required:</strong> Review credentials and activate or reject this physician account within 6–24 hours.
       </p>
+    </div>
+    <div style="display: flex; gap: 12px; margin-top: 24px;">
+      <a href="https://myoguard.health/api/admin/physician-quick-action?id=${applicationId}&action=APPROVE&token=${process.env.ADMIN_ACTION_TOKEN}"
+         style="flex: 1; display: block; text-align: center; background: #0d9488; color: #ffffff; padding: 14px; border-radius: 10px; font-size: 14px; font-weight: 600; text-decoration: none;">
+        ✓ Approve &amp; Activate
+      </a>
+      <a href="https://myoguard.health/api/admin/physician-quick-action?id=${applicationId}&action=REJECT&token=${process.env.ADMIN_ACTION_TOKEN}"
+         style="flex: 1; display: block; text-align: center; background: #ffffff; color: #dc2626; padding: 14px; border-radius: 10px; font-size: 14px; font-weight: 600; text-decoration: none; border: 2px solid #dc2626;">
+        ✕ Reject
+      </a>
     </div>
   </div>
   <p style="font-size: 11px; color: #94a3b8; text-align: center; margin-top: 16px;">
