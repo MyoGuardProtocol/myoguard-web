@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
+import { prisma } from "@/src/lib/prisma";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -42,29 +43,37 @@ export async function POST(req: Request) {
       );
     }
 
-    // Try DB first (best-effort — primary path is email notification)
+    // Save application to database (upsert in case physician resubmits)
     try {
-      const { PrismaClient } = await import("@prisma/client");
-      const prisma = new PrismaClient();
-
-      await prisma.physicianOnboarding.create({
-        data: {
+      await prisma.physicianApplication.upsert({
+        where: { email },
+        update: {
+          name:      fullName,
           country,
           specialty,
-          licenseNumber: licenseNumber ?? null,
-          userId: "pending",
+          license:   licenseNumber ?? null,
+          npi:       npiNumber ?? null,
+          status:    "PENDING",
+        },
+        create: {
+          name:      fullName,
+          email,
+          country,
+          specialty,
+          license:   licenseNumber ?? null,
+          npi:       npiNumber ?? null,
+          status:    "PENDING",
         },
       });
-
-      await prisma.$disconnect();
     } catch (dbError: unknown) {
-      console.log("[onboarding] DB save skipped, using email fallback:", dbError);
+      console.error("[onboarding] DB save failed:", dbError);
+      // Continue — email fallback is still valuable
     }
 
     // Admin notification email
     await resend.emails.send({
-      from: "MyoGuard Protocol <noreply@myoguard.health>",
-      to: "admin@myoguard.health",
+      from:    "MyoGuard Protocol <noreply@myoguard.health>",
+      to:      "admin@myoguard.health",
       replyTo: email,
       subject: `New Physician Registration — ${fullName}`,
       html: `
@@ -95,42 +104,50 @@ export async function POST(req: Request) {
       `,
     });
 
-    // Confirmation email to the physician
+    // Physician confirmation email
     await resend.emails.send({
-      from: "MyoGuard Protocol <noreply@myoguard.health>",
-      to: email,
-      subject: "MyoGuard Protocol — Application Received",
+      from:    "MyoGuard Protocol <noreply@myoguard.health>",
+      to:      email,
+      subject: "Your MyoGuard Physician Application — Received",
       html: `
-<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
-  <div style="background: #0F172A; padding: 24px; border-radius: 12px 12px 0 0; text-align: center;">
-    <span style="font-size: 24px; font-weight: bold; color: white;">Myo</span>
-    <span style="font-size: 24px; font-weight: bold; color: #14B8A6;">Guard</span>
-    <span style="font-size: 14px; color: #94A3B8; display: block; margin-top: 4px;">Protocol Platform</span>
+<div style="font-family: -apple-system, sans-serif; max-width: 580px; margin: 0 auto; background: #ffffff;">
+  <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 32px 24px; border-radius: 12px 12px 0 0; text-align: center;">
+    <h1 style="margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px;">
+      <span style="color: #ffffff;">Myo</span><span style="color: #2dd4bf;">Guard</span>
+      <span style="color: #94a3b8; font-size: 14px; font-weight: 400; display: block; margin-top: 4px;">Protocol Platform</span>
+    </h1>
   </div>
-  <div style="padding: 32px; border: 1px solid #E2E8F0; border-top: none; border-radius: 0 0 12px 12px;">
-    <h2 style="color: #0F172A; margin-top: 0;">Application received, ${fullName}</h2>
-    <p style="color: #475569;">
-      Thank you for registering with MyoGuard Protocol.
-      Your physician credentials have been submitted for review by our clinical team.
+  <div style="padding: 32px 24px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 12px 12px;">
+    <h2 style="margin: 0 0 8px; font-size: 20px; color: #0f172a;">Application received, Dr. ${fullName.replace(/^Dr\.?\s*/i, '')}</h2>
+    <p style="color: #64748b; font-size: 14px; line-height: 1.6; margin: 0 0 24px;">
+      Thank you for applying for credentialed access to the MyoGuard Protocol platform.
+      Our clinical team reviews all physician credentials individually.
     </p>
-    <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px; padding: 16px; margin: 24px 0;">
-      <p style="color: #166534; margin: 0; font-weight: bold;">What happens next</p>
-      <p style="color: #15803D; margin: 8px 0 0;">
-        Our clinical team will review your credentials within 24 hours.
-        You will receive a second email at this address with your activation link once approved.
+    <div style="background: #f0fdf4; border: 1px solid #86efac; border-radius: 10px; padding: 16px; margin-bottom: 24px;">
+      <p style="margin: 0; font-size: 13px; color: #166534; font-weight: 600;">
+        Expected review time: 6–24 hours
+      </p>
+      <p style="margin: 4px 0 0; font-size: 13px; color: #15803d;">
+        You will receive a separate email once your account is activated.
       </p>
     </div>
-    <p style="color: #64748B; font-size: 14px;">
-      Your registration details:<br/>
-      <strong>Name:</strong> ${fullName}<br/>
-      <strong>Country:</strong> ${country}<br/>
-      <strong>Specialty:</strong> ${specialty}
-    </p>
-    <p style="color: #94A3B8; font-size: 12px; margin-top: 32px; border-top: 1px solid #E2E8F0; padding-top: 16px;">
-      MyoGuard Protocol · Meridian Health Holding<br/>
-      Questions? Reply to this email or contact admin@myoguard.health
+    <div style="border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; margin-bottom: 24px;">
+      <p style="margin: 0 0 12px; font-size: 12px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em;">Application Summary</p>
+      <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+        <tr><td style="padding: 6px 0; color: #64748b; width: 40%;">Full name</td><td style="padding: 6px 0; font-weight: 600; color: #0f172a;">${fullName}</td></tr>
+        <tr><td style="padding: 6px 0; color: #64748b;">Country</td><td style="padding: 6px 0; color: #0f172a;">${country}</td></tr>
+        <tr><td style="padding: 6px 0; color: #64748b;">Specialty</td><td style="padding: 6px 0; color: #0f172a;">${specialty}</td></tr>
+        <tr><td style="padding: 6px 0; color: #64748b;">Licence</td><td style="padding: 6px 0; color: #0f172a;">${licenseNumber ?? "Not provided"}</td></tr>
+      </table>
+    </div>
+    <p style="font-size: 13px; color: #64748b; line-height: 1.6;">
+      Questions? Reply to this email or contact us at
+      <a href="mailto:admin@myoguard.health" style="color: #0d9488;">admin@myoguard.health</a>
     </p>
   </div>
+  <p style="text-align: center; font-size: 11px; color: #94a3b8; margin-top: 16px;">
+    © 2026 MyoGuard Protocol · Meridian Health Holding · myoguard.health
+  </p>
 </div>
       `,
     });
