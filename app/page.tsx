@@ -468,19 +468,27 @@ export default function HomePage() {
             </div>
 
             {/* Educational Disclaimer */}
-            <label className="flex items-start gap-2.5 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={disclaimerChecked}
-                onChange={(e) => setDisclaimerChecked(e.target.checked)}
-                className="mt-0.5 accent-teal-600 w-4 h-4 flex-shrink-0"
-              />
-              <span className="text-xs text-slate-500 leading-relaxed">
-                I understand this tool provides{" "}
-                <strong className="text-slate-700">educational information only</strong> and
-                is not a substitute for professional medical consultation.
-              </span>
-            </label>
+            <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-4">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={disclaimerChecked}
+                  onChange={(e) => setDisclaimerChecked(e.target.checked)}
+                  className="mt-0.5 w-5 h-5 flex-shrink-0 accent-teal-600"
+                />
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-amber-800">
+                    ⚠ Required before calculating
+                  </span>
+                  <span className="text-xs text-amber-700 leading-relaxed">
+                    I understand this tool provides educational nutritional
+                    reference information only. It does not constitute medical
+                    advice or create a physician-patient relationship. I will
+                    review these recommendations with my prescribing physician.
+                  </span>
+                </div>
+              </label>
+            </div>
 
             {formError && (
               <p className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{formError}</p>
