@@ -35,6 +35,8 @@ export async function POST(req: NextRequest) {
       risk: string;
     };
 
+    console.log("[protocol-email] received:", { email, score, risk });
+
     if (!email || !email.includes("@")) {
       return NextResponse.json({ error: "Invalid email" }, { status: 400 });
     }
@@ -215,7 +217,7 @@ export async function POST(req: NextRequest) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "MyoGuard Protocol <onboarding@resend.dev>",
+        from: "MyoGuard Protocol <noreply@myoguard.health>",
         to: email,
         subject: "Your MyoGuard Protocol Report",
         html,
@@ -230,7 +232,7 @@ export async function POST(req: NextRequest) {
     }
 
     const data = await res.json() as { id?: string };
-    console.log("[protocol-email] Sent — id:", data.id, "to:", email);
+    console.log("[protocol-email] result:", data);
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("[protocol-email] Unexpected error", err);

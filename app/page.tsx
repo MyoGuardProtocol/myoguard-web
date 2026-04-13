@@ -148,7 +148,6 @@ export default function HomePage() {
   async function handleEmailSubmit() {
     if (!email.includes("@")) return;
     if (!result) return;
-    setFormError("");
     try {
       const res = await fetch("/api/protocol-email", {
         method: "POST",
@@ -161,10 +160,13 @@ export default function HomePage() {
           risk: result.risk,
         }),
       });
-      if (!res.ok) throw new Error("Send failed");
-      setSubmitted(true);
+      if (res.ok) {
+        setSubmitted(true);
+      } else {
+        setFormError("Failed to send. Please try again.");
+      }
     } catch {
-      setFormError("Could not send your report. Please try again.");
+      setFormError("Network error. Please try again.");
     }
   }
 
