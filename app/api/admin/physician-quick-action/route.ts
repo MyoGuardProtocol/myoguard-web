@@ -10,8 +10,19 @@ export async function GET(req: Request) {
   const action = searchParams.get("action");
   const token  = searchParams.get("token");
 
-  if (!id || !action || token !== process.env.ADMIN_ACTION_TOKEN) {
-    return new NextResponse("Unauthorized", { status: 401 });
+  console.log("TOKEN FROM URL:", token);
+  console.log("TOKEN FROM ENV:", process.env.ADMIN_ACTION_TOKEN);
+  console.log("MATCH:", token === process.env.ADMIN_ACTION_TOKEN);
+
+  if (!id || !action) {
+    return new NextResponse("Missing params", { status: 400 });
+  }
+
+  if (token !== process.env.ADMIN_ACTION_TOKEN) {
+    return new NextResponse(
+      `Token mismatch. URL token length: ${token?.length ?? 0}. Env token length: ${process.env.ADMIN_ACTION_TOKEN?.length ?? 0}`,
+      { status: 401 }
+    );
   }
 
   if (action !== "APPROVE" && action !== "REJECT") {
