@@ -68,8 +68,15 @@ export async function POST(req: Request) {
       });
       applicationId = saved.id;
     } catch (dbError: unknown) {
-      console.error("[onboarding] DB save failed — applicationId will be empty:", dbError);
-      // Continue — email fallback is still valuable but buttons will be broken
+      console.error("[onboarding] DB save failed:", dbError);
+    }
+
+    if (!applicationId) {
+      console.error("[onboarding] applicationId is empty — aborting");
+      return NextResponse.json(
+        { ok: false, error: "Failed to save application" },
+        { status: 500 }
+      );
     }
 
     const approveUrl = `https://myoguard.health/api/admin/physician-quick-action?id=${applicationId}&action=APPROVE&token=${process.env.ADMIN_ACTION_TOKEN}`;
