@@ -194,16 +194,17 @@ export default function PhysicianSignUpPage() {
         }),
       });
 
-      const json = await res.json() as { ok: boolean; error?: string };
+      const json = await res.json() as { ok: boolean; error?: string; detail?: string };
 
       if (!res.ok || !json.ok) {
-        setError(json.error ?? "Registration failed. Please try again.");
+        const msg = json.error ?? "Registration failed. Please try again.";
+        setError(json.detail ? `${msg} — ${json.detail}` : msg);
         return;
       }
 
       router.push("/doctor/onboarding/pending");
-    } catch {
-      setError("Something went wrong. Please try again.");
+    } catch (e: unknown) {
+      setError(`Network error: ${String(e)}`);
     } finally {
       setLoading(false);
     }

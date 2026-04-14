@@ -111,26 +111,35 @@ export async function POST(req: Request) {
     const lastName  = nameParts.slice(1).join(" ") || "-";
 
     // ── Create Clerk user ────────────────────────────────────────────────────
-    const clerkResult = await createClerkUser({ firstName, lastName, email, password });
+    let clerkResult: Awaited<ReturnType<typeof createClerkUser>>;
+    try {
+      clerkResult = await createClerkUser({ firstName, lastName, email, password });
+    } catch (e: unknown) {
+      console.error("[register] CLERK FAILED:", e);
+      return NextResponse.json({ ok: false, error: "Clerk user creation failed", detail: String(e) }, { status: 500 });
+    }
     if ("error" in clerkResult) {
       return NextResponse.json({ ok: false, error: clerkResult.error }, { status: clerkResult.status });
     }
     const { clerkUserId } = clerkResult;
 
     // ── Upsert User row in DB ────────────────────────────────────────────────
-    await prisma.user.upsert({
-      where:  { clerkId: clerkUserId },
-      create: {
-        clerkId:            clerkUserId,
-        email,
-        fullName,
-        role:               "PHYSICIAN_PENDING",
-        subscriptionStatus: "FREE",
-      },
-      update: { role: "PHYSICIAN_PENDING" },
-    }).catch((e: unknown) => {
-      console.error("[register] DB user upsert failed:", e);
-    });
+    try {
+      await prisma.user.upsert({
+        where:  { clerkId: clerkUserId },
+        create: {
+          clerkId:            clerkUserId,
+          email,
+          fullName,
+          role:               "PHYSICIAN_PENDING",
+          subscriptionStatus: "FREE",
+        },
+        update: { role: "PHYSICIAN_PENDING" },
+      });
+    } catch (e: unknown) {
+      console.error("[register] USER UPSERT FAILED:", e);
+      return NextResponse.json({ ok: false, error: "User DB upsert failed", detail: String(e) }, { status: 500 });
+    }
 
     // ── Generate HMAC admin token (valid 48 h) ───────────────────────────────
     const tokenSecret      = process.env.ADMIN_TOKEN_SECRET ?? "fallback-insecure-secret";
@@ -141,32 +150,38 @@ export async function POST(req: Request) {
     const adminTokenExpiry = new Date(timestamp + 48 * 60 * 60 * 1000);
 
     // ── Create PhysicianApplication row ─────────────────────────────────────
-    const application = await prisma.physicianApplication.upsert({
-      where:  { email },
-      create: {
-        name:            fullName,
-        email,
-        country,
-        specialty,
-        npi:             npiNumber     ?? null,
-        license:         licenseNumber ?? null,
-        clerkUserId,
-        status:          "PENDING",
-        adminToken,
-        adminTokenExpiry,
-      },
-      update: {
-        name:            fullName,
-        country,
-        specialty,
-        npi:             npiNumber     ?? null,
-        license:         licenseNumber ?? null,
-        clerkUserId,
-        status:          "PENDING",
-        adminToken,
-        adminTokenExpiry,
-      },
-    });
+    let application: Awaited<ReturnType<typeof prisma.physicianApplication.upsert>>;
+    try {
+      application = await prisma.physicianApplication.upsert({
+        where:  { email },
+        create: {
+          name:            fullName,
+          email,
+          country,
+          specialty,
+          npi:             npiNumber     ?? null,
+          license:         licenseNumber ?? null,
+          clerkUserId,
+          status:          "PENDING",
+          adminToken,
+          adminTokenExpiry,
+        },
+        update: {
+          name:            fullName,
+          country,
+          specialty,
+          npi:             npiNumber     ?? null,
+          license:         licenseNumber ?? null,
+          clerkUserId,
+          status:          "PENDING",
+          adminToken,
+          adminTokenExpiry,
+        },
+      });
+    } catch (e: unknown) {
+      console.error("[register] APPLICATION UPSERT FAILED:", e);
+      return NextResponse.json({ ok: false, error: "Application DB upsert failed", detail: String(e) }, { status: 500 });
+    }
 
     if (!application) {
       console.error("[register] PhysicianApplication upsert returned null");
@@ -182,6 +197,7 @@ export async function POST(req: Request) {
     console.log("[register] token (first 8):", adminToken.slice(0, 8) + "…");
 
     // ── Admin notification email ─────────────────────────────────────────────
+    try {
     await resend.emails.send({
       from:    "MyoGuard Clinical <admin@myoguard.health>",
       to:      "admin@myoguard.health",
@@ -288,6 +304,10 @@ export async function POST(req: Request) {
 </html>
       `,
     });
+    } catch (e: unknown) {
+      console.error("[register] EMAIL FAILED:", e);
+      return NextResponse.json({ ok: false, error: "Admin email failed", detail: String(e) }, { status: 500 });
+    }
 
     return NextResponse.json({ ok: true });
 
