@@ -42,7 +42,7 @@ export default async function PatientDashboardPage() {
     dbUser?.role === 'PHYSICIAN_PENDING' ||
     dbUser?.role === 'ADMIN'
   ) {
-    redirect('/doctor/dashboard');
+    redirect('/doctor/onboarding');
   }
 
   const clerkUser  = await currentUser();

@@ -3,23 +3,29 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 /**
  * Route matchers
  *
- * /doctor/sign-in    – public (must stay unprotected or sign-in is unreachable)
- * /doctor/sign-up    – public
- * /invite/[doctorId] – public (sets referral cookie then redirects to sign-up)
- * /doctor/onboarding  – requires session; redirects unauthenticated → /doctor/sign-in
- * /doctor/dashboard   – requires session; redirects unauthenticated → /doctor/sign-in
- * /doctor/patients/*  – requires session; redirects unauthenticated → /doctor/sign-in
- * /doctor/start       – requires session; redirects unauthenticated → /doctor/sign-in
- * /admin/*            – requires session; uses default Clerk sign-in URL (/sign-in-new)
+ * /dashboard(.*)         – requires session (patient routes)
+ * /doctor/onboarding(.*)  – requires session
+ * /doctor/dashboard(.*)   – requires session
+ * /doctor/patients(.*)    – requires session
+ * /doctor/start(.*)       – requires session
+ * /doctor/invite(.*)      – requires session
+ * /admin(.*)              – requires session
  *
+ * Public: /sign-in, /sign-up, /doctor/sign-in, /doctor/sign-up, /
  * Page-level auth() calls perform DB role checks (PHYSICIAN, ADMIN, etc.).
  * Middleware only guarantees a valid Clerk session exists for protected paths.
  */
+
+const isProtectedPatientRoute = createRouteMatcher([
+  '/dashboard(.*)',
+]);
+
 const isProtectedDoctorRoute = createRouteMatcher([
   '/doctor/onboarding(.*)',
   '/doctor/dashboard(.*)',
   '/doctor/patients(.*)',
   '/doctor/start(.*)',
+  '/doctor/invite(.*)',
 ]);
 
 const isProtectedAdminRoute = createRouteMatcher([
@@ -27,15 +33,13 @@ const isProtectedAdminRoute = createRouteMatcher([
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
-  if (isProtectedDoctorRoute(req)) {
-    // Override Clerk's default sign-in redirect so unauthenticated physicians
-    // land on the physician sign-in page, not the patient /sign-in-new route.
+  if (isProtectedPatientRoute(req)) {
     await auth.protect();
   }
-
+  if (isProtectedDoctorRoute(req)) {
+    await auth.protect();
+  }
   if (isProtectedAdminRoute(req)) {
-    // Admins sign in via the standard Clerk flow (NEXT_PUBLIC_CLERK_SIGN_IN_URL).
-    // No override needed — default Clerk behavior routes to /sign-in-new.
     await auth.protect();
   }
 });

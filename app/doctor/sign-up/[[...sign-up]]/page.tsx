@@ -89,6 +89,7 @@ export default async function PhysicianSignUpPage() {
         path="/doctor/sign-up"
         signInUrl="/doctor/sign-in"
         forceRedirectUrl="/doctor/onboarding"
+        unsafeMetadata={{ userType: "physician" }}
       />
 
       <Link

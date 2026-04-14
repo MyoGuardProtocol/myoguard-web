@@ -7,12 +7,10 @@ import OnboardingForm from './OnboardingForm';
  * /doctor/onboarding — Physician profile setup.
  *
  * Server-side role gate fires before the form renders:
- *   PHYSICIAN         → /doctor/patients  (already approved — skip form)
- *   PHYSICIAN_PENDING → /doctor/dashboard (already submitted — skip form)
- *   PATIENT / no row  → show form (new physician flow)
- *
- * This prevents the loop where an existing PHYSICIAN gets sent here by
- * forceRedirectUrl, fills the form, and gets downgraded to PHYSICIAN_PENDING.
+ *   PHYSICIAN         → /doctor/dashboard (already approved — skip form)
+ *   PATIENT           → /dashboard        (wrong portal — bounce back)
+ *   PHYSICIAN_PENDING → show form         (newly registered, awaiting review)
+ *   no row yet        → show form         (webhook may not have fired yet)
  */
 export default async function PhysicianOnboardingPage() {
   const { userId } = await auth();
@@ -23,9 +21,9 @@ export default async function PhysicianOnboardingPage() {
     select: { role: true },
   }).catch(() => null);
 
-  if (user?.role === 'PHYSICIAN')         redirect('/doctor/dashboard');
-  if (user?.role === 'PHYSICIAN_PENDING') redirect('/doctor/dashboard');
+  if (user?.role === 'PHYSICIAN') redirect('/doctor/dashboard');
+  if (user?.role === 'PATIENT')   redirect('/dashboard');
 
-  // No row or PATIENT role → show the registration form
+  // PHYSICIAN_PENDING or no row yet → show the registration form
   return <OnboardingForm />;
 }

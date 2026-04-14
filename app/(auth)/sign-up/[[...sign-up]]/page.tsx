@@ -48,8 +48,8 @@ export default function SignUpPage() {
         Continue as guest instead
       </Link>
 
-      <p className="text-xs text-slate-500 text-center mt-3">
-        Are you a clinician?{" "}
+      <p className="text-xs text-slate-500 text-center mt-4">
+        Are you a physician?{" "}
         <Link href="/doctor/sign-up" className="text-teal-600 hover:underline">
           Register here →
         </Link>

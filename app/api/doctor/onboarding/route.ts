@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { Resend } from "resend";
 import { prisma } from "@/src/lib/prisma";
 
@@ -8,6 +9,19 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(req: Request) {
   try {
+    // Promote the Clerk user to PHYSICIAN_PENDING as soon as they submit
+    // credentials. This is safer than relying on the webhook, which fires
+    // before unsafeMetadata is available server-side.
+    const { userId } = await auth();
+    if (userId) {
+      await prisma.user.update({
+        where: { clerkId: userId },
+        data:  { role: 'PHYSICIAN_PENDING' },
+      }).catch((e: unknown) => {
+        console.warn('[onboarding] role update skipped (no DB row yet?):', e);
+      });
+    }
+
     const body = await req.json();
     const { fullName, email, country, specialty, npiNumber, licenseNumber } = body as {
       fullName: string;
