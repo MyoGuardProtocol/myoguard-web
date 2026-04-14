@@ -258,17 +258,20 @@ model PhysicianOnboarding {
 }
 
 model PhysicianApplication {
-  id          String    @id @default(cuid())
-  name        String
-  email       String    @unique
-  country     String
-  specialty   String
-  license     String?
-  npi         String?
-  status      String    @default("PENDING")
-  submittedAt DateTime  @default(now())
-  reviewedAt  DateTime?
-  reviewNote  String?
+  id               String    @id @default(cuid())
+  name             String
+  email            String    @unique
+  country          String
+  specialty        String
+  license          String?
+  npi              String?
+  status           String    @default("PENDING")
+  submittedAt      DateTime  @default(now())
+  reviewedAt       DateTime?
+  reviewNote       String?
+  adminToken       String?   @unique
+  adminTokenExpiry DateTime?
+  clerkUserId      String?
 }
 
 enum Role {

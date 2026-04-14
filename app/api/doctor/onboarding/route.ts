@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic';
 
+import { createHmac } from 'node:crypto';
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { Resend } from "resend";
@@ -57,27 +58,41 @@ export async function POST(req: Request) {
       );
     }
 
+    // Generate signed HMAC token valid for 48 hours
+    const tokenSecret = process.env.ADMIN_TOKEN_SECRET ?? 'fallback-insecure-secret';
+    const timestamp = Date.now();
+    const adminToken = createHmac('sha256', tokenSecret)
+      .update(`${email}:${timestamp}`)
+      .digest('hex');
+    const adminTokenExpiry = new Date(timestamp + 48 * 60 * 60 * 1000);
+
     // Save application to database (upsert in case physician resubmits)
     let applicationId = "";
     try {
       const saved = await prisma.physicianApplication.upsert({
         where: { email },
         update: {
-          name:      fullName,
+          name:             fullName,
           country,
           specialty,
-          license:   licenseNumber ?? null,
-          npi:       npiNumber ?? null,
-          status:    "PENDING",
+          license:          licenseNumber ?? null,
+          npi:              npiNumber ?? null,
+          status:           "PENDING",
+          adminToken,
+          adminTokenExpiry,
+          clerkUserId:      userId ?? null,
         },
         create: {
-          name:      fullName,
+          name:             fullName,
           email,
           country,
           specialty,
-          license:   licenseNumber ?? null,
-          npi:       npiNumber ?? null,
-          status:    "PENDING",
+          license:          licenseNumber ?? null,
+          npi:              npiNumber ?? null,
+          status:           "PENDING",
+          adminToken,
+          adminTokenExpiry,
+          clerkUserId:      userId ?? null,
         },
       });
       applicationId = saved.id;
@@ -93,101 +108,160 @@ export async function POST(req: Request) {
       );
     }
 
-    const approveUrl = `https://myoguard.health/api/admin/physician-quick-action?id=${applicationId}&action=APPROVE&token=${process.env.ADMIN_ACTION_TOKEN}`;
-    const rejectUrl  = `https://myoguard.health/api/admin/physician-quick-action?id=${applicationId}&action=REJECT&token=${process.env.ADMIN_ACTION_TOKEN}`;
+    const approveUrl = `https://myoguard.health/api/admin/verify-physician?token=${adminToken}&action=approve`;
+    const flagUrl    = `https://myoguard.health/api/admin/verify-physician?token=${adminToken}&action=flag`;
 
     console.log("[onboarding] application.id:", applicationId);
-    console.log("[onboarding] approve URL:", approveUrl);
-    console.log("[onboarding] token:", process.env.ADMIN_ACTION_TOKEN?.slice(0, 8) + "...");
+    console.log("[onboarding] token (first 8):", adminToken.slice(0, 8) + "...");
     console.log("[onboarding] form data:", { name: fullName, email, country, specialty });
 
-    // Admin notification email
+    // Admin notification email — dark header, HMAC-secured action buttons
     await resend.emails.send({
-      from:    "MyoGuard Protocol <noreply@myoguard.health>",
+      from:    "MyoGuard Clinical <admin@myoguard.health>",
       to:      "admin@myoguard.health",
-      replyTo: email,
-      subject: `New Physician Registration — ${fullName}`,
+      replyTo: "admin@myoguard.health",
+      subject: `Physician Credential Review — ${fullName}`,
       html: `
-<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-  <div style="background: #0f172a; padding: 20px; border-radius: 8px 8px 0 0;">
-    <h2 style="color: #2dd4bf; margin: 0;">MyoGuard Protocol</h2>
-    <p style="color: #94a3b8; margin: 4px 0 0;">New Physician Registration</p>
-  </div>
-  <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 24px; border-radius: 0 0 8px 8px;">
-    <table style="width: 100%; border-collapse: collapse;">
-      <tr><td style="padding: 8px 0; color: #64748b; font-size: 13px;">Name</td><td style="padding: 8px 0; font-weight: 600; font-size: 13px;">${fullName}</td></tr>
-      <tr><td style="padding: 8px 0; color: #64748b; font-size: 13px;">Email</td><td style="padding: 8px 0; font-size: 13px;">${email}</td></tr>
-      <tr><td style="padding: 8px 0; color: #64748b; font-size: 13px;">Country</td><td style="padding: 8px 0; font-size: 13px;">${country}</td></tr>
-      <tr><td style="padding: 8px 0; color: #64748b; font-size: 13px;">Specialty</td><td style="padding: 8px 0; font-size: 13px;">${specialty}</td></tr>
-      <tr><td style="padding: 8px 0; color: #64748b; font-size: 13px;">NPI</td><td style="padding: 8px 0; font-size: 13px;">${npiNumber ?? "Not provided"}</td></tr>
-      <tr><td style="padding: 8px 0; color: #64748b; font-size: 13px;">Licence</td><td style="padding: 8px 0; font-size: 13px;">${licenseNumber ?? "Not provided"}</td></tr>
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:32px 0;">
+  <tr><td align="center">
+    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+
+      <!-- Header -->
+      <tr><td style="background:#1a1a1a;padding:28px 32px;border-radius:12px 12px 0 0;">
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr>
+            <td>
+              <span style="font-size:22px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;">Myo</span><span style="font-size:22px;font-weight:700;color:#2dd4bf;">Guard</span>
+              <span style="display:block;font-size:11px;color:#6b7280;margin-top:2px;letter-spacing:0.05em;text-transform:uppercase;">Clinical Platform</span>
+            </td>
+            <td align="right">
+              <span style="display:inline-block;background:#1f2937;color:#9ca3af;font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid #374151;">Credential Review</span>
+            </td>
+          </tr>
+        </table>
+      </td></tr>
+
+      <!-- Body -->
+      <tr><td style="background:#ffffff;padding:36px 32px;border-left:1px solid #e2e8f0;border-right:1px solid #e2e8f0;">
+
+        <h1 style="margin:0 0 4px;font-size:22px;font-weight:700;color:#0f172a;font-family:Georgia,serif;">Physician Credential Review</h1>
+        <p style="margin:0 0 28px;font-size:13px;color:#64748b;">A new physician has submitted credentials for review. Verify and take action below.</p>
+
+        <!-- Details table -->
+        <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-bottom:28px;">
+          <tr style="background:#f8fafc;">
+            <td colspan="2" style="padding:12px 16px;font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid #e2e8f0;">Applicant Details</td>
+          </tr>
+          <tr style="border-bottom:1px solid #f1f5f9;">
+            <td style="padding:12px 16px;font-size:13px;color:#64748b;width:35%;">Full name</td>
+            <td style="padding:12px 16px;font-size:13px;font-weight:600;color:#0f172a;">${fullName}</td>
+          </tr>
+          <tr style="border-bottom:1px solid #f1f5f9;background:#fafafa;">
+            <td style="padding:12px 16px;font-size:13px;color:#64748b;">Email</td>
+            <td style="padding:12px 16px;font-size:13px;color:#0f172a;">${email}</td>
+          </tr>
+          <tr style="border-bottom:1px solid #f1f5f9;">
+            <td style="padding:12px 16px;font-size:13px;color:#64748b;">Country</td>
+            <td style="padding:12px 16px;font-size:13px;color:#0f172a;">${country}</td>
+          </tr>
+          <tr style="border-bottom:1px solid #f1f5f9;background:#fafafa;">
+            <td style="padding:12px 16px;font-size:13px;color:#64748b;">Specialty</td>
+            <td style="padding:12px 16px;font-size:13px;color:#0f172a;">${specialty}</td>
+          </tr>
+          <tr style="border-bottom:1px solid #f1f5f9;">
+            <td style="padding:12px 16px;font-size:13px;color:#64748b;">NPI</td>
+            <td style="padding:12px 16px;font-size:13px;color:#0f172a;">${npiNumber ?? "Not provided"}</td>
+          </tr>
+          <tr>
+            <td style="padding:12px 16px;font-size:13px;color:#64748b;">Licence</td>
+            <td style="padding:12px 16px;font-size:13px;color:#0f172a;">${licenseNumber ?? "Not provided"}</td>
+          </tr>
+        </table>
+
+        <!-- Notice -->
+        <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:14px 16px;margin-bottom:28px;">
+          <p style="margin:0;font-size:13px;color:#92400e;"><strong>Action required within 48 hours.</strong> This link expires after that.</p>
+        </div>
+
+        <!-- Action buttons -->
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr>
+            <td width="48%" align="center">
+              <a href="${approveUrl}"
+                 style="display:block;background:#059669;color:#ffffff;padding:15px 20px;border-radius:10px;font-size:14px;font-weight:700;text-decoration:none;text-align:center;">
+                ✓ Authorise Access
+              </a>
+            </td>
+            <td width="4%"></td>
+            <td width="48%" align="center">
+              <a href="${flagUrl}"
+                 style="display:block;background:#475569;color:#ffffff;padding:15px 20px;border-radius:10px;font-size:14px;font-weight:700;text-decoration:none;text-align:center;">
+                ⚑ Flag for Review
+              </a>
+            </td>
+          </tr>
+        </table>
+
+      </td></tr>
+
+      <!-- Footer -->
+      <tr><td style="background:#f8fafc;padding:20px 32px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 12px 12px;">
+        <p style="margin:0;font-size:11px;color:#94a3b8;text-align:center;">
+          Meridian Health Holding · HIPAA-aligned credential review · myoguard.health
+        </p>
+      </td></tr>
+
     </table>
-    <div style="margin-top: 20px; padding: 12px; background: #fef3c7; border-radius: 8px; border: 1px solid #fcd34d;">
-      <p style="margin: 0; font-size: 13px; color: #92400e;">
-        <strong>Action required:</strong> Review credentials and activate or reject this physician account within 6–24 hours.
-      </p>
-    </div>
-    <div style="display: flex; gap: 12px; margin-top: 24px;">
-      <a href="${approveUrl}"
-         style="flex: 1; display: block; text-align: center; background: #0d9488; color: #ffffff; padding: 14px; border-radius: 10px; font-size: 14px; font-weight: 600; text-decoration: none;">
-        ✓ Approve &amp; Activate
-      </a>
-      <a href="${rejectUrl}"
-         style="flex: 1; display: block; text-align: center; background: #ffffff; color: #dc2626; padding: 14px; border-radius: 10px; font-size: 14px; font-weight: 600; text-decoration: none; border: 2px solid #dc2626;">
-        ✕ Reject
-      </a>
-    </div>
-  </div>
-  <p style="font-size: 11px; color: #94a3b8; text-align: center; margin-top: 16px;">
-    MyoGuard Protocol · admin@myoguard.health
-  </p>
-</div>
+  </td></tr>
+</table>
+</body>
+</html>
       `,
     });
 
     // Physician confirmation email
     try {
       const physicianEmailResult = await resend.emails.send({
-        from:    "MyoGuard Protocol <noreply@myoguard.health>",
+        from:    "MyoGuard Clinical <admin@myoguard.health>",
         to:      email,
         subject: "Your MyoGuard Physician Application — Received",
         html: `
-<div style="font-family: -apple-system, sans-serif; max-width: 580px; margin: 0 auto; background: #ffffff;">
-  <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 32px 24px; border-radius: 12px 12px 0 0; text-align: center;">
-    <h1 style="margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px;">
-      <span style="color: #ffffff;">Myo</span><span style="color: #2dd4bf;">Guard</span>
-      <span style="color: #94a3b8; font-size: 14px; font-weight: 400; display: block; margin-top: 4px;">Protocol Platform</span>
+<div style="font-family:-apple-system,sans-serif;max-width:580px;margin:0 auto;background:#ffffff;">
+  <div style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);padding:32px 24px;border-radius:12px 12px 0 0;text-align:center;">
+    <h1 style="margin:0;font-size:24px;font-weight:700;letter-spacing:-0.5px;">
+      <span style="color:#ffffff;">Myo</span><span style="color:#2dd4bf;">Guard</span>
+      <span style="color:#94a3b8;font-size:14px;font-weight:400;display:block;margin-top:4px;">Protocol Platform</span>
     </h1>
   </div>
-  <div style="padding: 32px 24px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 12px 12px;">
-    <h2 style="margin: 0 0 8px; font-size: 20px; color: #0f172a;">Application received, Dr. ${fullName.replace(/^Dr\.?\s*/i, '')}</h2>
-    <p style="color: #64748b; font-size: 14px; line-height: 1.6; margin: 0 0 24px;">
+  <div style="padding:32px 24px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 12px 12px;">
+    <h2 style="margin:0 0 8px;font-size:20px;color:#0f172a;">Application received, Dr. ${fullName.replace(/^Dr\.?\s*/i, '')}</h2>
+    <p style="color:#64748b;font-size:14px;line-height:1.6;margin:0 0 24px;">
       Thank you for applying for credentialed access to the MyoGuard Protocol platform.
       Our clinical team reviews all physician credentials individually.
     </p>
-    <div style="background: #f0fdf4; border: 1px solid #86efac; border-radius: 10px; padding: 16px; margin-bottom: 24px;">
-      <p style="margin: 0; font-size: 13px; color: #166534; font-weight: 600;">
-        Expected review time: 6–24 hours
-      </p>
-      <p style="margin: 4px 0 0; font-size: 13px; color: #15803d;">
-        You will receive a separate email once your account is activated.
-      </p>
+    <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:16px;margin-bottom:24px;">
+      <p style="margin:0;font-size:13px;color:#166534;font-weight:600;">Expected review time: 6–24 hours</p>
+      <p style="margin:4px 0 0;font-size:13px;color:#15803d;">You will receive a separate email once your account is activated.</p>
     </div>
-    <div style="border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; margin-bottom: 24px;">
-      <p style="margin: 0 0 12px; font-size: 12px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em;">Application Summary</p>
-      <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-        <tr><td style="padding: 6px 0; color: #64748b; width: 40%;">Full name</td><td style="padding: 6px 0; font-weight: 600; color: #0f172a;">${fullName}</td></tr>
-        <tr><td style="padding: 6px 0; color: #64748b;">Country</td><td style="padding: 6px 0; color: #0f172a;">${country}</td></tr>
-        <tr><td style="padding: 6px 0; color: #64748b;">Specialty</td><td style="padding: 6px 0; color: #0f172a;">${specialty}</td></tr>
-        <tr><td style="padding: 6px 0; color: #64748b;">Licence</td><td style="padding: 6px 0; color: #0f172a;">${licenseNumber ?? "Not provided"}</td></tr>
+    <div style="border:1px solid #e2e8f0;border-radius:10px;padding:16px;margin-bottom:24px;">
+      <p style="margin:0 0 12px;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;">Application Summary</p>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <tr><td style="padding:6px 0;color:#64748b;width:40%;">Full name</td><td style="padding:6px 0;font-weight:600;color:#0f172a;">${fullName}</td></tr>
+        <tr><td style="padding:6px 0;color:#64748b;">Country</td><td style="padding:6px 0;color:#0f172a;">${country}</td></tr>
+        <tr><td style="padding:6px 0;color:#64748b;">Specialty</td><td style="padding:6px 0;color:#0f172a;">${specialty}</td></tr>
+        <tr><td style="padding:6px 0;color:#64748b;">Licence / NPI</td><td style="padding:6px 0;color:#0f172a;">${licenseNumber ?? npiNumber ?? "Not provided"}</td></tr>
       </table>
     </div>
-    <p style="font-size: 13px; color: #64748b; line-height: 1.6;">
-      Questions? Reply to this email or contact us at
-      <a href="mailto:admin@myoguard.health" style="color: #0d9488;">admin@myoguard.health</a>
+    <p style="font-size:13px;color:#64748b;line-height:1.6;">
+      Questions? Contact us at
+      <a href="mailto:admin@myoguard.health" style="color:#0d9488;">admin@myoguard.health</a>
     </p>
   </div>
-  <p style="text-align: center; font-size: 11px; color: #94a3b8; margin-top: 16px;">
+  <p style="text-align:center;font-size:11px;color:#94a3b8;margin-top:16px;">
     © 2026 MyoGuard Protocol · Meridian Health Holding · myoguard.health
   </p>
 </div>

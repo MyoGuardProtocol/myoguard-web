@@ -1,9 +1,9 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 
-const SPECIALTIES = [
+const SPECIALTY_SUGGESTIONS = [
   "Internal Medicine",
   "Endocrinology",
   "Family Medicine",
@@ -12,11 +12,11 @@ const SPECIALTIES = [
   "Sports Medicine",
   "Cardiology",
   "Nephrology",
+  "General Practice",
   "Other",
 ];
 
 const COUNTRIES = [
-  // Highest GLP-1 prescription markets first
   "United States",
   "United Kingdom",
   "Canada",
@@ -64,7 +64,6 @@ const COUNTRIES = [
   "Philippines",
   "Thailand",
   "Vietnam",
-  // Caribbean
   "Trinidad and Tobago",
   "Jamaica",
   "Barbados",
@@ -75,19 +74,71 @@ const COUNTRIES = [
   "Other",
 ];
 
+type NpiStatus = "idle" | "loading" | "verified" | "not_found";
+
 export default function OnboardingForm() {
   const { user } = useUser();
   const router = useRouter();
   const [form, setForm] = useState({
     country: "", specialty: "", npi: "", license: "",
   });
+  const [internationalProvider, setInternationalProvider] = useState(false);
+  const [npiStatus, setNpiStatus] = useState<NpiStatus>("idle");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const npiLookupRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // NPPES auto-lookup when NPI reaches 10 digits
+  useEffect(() => {
+    if (internationalProvider) return;
+    const npi = form.npi.replace(/\D/g, "");
+    if (npi.length !== 10) {
+      if (npi.length > 0) setNpiStatus("idle");
+      return;
+    }
+
+    if (npiLookupRef.current) clearTimeout(npiLookupRef.current);
+    npiLookupRef.current = setTimeout(async () => {
+      setNpiStatus("loading");
+      try {
+        const res = await fetch(
+          `https://npiregistry.cms.hhs.gov/api/?number=${npi}&version=2.1`
+        );
+        const data = await res.json() as {
+          result_count: number;
+          results?: Array<{
+            taxonomies?: Array<{ desc: string }>;
+          }>;
+        };
+        if (data.result_count > 0 && data.results?.[0]?.taxonomies?.[0]?.desc) {
+          const desc = data.results[0].taxonomies[0].desc;
+          setForm((prev) => ({ ...prev, specialty: desc }));
+          setNpiStatus("verified");
+        } else {
+          setNpiStatus("not_found");
+        }
+      } catch {
+        setNpiStatus("not_found");
+      }
+    }, 400);
+
+    return () => {
+      if (npiLookupRef.current) clearTimeout(npiLookupRef.current);
+    };
+  }, [form.npi, internationalProvider]);
 
   function handleChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    if (name === "npi") {
+      // Digits only, max 10
+      const digits = value.replace(/\D/g, "").slice(0, 10);
+      setForm((prev) => ({ ...prev, npi: digits }));
+      if (digits.length < 10) setNpiStatus("idle");
+    } else {
+      setForm((prev) => ({ ...prev, [name]: value }));
+    }
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -107,8 +158,8 @@ export default function OnboardingForm() {
           email: user?.primaryEmailAddress?.emailAddress ?? "",
           country: form.country,
           specialty: form.specialty,
-          npiNumber: form.npi || undefined,
-          licenseNumber: form.license || undefined,
+          npiNumber: !internationalProvider && form.npi ? form.npi : undefined,
+          licenseNumber: internationalProvider && form.license ? form.license : undefined,
         }),
       });
       if (!res.ok) throw new Error("Submission failed");
@@ -182,52 +233,115 @@ export default function OnboardingForm() {
             </select>
           </label>
 
+          {/* NPI field — hidden when internationalProvider is ON */}
+          {!internationalProvider && (
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-700">
+                  NPI number{" "}
+                  <span className="text-slate-400 font-normal">(optional — US physicians)</span>
+                </span>
+                {npiStatus === "verified" && (
+                  <span className="text-xs font-semibold text-emerald-600 flex items-center gap-1">
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    Verified via NPPES
+                  </span>
+                )}
+                {npiStatus === "not_found" && (
+                  <span className="text-xs font-semibold text-red-500">NPI not found</span>
+                )}
+                {npiStatus === "loading" && (
+                  <span className="text-xs text-slate-400">Looking up…</span>
+                )}
+              </div>
+              <input
+                name="npi"
+                type="text"
+                inputMode="numeric"
+                placeholder="10-digit NPI number"
+                value={form.npi}
+                onChange={handleChange}
+                maxLength={10}
+                className={`border rounded-lg px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 transition-colors ${
+                  npiStatus === "verified"
+                    ? "border-emerald-300 focus:ring-emerald-400 bg-emerald-50"
+                    : npiStatus === "not_found"
+                    ? "border-red-300 focus:ring-red-400"
+                    : "border-slate-200 focus:ring-teal-500"
+                }`}
+              />
+            </div>
+          )}
+
+          {/* International Provider toggle */}
+          <div className="flex items-center justify-between py-1">
+            <div>
+              <p className="text-xs font-medium text-slate-700">International provider</p>
+              <p className="text-xs text-slate-400 mt-0.5">Outside the US — use licence number instead of NPI</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setInternationalProvider((v) => !v);
+                setNpiStatus("idle");
+                setForm((prev) => ({ ...prev, npi: "" }));
+              }}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                internationalProvider ? "bg-teal-600" : "bg-slate-200"
+              }`}
+              aria-pressed={internationalProvider}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                  internationalProvider ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* Licence number — shown when internationalProvider is ON */}
+          {internationalProvider && (
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs font-medium text-slate-700">
+                National licence number{" "}
+                <span className="text-slate-400 font-normal">(optional)</span>
+              </span>
+              <input
+                name="license"
+                type="text"
+                placeholder="e.g. TT-MED-12345"
+                value={form.license}
+                onChange={handleChange}
+                className="border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              />
+            </label>
+          )}
+
+          {/* Specialty — text input with datalist for NPPES auto-fill */}
           <label className="flex flex-col gap-1.5">
             <span className="text-xs font-medium text-slate-700">
               Specialty <span className="text-red-500">*</span>
             </span>
-            <select
+            <input
               name="specialty"
+              type="text"
+              list="specialty-suggestions"
+              placeholder="e.g. Internal Medicine"
               value={form.specialty}
               onChange={handleChange}
               required
-              className="border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
-            >
-              <option value="">Select specialty</option>
-              {SPECIALTIES.map((s) => (
-                <option key={s} value={s}>{s}</option>
+              className="border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
+            <datalist id="specialty-suggestions">
+              {SPECIALTY_SUGGESTIONS.map((s) => (
+                <option key={s} value={s} />
               ))}
-            </select>
-          </label>
-
-          <label className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium text-slate-700">
-              NPI number{" "}
-              <span className="text-slate-400 font-normal">(optional — US physicians)</span>
-            </span>
-            <input
-              name="npi"
-              type="text"
-              placeholder="e.g. 1234567890"
-              value={form.npi}
-              onChange={handleChange}
-              className="border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
-            />
-          </label>
-
-          <label className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium text-slate-700">
-              Medical licence number{" "}
-              <span className="text-slate-400 font-normal">(optional)</span>
-            </span>
-            <input
-              name="license"
-              type="text"
-              placeholder="e.g. TT-MED-12345"
-              value={form.license}
-              onChange={handleChange}
-              className="border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
-            />
+            </datalist>
+            {npiStatus === "verified" && (
+              <p className="text-xs text-emerald-600">Auto-filled from NPI registry</p>
+            )}
           </label>
 
           {error && (
@@ -246,7 +360,7 @@ export default function OnboardingForm() {
 
           <p className="text-xs text-slate-400 text-center">
             Already approved?{" "}
-            <a href="/sign-in" className="text-teal-600 hover:underline">
+            <a href="/doctor/sign-in" className="text-teal-600 hover:underline">
               Sign in here
             </a>
           </p>
