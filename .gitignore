@@ -43,3 +43,6 @@ next-env.d.ts
 # Claude Code tooling (session files, worktree configs, dev server logs)
 .claude/
 .claudedevserver.log
+
+# clerk configuration (can include secrets)
+/.clerk/

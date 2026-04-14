@@ -23,7 +23,7 @@ export default async function PhysicianOnboardingPage() {
     select: { role: true },
   }).catch(() => null);
 
-  if (user?.role === 'PHYSICIAN')         redirect('/doctor/patients');
+  if (user?.role === 'PHYSICIAN')         redirect('/doctor/dashboard');
   if (user?.role === 'PHYSICIAN_PENDING') redirect('/doctor/dashboard');
 
   // No row or PATIENT role → show the registration form

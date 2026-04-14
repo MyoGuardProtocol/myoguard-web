@@ -1,5 +1,7 @@
 "use client";
 import { useState } from "react";
+import { useUser } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 
 const SPECIALTIES = [
   "Internal Medicine",
@@ -74,10 +76,11 @@ const COUNTRIES = [
 ];
 
 export default function OnboardingForm() {
+  const { user } = useUser();
+  const router = useRouter();
   const [form, setForm] = useState({
-    name: "", email: "", country: "", specialty: "", npi: "", license: "",
+    country: "", specialty: "", npi: "", license: "",
   });
-  const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -89,7 +92,7 @@ export default function OnboardingForm() {
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!form.name.trim() || !form.email.trim() || !form.country || !form.specialty) {
+    if (!form.country || !form.specialty) {
       setError("Please complete all required fields.");
       return;
     }
@@ -100,8 +103,8 @@ export default function OnboardingForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          fullName: form.name,
-          email: form.email,
+          fullName: user?.fullName ?? "",
+          email: user?.primaryEmailAddress?.emailAddress ?? "",
           country: form.country,
           specialty: form.specialty,
           npiNumber: form.npi || undefined,
@@ -109,41 +112,12 @@ export default function OnboardingForm() {
         }),
       });
       if (!res.ok) throw new Error("Submission failed");
-      setSubmitted(true);
+      router.push("/doctor/onboarding/pending");
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
-  }
-
-  if (submitted) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center px-4">
-        <div className="max-w-md w-full bg-white border border-slate-200 rounded-2xl shadow-sm p-8 text-center flex flex-col gap-4">
-          <div className="w-12 h-12 rounded-full bg-teal-50 border border-teal-100 flex items-center justify-center mx-auto">
-            <svg className="w-6 h-6 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <h2 className="text-lg font-semibold text-slate-900">Application received</h2>
-          <p className="text-sm text-slate-500 leading-relaxed">
-            Thank you, <strong className="text-slate-700">{form.name}</strong>. Your credentials have been submitted for review.
-          </p>
-          <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 text-left">
-            <p className="text-xs font-semibold text-amber-700 mb-1">Account pending approval</p>
-            <p className="text-xs text-amber-600 leading-relaxed">
-              Our clinical team reviews all credentials within{" "}
-              <strong>24 hours</strong>. You will receive an activation email
-              at the address provided once your account is approved.
-            </p>
-          </div>
-          <p className="text-xs text-slate-400">
-            Questions? Contact us at docb@myoguard.health
-          </p>
-        </div>
-      </div>
-    );
   }
 
   return (
@@ -182,38 +156,13 @@ export default function OnboardingForm() {
           onSubmit={handleSubmit}
           className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 flex flex-col gap-5"
         >
-          <label className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium text-slate-700">
-              Full name <span className="text-red-500">*</span>
-            </span>
-            <input
-              name="name"
-              type="text"
-              placeholder="Dr. Jane Smith"
-              value={form.name}
-              onChange={handleChange}
-              required
-              className="border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
-            />
-          </label>
-
-          <label className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium text-slate-700">
-              Professional email address<span className="text-red-500"> *</span>
-            </span>
-            <input
-              name="email"
-              type="email"
-              placeholder="dr.smith@clinic.com"
-              value={form.email}
-              onChange={handleChange}
-              required
-              className="border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
-            />
-            <span className="text-xs text-slate-400">
-              Used for account activation and clinical communications only
-            </span>
-          </label>
+          {/* Name — read-only from Clerk session */}
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-medium text-slate-700">Full name</span>
+            <div className="border border-slate-100 rounded-lg px-3 py-2.5 text-sm text-slate-500 bg-slate-50">
+              {user?.fullName ?? "Loading…"}
+            </div>
+          </div>
 
           <label className="flex flex-col gap-1.5">
             <span className="text-xs font-medium text-slate-700">

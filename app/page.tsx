@@ -196,12 +196,15 @@ export default function HomePage() {
           <span className="text-xl font-bold text-slate-900">Myo</span>
           <span className="text-xl font-bold text-teal-600">Guard</span>
         </div>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-3">
+          <a href="/doctor/sign-up" className="text-sm text-teal-600 hover:text-teal-700 font-medium transition-colors">
+            Clinician? Register
+          </a>
           <a href="/sign-in" className="text-sm text-slate-600 hover:text-slate-900 px-4 py-2 rounded-lg border border-slate-200 transition-colors">
             Sign in
           </a>
           <a href="/sign-up" className="text-sm bg-teal-600 text-white px-4 py-2 rounded-lg hover:bg-teal-700 transition-colors">
-            Get started
+            Patient sign up
           </a>
         </div>
       </nav>
@@ -249,7 +252,7 @@ export default function HomePage() {
             >
               Start free assessment
             </a>
-            <a href="/sign-up/physician" className="text-sm text-slate-600 hover:text-teal-600 transition-colors underline underline-offset-2">
+            <a href="/doctor/sign-up" className="text-sm text-slate-600 hover:text-teal-600 transition-colors underline underline-offset-2">
               Are you a clinician?
             </a>
           </div>
