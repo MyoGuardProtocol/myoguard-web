@@ -1,16 +1,16 @@
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/src/lib/prisma';
-import OnboardingForm from './OnboardingForm';
 
 /**
- * /doctor/onboarding — Physician profile setup.
+ * /doctor/onboarding
  *
- * Server-side role gate fires before the form renders:
- *   PHYSICIAN         → /doctor/dashboard (already approved — skip form)
- *   PATIENT           → /dashboard        (wrong portal — bounce back)
- *   PHYSICIAN_PENDING → show form         (newly registered, awaiting review)
- *   no row yet        → show form         (webhook may not have fired yet)
+ * Credentials are now captured at /doctor/sign-up.  This page acts as a
+ * routing gate only:
+ *
+ *   PHYSICIAN (approved)   → /doctor/dashboard
+ *   Has PhysicianApplication row → /doctor/onboarding/pending (awaiting review)
+ *   No application row       → /doctor/sign-up (skipped registration)
  */
 export default async function PhysicianOnboardingPage() {
   const { userId } = await auth();
@@ -18,12 +18,29 @@ export default async function PhysicianOnboardingPage() {
 
   const user = await prisma.user.findUnique({
     where:  { clerkId: userId },
-    select: { role: true },
+    select: { role: true, email: true },
   }).catch(() => null);
 
+  // Already fully approved — go to dashboard
   if (user?.role === 'PHYSICIAN') redirect('/doctor/dashboard');
-  if (user?.role === 'PATIENT')   redirect('/dashboard');
 
-  // PHYSICIAN_PENDING or no row yet → show the registration form
-  return <OnboardingForm />;
+  // Patients should not reach this route
+  if (user?.role === 'PATIENT') redirect('/dashboard');
+
+  // Check for an existing application row
+  const email = user?.email;
+  if (email) {
+    const application = await prisma.physicianApplication.findUnique({
+      where:  { email },
+      select: { id: true },
+    }).catch(() => null);
+
+    if (application) {
+      // Application submitted — show the pending screen
+      redirect('/doctor/onboarding/pending');
+    }
+  }
+
+  // No application found — physician skipped registration
+  redirect('/doctor/sign-up');
 }

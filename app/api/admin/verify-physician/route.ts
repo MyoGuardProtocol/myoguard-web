@@ -124,7 +124,6 @@ export async function GET(req: Request) {
   }
 
   // Send activation email to physician
-  const firstName = application.name.replace(/^Dr\.?\s*/i, "").split(" ")[0];
   try {
     await resend.emails.send({
       from:    "MyoGuard Clinical <admin@myoguard.health>",
@@ -138,30 +137,35 @@ export async function GET(req: Request) {
   <tr><td align="center">
     <table width="580" cellpadding="0" cellspacing="0" style="max-width:580px;width:100%;">
 
-      <tr><td style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);padding:32px 24px;border-radius:12px 12px 0 0;text-align:center;">
-        <h1 style="margin:0;font-size:24px;font-weight:700;">
+      <tr><td style="background:#1a1a1a;padding:32px 24px;border-radius:12px 12px 0 0;text-align:center;">
+        <h1 style="margin:0;font-size:24px;font-weight:700;letter-spacing:-0.5px;">
           <span style="color:#ffffff;">Myo</span><span style="color:#2dd4bf;">Guard</span>
         </h1>
-        <p style="margin:4px 0 0;font-size:12px;color:#94a3b8;letter-spacing:0.05em;text-transform:uppercase;">Clinical Platform</p>
+        <p style="margin:4px 0 0;font-size:11px;color:#6b7280;letter-spacing:0.05em;text-transform:uppercase;">Clinical Platform</p>
       </td></tr>
 
-      <tr><td style="background:#ffffff;padding:36px 24px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 12px 12px;">
-        <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:16px;margin-bottom:24px;text-align:center;">
-          <p style="margin:0;font-size:16px;font-weight:700;color:#166534;">✓ Account Approved &amp; Active</p>
+      <tr><td style="background:#ffffff;padding:40px 32px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 12px 12px;">
+        <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:14px 16px;margin-bottom:28px;text-align:center;">
+          <p style="margin:0;font-size:14px;font-weight:700;color:#166534;">✓ Credentials Verified &amp; Approved</p>
         </div>
-        <h2 style="margin:0 0 8px;font-size:20px;color:#0f172a;">Welcome, Dr. ${firstName}</h2>
-        <p style="color:#64748b;font-size:14px;line-height:1.6;margin:0 0 28px;">
-          Your physician credentials have been verified. You now have full access
-          to the MyoGuard Clinical Command Center.
+
+        <h2 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#0f172a;font-family:Georgia,serif;">
+          Welcome to the Clinical Command Center
+        </h2>
+        <p style="color:#64748b;font-size:14px;line-height:1.7;margin:0 0 32px;">
+          Your credentials have been reviewed and approved.
+          Click below to access your physician dashboard.
         </p>
-        <div style="text-align:center;margin-bottom:28px;">
-          <a href="https://myoguard.health/doctor/dashboard"
-             style="display:inline-block;background:#059669;color:#ffffff;padding:15px 36px;border-radius:10px;font-size:14px;font-weight:700;text-decoration:none;">
-            Access Clinical Dashboard →
+
+        <div style="text-align:center;margin-bottom:32px;">
+          <a href="https://myoguard.health/doctor/sign-in"
+             style="display:inline-block;background:#059669;color:#ffffff;padding:16px 40px;border-radius:10px;font-size:15px;font-weight:700;text-decoration:none;letter-spacing:0.01em;">
+            Access Clinical Command Center →
           </a>
         </div>
-        <div style="border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
-          <p style="margin:0 0 10px;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;">What you can do now</p>
+
+        <div style="border:1px solid #e2e8f0;border-radius:10px;padding:16px 20px;">
+          <p style="margin:0 0 10px;font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.06em;">What you can do now</p>
           <ul style="margin:0;padding-left:18px;font-size:13px;color:#475569;line-height:2.2;">
             <li>Monitor patient sarcopenia risk scores</li>
             <li>Generate QR referral codes for patients</li>
@@ -173,7 +177,7 @@ export async function GET(req: Request) {
 
       <tr><td style="padding:20px 0;text-align:center;">
         <p style="margin:0;font-size:11px;color:#94a3b8;">
-          © 2026 MyoGuard Protocol · Meridian Health Holding · myoguard.health
+          Meridian Health Holding · HIPAA-aligned · myoguard.health
         </p>
       </td></tr>
 

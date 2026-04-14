@@ -3,7 +3,7 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 /**
  * Route matchers
  *
- * /dashboard(.*)         – requires session (patient routes)
+ * /dashboard(.*)          – requires session (patient routes)
  * /doctor/onboarding(.*)  – requires session
  * /doctor/dashboard(.*)   – requires session
  * /doctor/patients(.*)    – requires session
@@ -11,7 +11,10 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
  * /doctor/invite(.*)      – requires session
  * /admin(.*)              – requires session
  *
- * Public: /sign-in, /sign-up, /doctor/sign-in, /doctor/sign-up, /
+ * Public (no session required):
+ *   /sign-in, /sign-up, /doctor/sign-in, /doctor/sign-up, /
+ *   /api/doctor/register  — custom physician registration (creates Clerk user)
+ *   /api/admin/verify-physician — one-click email action links
  * Page-level auth() calls perform DB role checks (PHYSICIAN, ADMIN, etc.).
  * Middleware only guarantees a valid Clerk session exists for protected paths.
  */
