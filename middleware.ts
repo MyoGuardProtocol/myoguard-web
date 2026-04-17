@@ -24,7 +24,7 @@ const isProtectedPatientRoute = createRouteMatcher([
 ]);
 
 const isProtectedDoctorRoute = createRouteMatcher([
-  '/doctor/onboarding(.*)',
+  '/doctor/onboarding/form(.*)',
   '/doctor/dashboard(.*)',
   '/doctor/patients(.*)',
   '/doctor/start(.*)',
