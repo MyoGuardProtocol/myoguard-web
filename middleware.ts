@@ -3,18 +3,23 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 /**
  * Route matchers
  *
- * /dashboard(.*)          – requires session (patient routes)
- * /doctor/onboarding(.*)  – requires session
- * /doctor/dashboard(.*)   – requires session
- * /doctor/patients(.*)    – requires session
- * /doctor/start(.*)       – requires session
- * /doctor/invite(.*)      – requires session
- * /admin(.*)              – requires session
+ * /dashboard(.*)               – requires session (patient routes)
+ * /doctor/onboarding/form(.*)  – requires session
+ * /doctor/dashboard(.*)        – requires session
+ * /doctor/patients(.*)         – requires session
+ * /doctor/start(.*)            – requires session
+ * /doctor/invite(.*)           – requires session
+ * /admin/physicians(.*)        – requires session
+ * /admin/health(.*)            – requires session
  *
  * Public (no session required):
  *   /sign-in, /sign-up, /doctor/sign-in, /doctor/sign-up, /
- *   /api/doctor/register  — custom physician registration (creates Clerk user)
- *   /api/admin/verify-physician — one-click email action links
+ *   /doctor/onboarding/pending  — static holding page, no session needed
+ *   /admin/physician-approved   — static confirmation page
+ *   /admin/physician-flagged    — static confirmation page
+ *   /admin/token-expired        — static confirmation page
+ *   /api/doctor/register        — custom physician registration (creates Clerk user)
+ *   /api/admin/verify-physician — one-click email action links (clicked from email)
  * Page-level auth() calls perform DB role checks (PHYSICIAN, ADMIN, etc.).
  * Middleware only guarantees a valid Clerk session exists for protected paths.
  */
@@ -32,7 +37,8 @@ const isProtectedDoctorRoute = createRouteMatcher([
 ]);
 
 const isProtectedAdminRoute = createRouteMatcher([
-  '/admin(.*)',
+  '/admin/physicians(.*)',
+  '/admin/health(.*)',
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
