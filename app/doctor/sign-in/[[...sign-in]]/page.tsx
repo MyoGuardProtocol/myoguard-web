@@ -74,8 +74,52 @@ export default async function PhysicianSignInPage() {
         forceRedirectUrl="/doctor/dashboard"
         appearance={{
           elements: {
-            card:          { backgroundColor: "#0A0A0A", border: "1px solid #1F2937" },
-            primaryButton: { backgroundColor: "#10B981" },
+            card: {
+              backgroundColor: "#0A0A0A",
+              border: "1px solid #1F2937",
+              boxShadow: "none"
+            },
+            headerTitle: {
+              color: "#ffffff"
+            },
+            headerSubtitle: {
+              color: "#94a3b8"
+            },
+            formFieldLabel: {
+              color: "#e2e8f0"
+            },
+            formFieldInput: {
+              backgroundColor: "#1e293b",
+              border: "1px solid #334155",
+              color: "#ffffff"
+            },
+            formFieldInputShowPasswordButton: {
+              color: "#94a3b8"
+            },
+            identityPreviewText: {
+              color: "#e2e8f0"
+            },
+            identityPreviewEditButton: {
+              color: "#10b981"
+            },
+            primaryButton: {
+              backgroundColor: "#10B981",
+              color: "#ffffff"
+            },
+            footerActionLink: {
+              color: "#10b981"
+            },
+            dividerLine: {
+              backgroundColor: "#1F2937"
+            },
+            dividerText: {
+              color: "#64748b"
+            },
+            socialButtonsBlockButton: {
+              backgroundColor: "#1e293b",
+              border: "1px solid #334155",
+              color: "#ffffff"
+            },
           },
         }}
       />
