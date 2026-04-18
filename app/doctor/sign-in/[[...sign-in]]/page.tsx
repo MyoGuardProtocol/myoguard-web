@@ -72,6 +72,12 @@ export default async function PhysicianSignInPage() {
         path="/doctor/sign-in"
         signUpUrl="/doctor/sign-up"
         forceRedirectUrl="/doctor/dashboard"
+        appearance={{
+          elements: {
+            card:          { backgroundColor: "#0A0A0A", border: "1px solid #1F2937" },
+            primaryButton: { backgroundColor: "#10B981" },
+          },
+        }}
       />
 
       <Link

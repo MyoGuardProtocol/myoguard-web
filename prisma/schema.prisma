@@ -274,6 +274,23 @@ model PhysicianApplication {
   clerkUserId      String?
 }
 
+model StartSheetProtocol {
+  id                  String   @id @default(cuid())
+  physicianClerkId    String
+  patientName         String
+  patientEmail        String
+  weightKg            Float
+  age                 Int
+  glp1Agent           String
+  riskLevel           String
+  proteinTarget       Float
+  hydrationTarget     Float
+  resistanceFrequency String
+  supplements         String[]
+  ermEnabled          Boolean  @default(false)
+  createdAt           DateTime @default(now())
+}
+
 enum Role {
   PATIENT
   PHYSICIAN

@@ -92,6 +92,12 @@ export default async function DoctorDashboardPage() {
             <span className="text-xs bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-3 py-1 font-semibold">
               Pending Verification
             </span>
+            <Link
+                href="/doctor/start-sheet"
+                className="text-xs font-medium text-emerald-600 hover:text-emerald-500 transition-colors border border-emerald-800 rounded-full px-3 py-1"
+              >
+                Start Sheet
+              </Link>
             <Link href="/" className="text-slate-400 hover:text-slate-600 transition-colors" aria-label="Home">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round"
