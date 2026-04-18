@@ -27,8 +27,8 @@ export default async function PhysicianSignInPage() {
       where:  { clerkId: userId },
       select: { role: true },
     });
-    if (user?.role === 'PHYSICIAN')         redirect('/doctor/patients');
-    if (user?.role === 'PHYSICIAN_PENDING') redirect('/doctor/dashboard');
+    if (user?.role === 'PHYSICIAN')         redirect('/doctor/dashboard');
+    if (user?.role === 'PHYSICIAN_PENDING') redirect('/doctor/onboarding/pending');
     if (!user)                              redirect('/doctor/onboarding');
     // PATIENT or unrecognised role → back to physician landing
     redirect('/doctor');
