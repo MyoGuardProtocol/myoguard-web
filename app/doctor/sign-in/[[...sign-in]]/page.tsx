@@ -73,52 +73,26 @@ export default async function PhysicianSignInPage() {
         signUpUrl="/doctor/sign-up"
         forceRedirectUrl="/doctor/dashboard"
         appearance={{
+          variables: {
+            colorBackground: "#0A0A0A",
+            colorInputBackground: "#1e293b",
+            colorInputText: "#ffffff",
+            colorText: "#ffffff",
+            colorTextSecondary: "#94a3b8",
+            colorPrimary: "#10B981",
+            colorTextOnPrimaryBackground: "#ffffff",
+            borderRadius: "0.75rem",
+          },
           elements: {
             card: {
-              backgroundColor: "#0A0A0A",
               border: "1px solid #1F2937",
-              boxShadow: "none"
-            },
-            headerTitle: {
-              color: "#ffffff"
-            },
-            headerSubtitle: {
-              color: "#94a3b8"
-            },
-            formFieldLabel: {
-              color: "#e2e8f0"
+              boxShadow: "0 0 40px rgba(0,0,0,0.5)",
             },
             formFieldInput: {
-              backgroundColor: "#1e293b",
               border: "1px solid #334155",
-              color: "#ffffff"
-            },
-            formFieldInputShowPasswordButton: {
-              color: "#94a3b8"
-            },
-            identityPreviewText: {
-              color: "#e2e8f0"
-            },
-            identityPreviewEditButton: {
-              color: "#10b981"
             },
             primaryButton: {
               backgroundColor: "#10B981",
-              color: "#ffffff"
-            },
-            footerActionLink: {
-              color: "#10b981"
-            },
-            dividerLine: {
-              backgroundColor: "#1F2937"
-            },
-            dividerText: {
-              color: "#64748b"
-            },
-            socialButtonsBlockButton: {
-              backgroundColor: "#1e293b",
-              border: "1px solid #334155",
-              color: "#ffffff"
             },
           },
         }}
