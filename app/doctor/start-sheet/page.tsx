@@ -123,6 +123,7 @@ export default function StartSheetPage() {
           resistanceFrequency: resistanceFreq,
           supplements,
           ermEnabled,
+          physicianNotes:      notes,
         }),
       });
       const json = await res.json() as { ok: boolean; id?: string; error?: string };

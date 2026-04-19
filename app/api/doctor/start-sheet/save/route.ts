@@ -28,6 +28,7 @@ export async function POST(req: Request) {
       resistanceFrequency: string;
       supplements:         string[];
       ermEnabled:          boolean;
+      physicianNotes?:     string;
     };
 
     const {
@@ -42,6 +43,7 @@ export async function POST(req: Request) {
       resistanceFrequency,
       supplements,
       ermEnabled,
+      physicianNotes,
     } = body;
 
     // Basic validation
@@ -72,6 +74,7 @@ export async function POST(req: Request) {
         resistanceFrequency,
         supplements,
         ermEnabled:          ermEnabled ?? false,
+        physicianNotes:      physicianNotes ?? "",
       },
     });
 

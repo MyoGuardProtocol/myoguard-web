@@ -288,6 +288,7 @@ model StartSheetProtocol {
   resistanceFrequency String
   supplements         String[]
   ermEnabled          Boolean  @default(false)
+  physicianNotes      String?  @default("")
   createdAt           DateTime @default(now())
 }
 
