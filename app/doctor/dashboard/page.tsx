@@ -6,13 +6,13 @@ import { SignOutButton } from '@clerk/nextjs';
 import PhysicianAvatar from '@/src/components/ui/PhysicianAvatar';
 
 /**
- * /doctor/dashboard — Role-aware physician entry point.
+ * /doctor/dashboard — Physician command hub.
  *
  * Role routing:
- *   PHYSICIAN         → /doctor/patients  (command center)
+ *   PHYSICIAN         → renders dashboard (command center)
+ *   PHYSICIAN_PENDING → renders "Account under review" holding screen
  *   ADMIN             → /admin/physicians
  *   PATIENT           → /dashboard
- *   PHYSICIAN_PENDING → "Account under review" holding screen
  *
  * clerkId-fallback (same pattern as /dashboard):
  *   If no DB row is found by clerkId, we look up by email and stamp the new
@@ -72,9 +72,8 @@ export default async function DoctorDashboardPage() {
   if (!user) redirect('/doctor/onboarding');
 
   // ── Role routing ──────────────────────────────────────────────────────────
-  if (user.role === 'PHYSICIAN') redirect('/doctor/patients');
-  if (user.role === 'ADMIN')     redirect('/admin/physicians');
-  if (user.role === 'PATIENT')   redirect('/dashboard');
+  if (user.role === 'ADMIN')   redirect('/admin/physicians');
+  if (user.role === 'PATIENT') redirect('/dashboard');
 
   // ── PHYSICIAN_PENDING ─────────────────────────────────────────────────────
   return (
