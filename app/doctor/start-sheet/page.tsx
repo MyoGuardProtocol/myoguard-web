@@ -170,6 +170,14 @@ export default function StartSheetPage() {
           body { background: #ffffff !important; }
           @page { margin: 2cm; }
         }
+        .supplement-pill {
+          opacity: 0;
+          transform: translateY(6px);
+          animation: pillIn 0.4s ease forwards;
+        }
+        @keyframes pillIn {
+          to { opacity: 1; transform: translateY(0); }
+        }
       `}</style>
 
       <div style={{ background: "#0A0A0A", minHeight: "100vh" }}>
@@ -495,13 +503,15 @@ export default function StartSheetPage() {
                     <p className="text-xs text-slate-400 uppercase tracking-widest mb-3">
                       Supplement Stack
                     </p>
-                    <div className="flex flex-wrap gap-2">
+                    <div key={riskLevel} className="flex flex-wrap gap-2">
                       {supplements.map((s, i) => (
                         <span
                           key={s}
                           className="supplement-pill inline-flex items-center bg-emerald-900 border border-emerald-800 text-emerald-300 text-xs font-medium px-3 py-1 rounded-full"
                           style={{
-                            transition: `opacity 0.3s ease ${i * 40}ms, transform 0.3s ease ${i * 40}ms`,
+                            opacity: 1,
+                            transform: "translateY(0)",
+                            transition: `opacity 0.4s ease ${i * 60}ms, transform 0.4s ease ${i * 60}ms`,
                           }}
                         >
                           {s}
