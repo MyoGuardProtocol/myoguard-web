@@ -59,26 +59,28 @@ export default async function ProtocolViewPage({
         .print-only { display: none; }
 
         @media print {
-          /* Page setup */
+          * { -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important; }
+          body { background: #ffffff !important;
+                 color: #000000 !important; }
+          .no-print { display: none !important; }
+          .screen-card { display: none !important; }
+          .print-only {
+            display: block !important;
+            background: #ffffff !important;
+            color: #000000 !important;
+          }
+          .print-panel {
+            width: 100% !important;
+            background: #ffffff !important;
+          }
           @page { size: A4; margin: 2cm; }
 
-          /* Global reset to white */
-          body  { background: #ffffff !important; color: #000000 !important; }
-          html  { background: #ffffff !important; }
-
-          /* Visibility toggles */
-          .no-print    { display: none !important; }
-          .print-only  { display: block !important; }
-          .print-flex  { display: flex !important; }
-
-          /* Screen cards are all hidden on print — only .print-only renders */
-          .screen-card { display: none !important; }
-
-          /* Typography helpers */
-          .p-serif  { font-family: Georgia, serif; }
-          .p-black  { color: #000000 !important; }
-          .p-muted  { color: #475569 !important; }
-          .p-large  {
+          .print-flex         { display: flex !important; }
+          .p-serif            { font-family: Georgia, serif; }
+          .p-black            { color: #000000 !important; }
+          .p-muted            { color: #475569 !important; }
+          .p-large {
             font-family: Georgia, serif;
             font-size: 2.25rem;
             font-weight: 700;
@@ -94,8 +96,6 @@ export default async function ProtocolViewPage({
             padding-bottom: 0.5rem;
             margin-bottom: 0.75rem;
           }
-
-          /* Supplement list — plain text, no badges */
           .supplement-pill {
             background: transparent !important;
             border: none !important;
@@ -270,55 +270,55 @@ export default async function ProtocolViewPage({
           <div className="print-only">
 
             {/* ── Letterhead ── */}
-            <div
-              className="print-flex"
-              style={{
-                justifyContent: "space-between",
-                alignItems: "flex-start",
-                borderBottom: "2px solid #000000",
-                paddingBottom: "1rem",
-                marginBottom: "1rem",
-              }}
-            >
-              {/* Left: brand */}
+            <div style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+              paddingBottom: "16px",
+              marginBottom: "20px",
+              borderBottom: "2px solid #000000"
+            }}>
+              {/* LEFT — MyoGuard brand */}
               <div>
-                <div
-                  className="p-serif"
-                  style={{ fontSize: "1.6rem", fontWeight: "700", color: "#000000", lineHeight: "1" }}
-                >
-                  Myo<span style={{ fontWeight: "400" }}>Guard</span>
+                <div style={{ fontSize: "22px", fontWeight: "900",
+                  fontFamily: "Georgia, serif", letterSpacing: "-0.03em" }}>
+                  <span style={{ color: "#000000" }}>Myo</span>
+                  <span style={{ color: "#0d9488" }}>Guard</span>
                 </div>
-                <div
-                  style={{
-                    fontSize: "0.6rem",
-                    letterSpacing: "0.12em",
-                    textTransform: "uppercase",
-                    color: "#64748b",
-                    marginTop: "3px",
-                  }}
-                >
+                <div style={{ fontSize: "10px", color: "#64748b",
+                  letterSpacing: "0.08em", textTransform: "uppercase",
+                  marginTop: "2px" }}>
                   Protocol Platform
                 </div>
-                <div style={{ fontSize: "0.7rem", color: "#64748b", marginTop: "2px" }}>
+                <div style={{ fontSize: "11px", color: "#64748b",
+                  marginTop: "2px" }}>
                   myoguard.health
                 </div>
               </div>
 
-              {/* Right: physician credentials */}
+              {/* RIGHT — Physician credentials */}
               <div style={{ textAlign: "right" }}>
-                <div style={{ fontWeight: "700", color: "#000000", fontSize: "1rem" }}>
+                <div style={{ fontSize: "15px", fontWeight: "700",
+                  fontFamily: "Georgia, serif", color: "#000000" }}>
                   {displayName}
                 </div>
                 {physicianSpecialty && (
-                  <div style={{ color: "#475569", fontSize: "0.8125rem", marginTop: "2px" }}>{physicianSpecialty}</div>
+                  <div style={{ fontSize: "12px", color: "#475569",
+                    marginTop: "2px" }}>
+                    {physicianSpecialty}
+                  </div>
                 )}
                 {physician && (
-                  <div style={{ color: "#065f46", fontSize: "0.6875rem", fontWeight: "500", marginTop: "3px" }}>
+                  <div style={{ fontSize: "11px", color: "#065f46",
+                    fontWeight: "500", marginTop: "2px" }}>
                     Certified MyoGuard Specialist
                   </div>
                 )}
-                {physicianLicense && (
-                  <div style={{ color: "#64748b", fontSize: "0.6875rem", marginTop: "2px" }}>Lic. {physicianLicense}</div>
+                {physician?.license && (
+                  <div style={{ fontSize: "11px", color: "#64748b",
+                    marginTop: "2px" }}>
+                    Lic. {physician.license}
+                  </div>
                 )}
               </div>
             </div>
@@ -450,6 +450,42 @@ export default async function ProtocolViewPage({
               </div>
             )}
 
+            {/* ── Physician signature line ── */}
+            <div style={{
+              marginTop: "32px",
+              paddingTop: "16px",
+              borderTop: "1px solid #e2e8f0"
+            }}>
+              <div style={{ display: "flex",
+                justifyContent: "space-between", alignItems: "flex-end" }}>
+                <div>
+                  <div style={{ width: "200px", borderBottom: "1px solid #000",
+                    marginBottom: "6px" }} />
+                  <div style={{ fontSize: "12px", fontWeight: "600",
+                    color: "#000000", fontFamily: "Georgia, serif" }}>
+                    {displayName}
+                  </div>
+                  <div style={{ fontSize: "11px", color: "#475569" }}>
+                    {physicianSpecialty}
+                    {physician?.license ? ` · Lic. ${physician.license}` : ""}
+                  </div>
+                  <div style={{ fontSize: "11px", color: "#475569",
+                    marginTop: "2px" }}>
+                    Authorized by attending physician
+                  </div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: "11px", color: "#64748b" }}>
+                    {generatedDate}
+                  </div>
+                  <div style={{ fontSize: "11px", color: "#64748b",
+                    marginTop: "2px" }}>
+                    MyoGuard Protocol Platform
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* ── Footer row: disclaimer + QR ── */}
             <div
               className="print-flex"
@@ -471,20 +507,6 @@ export default async function ProtocolViewPage({
               </div>
             </div>
 
-            {/* ── Physician signature line ── */}
-            <div style={{ marginTop: "2.5rem", paddingTop: "1rem" }}>
-              <p className="p-black" style={{ fontSize: "0.875rem", fontWeight: "600" }}>
-                Authorized by: {displayName}{physicianSpecialty ? `, ${physicianSpecialty}` : ""}
-              </p>
-              <p className="p-muted" style={{ fontSize: "0.75rem", marginTop: "0.2rem" }}>
-                {[physicianLicense ? `Lic. ${physicianLicense}` : null, physicianCountry, generatedDate]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </p>
-              <p className="p-black" style={{ fontSize: "0.8rem", marginTop: "1.5rem" }}>
-                _________________________________
-              </p>
-            </div>
 
           </div>
           {/* end print-only */}
