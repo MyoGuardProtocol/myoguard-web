@@ -28,6 +28,40 @@ export async function POST(req: Request) {
   });
 
   if (action === "APPROVE") {
+    // Step 1 — promote User.role to PHYSICIAN
+    if (application.clerkUserId) {
+      await prisma.user.update({
+        where: { clerkId: application.clerkUserId },
+        data:  { role: "PHYSICIAN" },
+      }).catch((e: unknown) => {
+        console.error("[physician-review] User role update failed:", e);
+      });
+    } else {
+      await prisma.user.updateMany({
+        where: { email: application.email },
+        data:  { role: "PHYSICIAN" },
+      }).catch((e: unknown) => {
+        console.error("[physician-review] fallback email role update failed:", e);
+      });
+    }
+
+    // Step 2 — sync Clerk publicMetadata
+    if (application.clerkUserId) {
+      await fetch(
+        `https://api.clerk.com/v1/users/${application.clerkUserId}/metadata`,
+        {
+          method: "PATCH",
+          headers: {
+            "Authorization": `Bearer ${process.env.CLERK_SECRET_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ public_metadata: { role: "PHYSICIAN" } }),
+        }
+      ).catch((e: unknown) => {
+        console.error("[physician-review] Clerk metadata update failed:", e);
+      });
+    }
+
     await resend.emails.send({
       from:    "MyoGuard Protocol <noreply@myoguard.health>",
       to:      application.email,
@@ -54,7 +88,7 @@ export async function POST(req: Request) {
       is now fully active on the MyoGuard Protocol platform.
     </p>
     <div style="text-align: center; margin-bottom: 24px;">
-      <a href="https://myoguard.health/sign-in"
+      <a href="https://myoguard.health/doctor/sign-in"
          style="display: inline-block; background: #0d9488; color: #ffffff;
                 padding: 14px 32px; border-radius: 10px; font-size: 14px;
                 font-weight: 600; text-decoration: none;">
