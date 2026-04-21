@@ -74,8 +74,7 @@ export default async function DoctorDashboardPage() {
   // ── Role routing ──────────────────────────────────────────────────────────
   if (user.role === 'ADMIN')   redirect('/admin/physicians');
   if (user.role === 'PATIENT') redirect('/dashboard');
-
-  // ── PHYSICIAN_PENDING ─────────────────────────────────────────────────────
+  // PHYSICIAN and PHYSICIAN_PENDING both fall through to JSX below
   return (
     <main className="min-h-screen bg-slate-50 font-sans">
 
@@ -89,9 +88,16 @@ export default async function DoctorDashboardPage() {
             <span className="text-slate-400 font-light text-sm ml-0.5">Protocol</span>
           </Link>
           <div className="flex items-center gap-3">
-            <span className="text-xs bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-3 py-1 font-semibold">
-              Pending Verification
-            </span>
+            {user.role === 'PHYSICIAN_PENDING' && (
+              <span className="text-xs bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-3 py-1 font-semibold">
+                Pending Verification
+              </span>
+            )}
+            {user.role === 'PHYSICIAN' && (
+              <span className="text-xs bg-teal-50 text-teal-700 border border-teal-200 rounded-full px-3 py-1 font-semibold">
+                Verified Physician
+              </span>
+            )}
             <PhysicianAvatar
               fullName={user.fullName}
               email={user.email}
@@ -101,6 +107,35 @@ export default async function DoctorDashboardPage() {
         </div>
       </header>
 
+      {user.role === 'PHYSICIAN' && (
+        <div className="max-w-2xl mx-auto px-6 py-12 text-center">
+          <h1 className="text-2xl font-bold text-slate-900 mb-2">
+            Welcome to your Clinical Command Center
+          </h1>
+          <p className="text-slate-500 text-sm mb-8">
+            Your physician account is verified and active.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <a href="/doctor/patients"
+              className="bg-white border border-slate-200 rounded-2xl p-6 hover:border-teal-300 transition-colors text-left">
+              <p className="text-sm font-semibold text-slate-900">My Patients</p>
+              <p className="text-xs text-slate-400 mt-1">View and manage your patient panel</p>
+            </a>
+            <a href="/doctor/start-sheet"
+              className="bg-white border border-slate-200 rounded-2xl p-6 hover:border-teal-300 transition-colors text-left">
+              <p className="text-sm font-semibold text-slate-900">Start Sheet</p>
+              <p className="text-xs text-slate-400 mt-1">Generate a muscle protection protocol</p>
+            </a>
+            <a href="/doctor/start"
+              className="bg-white border border-slate-200 rounded-2xl p-6 hover:border-teal-300 transition-colors text-left">
+              <p className="text-sm font-semibold text-slate-900">Invite Patients</p>
+              <p className="text-xs text-slate-400 mt-1">Share your referral link or QR code</p>
+            </a>
+          </div>
+        </div>
+      )}
+
+      {user.role === 'PHYSICIAN_PENDING' && (
       <div className="max-w-2xl mx-auto px-6 py-12 space-y-5">
 
         {/* ── Status card ── */}
@@ -193,6 +228,7 @@ export default async function DoctorDashboardPage() {
           </SignOutButton>
         </div>
       </div>
+      )}
     </main>
   );
 }
