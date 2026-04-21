@@ -28,35 +28,58 @@ async function sendEmail(to: string, doctorName: string, inviteUrl: string) {
   const key = process.env.RESEND_API_KEY;
   if (!key) throw new Error('RESEND_API_KEY is not configured on this server.');
 
+  const cleanName          = doctorName.replace(/^Dr\.?\s*/i, '').trim();
+  const displayDoctorName  = `Dr. ${cleanName}`;
+
   const html = `<!DOCTYPE html>
 <html lang="en">
-<body style="margin:0;padding:24px;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1e293b;">
-  <div style="max-width:520px;margin:0 auto;">
-    <p style="font-size:24px;font-weight:900;color:#0f172a;margin:0 0 4px;">
-      Myo<span style="color:#0d9488;">Guard</span>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <div style="max-width:540px;margin:0 auto;padding:32px 16px;">
+
+    <!-- Header -->
+    <div style="background:#1a1a1a;border-radius:12px 12px 0 0;padding:28px 32px;text-align:center;">
+      <p style="margin:0;font-size:26px;font-weight:900;letter-spacing:-0.02em;">
+        <span style="color:#ffffff;">Myo</span><span style="color:#2dd4bf;">Guard</span>
+      </p>
+      <p style="margin:4px 0 0;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.1em;">Protocol Platform</p>
+    </div>
+
+    <!-- Body -->
+    <div style="background:#ffffff;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 12px 12px;padding:36px 32px;">
+
+      <h1 style="margin:0 0 16px;font-size:20px;font-weight:800;color:#0f172a;">
+        You've been invited by ${displayDoctorName}
+      </h1>
+
+      <p style="margin:0 0 20px;font-size:15px;color:#334155;line-height:1.7;font-family:Georgia,'Times New Roman',serif;">
+        ${displayDoctorName} is using the MyoGuard Protocol Platform to protect their patients'
+        muscle health during GLP-1 therapy.
+      </p>
+
+      <p style="margin:0 0 28px;font-size:14px;color:#475569;line-height:1.7;">
+        As their patient, you'll receive a personalised muscle protection protocol —
+        including your protein targets, supplement guidance, and weekly check-in monitoring.
+      </p>
+
+      <div style="text-align:center;margin-bottom:32px;">
+        <a href="${inviteUrl}"
+           style="display:inline-block;background:#0d9488;color:#ffffff;font-size:14px;font-weight:700;padding:15px 36px;border-radius:10px;text-decoration:none;letter-spacing:0.01em;">
+          Accept ${displayDoctorName}'s Invitation →
+        </a>
+      </div>
+
+      <hr style="border:none;border-top:1px solid #f1f5f9;margin:0 0 20px;" />
+
+      <p style="margin:0;font-size:11px;color:#94a3b8;line-height:1.7;text-align:center;">
+        You were invited by ${displayDoctorName}. If you don't recognise this invitation, you can ignore this email.
+      </p>
+    </div>
+
+    <!-- Footer -->
+    <p style="margin:16px 0 0;font-size:11px;color:#94a3b8;text-align:center;">
+      MyoGuard Protocol Platform · <a href="https://myoguard.health" style="color:#0d9488;text-decoration:none;">myoguard.health</a>
     </p>
-    <p style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.1em;margin:0 0 28px;">
-      Protocol Platform
-    </p>
-    <h1 style="font-size:18px;font-weight:800;color:#0f172a;margin:0 0 12px;">
-      You've been invited to MyoGuard
-    </h1>
-    <p style="font-size:14px;color:#475569;line-height:1.7;margin:0 0 16px;">
-      <strong>${doctorName}</strong> has invited you to join their patient panel on
-      MyoGuard — a physician-guided muscle protection platform for GLP-1 therapy.
-    </p>
-    <p style="font-size:14px;color:#475569;line-height:1.7;margin:0 0 24px;">
-      Your personalised protocol will be tailored to preserve lean muscle mass, reduce
-      side effects, and improve your outcomes during treatment.
-    </p>
-    <a href="${inviteUrl}"
-       style="display:inline-block;background:#0d9488;color:#ffffff;font-size:14px;font-weight:700;padding:14px 32px;border-radius:12px;text-decoration:none;">
-      Accept Invitation →
-    </a>
-    <p style="margin-top:32px;font-size:11px;color:#94a3b8;line-height:1.6;">
-      © 2026 MyoGuard Protocol · MyoGuard Clinical Oversight ·
-      <a href="${APP_URL}/privacy" style="color:#0d9488;text-decoration:none;">Privacy Policy</a>
-    </p>
+
   </div>
 </body>
 </html>`;
@@ -68,9 +91,9 @@ async function sendEmail(to: string, doctorName: string, inviteUrl: string) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from:     'MyoGuard Health <hello@myoguard.health>',
+      from:     `${displayDoctorName} via MyoGuard <hello@myoguard.health>`,
       to,
-      subject:  `${doctorName} invited you to MyoGuard`,
+      subject:  `${displayDoctorName} has invited you to their MyoGuard Protocol`,
       html,
       reply_to: 'hello@myoguard.health',
     }),

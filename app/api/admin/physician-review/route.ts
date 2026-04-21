@@ -45,7 +45,38 @@ export async function POST(req: Request) {
       });
     }
 
-    // Step 2 — sync Clerk publicMetadata
+    // Step 2 — generate referral slug and create PhysicianProfile
+    const nameParts = application.name
+      .replace(/^Dr\.?\s*/i, "")
+      .trim()
+      .split(/\s+/)
+    const lastName = nameParts[nameParts.length - 1] ?? "physician"
+    const randomSuffix = Math.floor(100 + Math.random() * 900)
+    const referralSlug = `dr-${lastName.toLowerCase()}-${randomSuffix}`
+    const referralCode = `DR-${lastName.toUpperCase()}-${randomSuffix}`
+
+    if (application.clerkUserId) {
+      await prisma.user.update({
+        where: { clerkId: application.clerkUserId },
+        data:  { referralSlug },
+      }).catch((e: unknown) => {
+        console.error("[physician-review] referralSlug update failed:", e)
+      })
+    }
+
+    await prisma.physicianProfile.create({
+      data: {
+        slug:        referralSlug,
+        displayName: application.name,
+        specialty:   application.specialty ?? undefined,
+        referralCode,
+        isActive:    true,
+      },
+    }).catch((e: unknown) => {
+      console.error("[physician-review] PhysicianProfile create failed:", e)
+    })
+
+    // Step 3 — sync Clerk publicMetadata
     if (application.clerkUserId) {
       await fetch(
         `https://api.clerk.com/v1/users/${application.clerkUserId}/metadata`,
