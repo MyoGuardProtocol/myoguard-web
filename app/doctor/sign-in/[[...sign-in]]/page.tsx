@@ -94,9 +94,18 @@ export default async function PhysicianSignInPage() {
             primaryButton: {
               backgroundColor: "#10B981",
             },
+            footerAction: { display: "none" },
+            footerPages: { display: "none" },
           },
         }}
       />
+
+      <p style={{ textAlign: "center", marginTop: "16px", fontSize: "13px", color: "#64748b" }}>
+        Not yet registered?{" "}
+        <a href="/doctor/sign-up" style={{ color: "#2dd4bf", textDecoration: "underline" }}>
+          Apply for physician access
+        </a>
+      </p>
 
       <Link
         href="/"
