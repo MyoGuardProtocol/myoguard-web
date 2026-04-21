@@ -759,7 +759,7 @@ export default function StartSheetPage() {
                     <p className="text-xs text-slate-400 uppercase tracking-widest mb-3">
                       Supplement Stack
                     </p>
-                    <div key={effectiveRisk} className="flex flex-wrap gap-2">
+                    <div key={riskLevel ?? "none"} className="flex flex-wrap gap-2">
                       {supplements.map((s, i) => (
                         <span
                           key={s}
