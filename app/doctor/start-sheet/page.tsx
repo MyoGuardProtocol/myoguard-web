@@ -74,10 +74,8 @@ function computeMyoGuardScore(inputs: {
     inputs.symptoms.includes("Vomiting") ||
     inputs.symptoms.includes("Gastroparesis");
 
-  const proteinTarget =
-    inputs.age >= 65 ? inputs.weightKg * 1.8 :
-    inputs.age >= 50 ? inputs.weightKg * 1.5 :
-    inputs.weightKg * 1.2;
+  const ageM = inputs.age >= 65 ? 1.8 : inputs.age >= 50 ? 1.5 : 1.2;
+  const proteinTarget = inputs.weightKg * ageM;
 
   const proteinRatio = Math.min(inputs.proteinG / proteinTarget, 1);
   const proteinScore = proteinRatio * 40;
@@ -190,26 +188,32 @@ export default function StartSheetPage() {
   }, [weight, protein, age, selectedDrug, symptoms, activityLevel]);
 
   // ── Live protocol calculations ──────────────────────────────────────────────
-  const parsedWeight  = parseFloat(weight) || 0;
-  const parsedAge     = parseInt(age) || 0;
+  const parsedWeight = parseFloat(weight) || 0;
+  const parsedAge = parseInt(age) || 0;
   const effectiveRisk = riskLevel ?? "Moderate";
 
-  const ageAdjustedBase =
-    parsedAge >= 65 ? parsedWeight * 1.8 :
-    parsedAge >= 50 ? parsedWeight * 1.5 :
-    parsedWeight * 1.2;
+  const ageMultiplier =
+    parsedAge >= 65 ? 1.8 :
+    parsedAge >= 50 ? 1.5 : 1.2;
 
-  const proteinTarget =
-    parsedWeight > 0
-      ? Math.round(
-          effectiveRisk === "High"     ? ageAdjustedBase * 1.5  :
-          effectiveRisk === "Moderate" ? ageAdjustedBase * 1.25 :
-          ageAdjustedBase
-        )
-      : 0;
+  const riskMultiplier =
+    (riskLevel ?? effectiveRisk) === "High" ? 1.8 :
+    (riskLevel ?? effectiveRisk) === "Moderate" ? 1.5 : 1.2;
 
-  const hydrationBase   = parsedWeight > 0 ? Math.round(parsedWeight * 35) : 0;
-  const hydrationTarget = effectiveRisk === "High" ? hydrationBase + 500 : hydrationBase;
+  const finalMultiplier = Math.max(ageMultiplier, riskMultiplier);
+  const proteinTarget = Math.round(parsedWeight * finalMultiplier);
+
+  const ageNote =
+    parsedAge >= 65 ? " · geriatric protocol" :
+    parsedAge >= 50 ? " · age-adjusted" : "";
+
+  const hydrationBase = parsedWeight * 30;
+  const hydrationBonus = (riskLevel === "High" || effectiveRisk === "High") ? 300 : 0;
+  const hydrationRaw = hydrationBase + hydrationBonus;
+  const activityCap =
+    activityLevel === "Active" ? 4000 :
+    activityLevel === "Moderate" ? 3500 : 3000;
+  const hydrationTarget = Math.min(hydrationRaw, activityCap);
   const resistanceFreq  = calcResistance(effectiveRisk);
   const supplements     = calcSupplements(effectiveRisk);
   const riskStyle       = RISK_STYLE[effectiveRisk];
@@ -682,7 +686,7 @@ export default function StartSheetPage() {
                     </div>
                     {parsedWeight > 0 && (
                       <p className="text-xs text-slate-500 mt-2">
-                        Based on {effectiveRisk} protocol · {parsedWeight}kg{parsedAge >= 50 ? " · age-adjusted" : ""}
+                        Based on {effectiveRisk} protocol · {parsedWeight}kg{ageNote}
                       </p>
                     )}
 
