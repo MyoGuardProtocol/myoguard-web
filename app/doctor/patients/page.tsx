@@ -10,7 +10,8 @@
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/src/lib/prisma';
-import PhysicianNav from '@/src/components/ui/PhysicianNav';
+import Link from 'next/link';
+import PhysicianAvatar from '@/src/components/ui/PhysicianAvatar';
 import PatientCommandCenter, { type PatientRow } from '@/src/components/ui/PatientCommandCenter';
 import PatientGrowthCard from '@/src/components/ui/PatientGrowthCard';
 
@@ -128,7 +129,7 @@ export default async function PatientsPage() {
 
   const physician = await prisma.user.findUnique({
     where:  { clerkId },
-    select: { id: true, role: true, fullName: true, referralSlug: true, isVerified: true },
+    select: { id: true, role: true, fullName: true, email: true, referralSlug: true, isVerified: true },
   });
 
   if (!physician)                            redirect('/dashboard');
@@ -226,9 +227,46 @@ export default async function PatientsPage() {
     return (a.score ?? 100) - (b.score ?? 100);
   });
 
+  const navLinks = [
+    { label: 'Dashboard',   href: '/doctor/dashboard' },
+    { label: 'Patients',    href: '/doctor/patients' },
+    { label: 'Start Sheet', href: '/doctor/start-sheet' },
+    { label: 'Invite',      href: '/doctor/start' },
+  ];
+
   return (
-    <main style={{ minHeight: '100vh', background: '#050A15' }}>
-      <PhysicianNav />
+    <main style={{ background: '#080C14', minHeight: '100vh' }}>
+
+      {/* Sticky nav */}
+      <header style={{
+        position: 'sticky', top: 0, zIndex: 50,
+        background: '#060D1E',
+        borderBottom: '1px solid rgba(255,255,255,0.07)',
+      }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 24px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '24px' }}>
+          <Link href="/" style={{ display: 'flex', alignItems: 'baseline', gap: '2px', textDecoration: 'none', flexShrink: 0 }}>
+            <span style={{ fontSize: '1.1rem', fontWeight: 900, color: '#ffffff', letterSpacing: '-0.02em' }}>Myo</span>
+            <span style={{ fontSize: '1.1rem', fontWeight: 900, color: '#2DD4BF', letterSpacing: '-0.02em' }}>Guard</span>
+          </Link>
+          <nav style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1, justifyContent: 'center' }}>
+            {navLinks.map(({ label, href }) => {
+              const active = href === '/doctor/patients';
+              return (
+                <Link key={href} href={href} style={{
+                  padding: '6px 14px', borderRadius: '8px', fontSize: '0.8125rem', fontWeight: 500, textDecoration: 'none',
+                  color:      active ? '#2DD4BF' : 'rgba(255,255,255,0.55)',
+                  background: active ? 'rgba(45,212,191,0.08)' : 'transparent',
+                  transition: 'color 0.15s, background 0.15s',
+                }}>
+                  {label}
+                </Link>
+              );
+            })}
+          </nav>
+          <PhysicianAvatar fullName={physician.fullName} email={physician.email} role={physician.role} />
+        </div>
+      </header>
+
       <div className="max-w-6xl mx-auto px-6 py-6">
         <PatientGrowthCard
           doctorId={physician.id}

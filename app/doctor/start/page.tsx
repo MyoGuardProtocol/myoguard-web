@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { prisma } from '@/src/lib/prisma';
 import Link from 'next/link';
 import CopyButton from './CopyButton';
-import PhysicianNav from '@/src/components/ui/PhysicianNav';
+import PhysicianAvatar from '@/src/components/ui/PhysicianAvatar';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://myoguard.health';
 
@@ -14,7 +14,7 @@ export default async function DoctorStartPage() {
   // Look up the physician profile linked to this user
   const user = await prisma.user.findUnique({
     where: { clerkId: userId },
-    select: { role: true, referralSlug: true, fullName: true },
+    select: { role: true, referralSlug: true, fullName: true, email: true },
   });
 
   // Role routing — PHYSICIAN_PENDING gets the holding screen
@@ -35,112 +35,131 @@ export default async function DoctorStartPage() {
 
   const displayName = physician?.displayName ?? user.fullName ?? 'Physician';
 
-  return (
-    <main className="min-h-screen bg-slate-50 font-sans">
-      <PhysicianNav activePath="/doctor/start" displayName={displayName} />
+  const navLinks = [
+    { label: 'Dashboard',   href: '/doctor/dashboard' },
+    { label: 'Patients',    href: '/doctor/patients' },
+    { label: 'Start Sheet', href: '/doctor/start-sheet' },
+    { label: 'Invite',      href: '/doctor/start' },
+  ];
 
-      <div className="max-w-3xl mx-auto px-6 py-10 space-y-6">
+  return (
+    <main style={{ background: '#080C14', minHeight: '100vh' }}>
+
+      {/* Sticky nav */}
+      <header style={{
+        position: 'sticky', top: 0, zIndex: 50,
+        background: '#060D1E',
+        borderBottom: '1px solid rgba(255,255,255,0.07)',
+      }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 24px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '24px' }}>
+          <Link href="/" style={{ display: 'flex', alignItems: 'baseline', gap: '2px', textDecoration: 'none', flexShrink: 0 }}>
+            <span style={{ fontSize: '1.1rem', fontWeight: 900, color: '#ffffff', letterSpacing: '-0.02em' }}>Myo</span>
+            <span style={{ fontSize: '1.1rem', fontWeight: 900, color: '#2DD4BF', letterSpacing: '-0.02em' }}>Guard</span>
+          </Link>
+          <nav style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1, justifyContent: 'center' }}>
+            {navLinks.map(({ label, href }) => {
+              const active = href === '/doctor/start';
+              return (
+                <Link key={href} href={href} style={{
+                  padding: '6px 14px', borderRadius: '8px', fontSize: '0.8125rem', fontWeight: 500, textDecoration: 'none',
+                  color:      active ? '#2DD4BF' : 'rgba(255,255,255,0.55)',
+                  background: active ? 'rgba(45,212,191,0.08)' : 'transparent',
+                  transition: 'color 0.15s, background 0.15s',
+                }}>
+                  {label}
+                </Link>
+              );
+            })}
+          </nav>
+          <PhysicianAvatar fullName={user.fullName ?? ''} email={user.email} role={user.role} />
+        </div>
+      </header>
+
+      <div style={{ maxWidth: '768px', margin: '0 auto', padding: '40px 24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Physician Start Sheet</h1>
-          <p className="text-slate-500 text-sm mt-1">
+          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#ffffff', margin: 0 }}>Invite Patients</h1>
+          <p style={{ color: '#94a3b8', fontSize: '0.875rem', marginTop: '4px' }}>
             Everything you need to refer patients to the MyoGuard Protocol.
           </p>
         </div>
 
         {/* Referral Link */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-          <p className="text-xs font-semibold text-teal-600 uppercase tracking-wide mb-3">Your Referral Link</p>
-
+        <div style={{ background: '#0f1729', border: '1px solid #1e293b', borderRadius: '16px', padding: '20px' }}>
+          <p style={{ fontSize: '0.7rem', fontWeight: 600, color: '#2DD4BF', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Your Referral Link</p>
           {referralUrl ? (
             <>
-              <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-lg px-4 py-3">
-                <code className="text-sm text-slate-700 flex-1 break-all">{referralUrl}</code>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#0a0f1e', border: '1px solid #1e293b', borderRadius: '8px', padding: '12px 16px' }}>
+                <code style={{ fontSize: '0.875rem', color: '#cbd5e1', flex: 1, wordBreak: 'break-all' }}>{referralUrl}</code>
                 <CopyButton text={referralUrl} />
               </div>
-              <p className="text-xs text-slate-400 mt-2">
+              <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '8px' }}>
                 Share this link with patients. Their assessments will be attributed to your profile.
               </p>
             </>
           ) : (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
-              <p className="text-sm text-amber-700 font-medium">No referral slug assigned</p>
-              <p className="text-xs text-amber-600 mt-1">
-                Contact <a href="mailto:hello@myoguard.health" className="underline">hello@myoguard.health</a> to have a referral slug created for your account.
+            <div style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: '8px', padding: '12px 16px' }}>
+              <p style={{ fontSize: '0.875rem', color: '#fbbf24', fontWeight: 500, margin: 0 }}>No referral slug assigned</p>
+              <p style={{ fontSize: '0.75rem', color: '#d97706', marginTop: '4px' }}>
+                Contact <a href="mailto:hello@myoguard.health" style={{ color: '#2DD4BF' }}>hello@myoguard.health</a> to have a referral slug created for your account.
               </p>
             </div>
           )}
         </div>
 
-        {/* ── Patient Code + Join Link ── */}
+        {/* Patient Code + Join Link */}
         {physician?.referralCode ? (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-            <p className="text-xs font-semibold text-teal-600 uppercase tracking-wide mb-3">Patient Access Code</p>
-
-            {/* The code itself */}
-            <div className="flex items-center gap-3 bg-teal-50 border border-teal-100 rounded-xl px-4 py-3 mb-3">
-              <code className="text-xl font-black text-teal-800 tracking-widest flex-1 select-all">
+          <div style={{ background: '#0f1729', border: '1px solid #1e293b', borderRadius: '16px', padding: '20px' }}>
+            <p style={{ fontSize: '0.7rem', fontWeight: 600, color: '#2DD4BF', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Patient Access Code</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(45,212,191,0.06)', border: '1px solid rgba(45,212,191,0.15)', borderRadius: '12px', padding: '12px 16px', marginBottom: '12px' }}>
+              <code style={{ fontSize: '1.25rem', fontWeight: 900, color: '#2DD4BF', letterSpacing: '0.1em', flex: 1 }}>
                 {physician.referralCode}
               </code>
               <CopyButton text={physician.referralCode} />
             </div>
-            <p className="text-xs text-slate-500 mb-4">
+            <p style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '16px' }}>
               Share this code with patients. They enter it during MyoGuard sign-up to automatically link their account to yours.
             </p>
-
-            {/* Join link */}
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Or share the direct join link</p>
-            <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5">
-              <code className="text-xs text-slate-600 flex-1 break-all">
+            <p style={{ fontSize: '0.7rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Or share the direct join link</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#0a0f1e', border: '1px solid #1e293b', borderRadius: '8px', padding: '10px 16px' }}>
+              <code style={{ fontSize: '0.75rem', color: '#94a3b8', flex: 1, wordBreak: 'break-all' }}>
                 {APP_URL}/join?ref={physician.referralCode}
               </code>
               <CopyButton text={`${APP_URL}/join?ref=${physician.referralCode}`} />
             </div>
-            <p className="text-xs text-slate-400 mt-2">
+            <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '8px' }}>
               Patients who click this link will see your name and be guided through sign-up automatically.
             </p>
           </div>
         ) : slug ? (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-            <p className="text-xs font-semibold text-teal-600 uppercase tracking-wide mb-3">Patient Access Code</p>
-            <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
-              <p className="text-sm text-amber-700 font-medium">Code not yet generated</p>
-              <p className="text-xs text-amber-600 mt-1">
+          <div style={{ background: '#0f1729', border: '1px solid #1e293b', borderRadius: '16px', padding: '20px' }}>
+            <p style={{ fontSize: '0.7rem', fontWeight: 600, color: '#2DD4BF', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Patient Access Code</p>
+            <div style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: '8px', padding: '12px 16px' }}>
+              <p style={{ fontSize: '0.875rem', color: '#fbbf24', fontWeight: 500, margin: 0 }}>Code not yet generated</p>
+              <p style={{ fontSize: '0.75rem', color: '#d97706', marginTop: '4px' }}>
                 Your patient access code will appear here after your account is fully activated.
-                Contact <a href="mailto:hello@myoguard.health" className="underline">hello@myoguard.health</a> if this persists.
+                Contact <a href="mailto:hello@myoguard.health" style={{ color: '#2DD4BF' }}>hello@myoguard.health</a> if this persists.
               </p>
             </div>
           </div>
         ) : null}
 
         {/* How It Works */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-          <p className="text-xs font-semibold text-teal-600 uppercase tracking-wide mb-4">How It Works</p>
-          <ol className="space-y-4">
+        <div style={{ background: '#0f1729', border: '1px solid #1e293b', borderRadius: '16px', padding: '20px' }}>
+          <p style={{ fontSize: '0.7rem', fontWeight: 600, color: '#2DD4BF', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '16px' }}>How It Works</p>
+          <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {[
-              {
-                n:    '1',
-                head: 'Share your link',
-                body: `Send patients ${referralUrl ?? 'your personalised referral URL'} via email, WhatsApp, or your patient portal.`,
-              },
-              {
-                n:    '2',
-                head: 'Patients complete the assessment',
-                body: 'They enter their GLP-1 medication, dose, weight, activity level, and current symptoms. No account required.',
-              },
-              {
-                n:    '3',
-                head: 'Protocol generated instantly',
-                body: 'A personalised protein, fibre, and hydration protocol plus a MyoGuard Score are calculated and displayed in seconds.',
-              },
+              { n: '1', head: 'Share your link', body: `Send patients ${referralUrl ?? 'your personalised referral URL'} via email, WhatsApp, or your patient portal.` },
+              { n: '2', head: 'Patients complete the assessment', body: 'They enter their GLP-1 medication, dose, weight, activity level, and current symptoms. No account required.' },
+              { n: '3', head: 'Protocol generated instantly', body: 'A personalised protein, fibre, and hydration protocol plus a MyoGuard Score are calculated and displayed in seconds.' },
             ].map(step => (
-              <li key={step.n} className="flex gap-4">
-                <span className="w-7 h-7 rounded-full bg-teal-600 text-white text-xs font-bold flex-shrink-0 flex items-center justify-center">
+              <li key={step.n} style={{ display: 'flex', gap: '16px' }}>
+                <span style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#0d9488', color: '#ffffff', fontSize: '0.75rem', fontWeight: 700, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {step.n}
                 </span>
                 <div>
-                  <p className="text-sm font-semibold text-slate-800">{step.head}</p>
-                  <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{step.body}</p>
+                  <p style={{ fontSize: '0.875rem', fontWeight: 600, color: '#ffffff', margin: 0 }}>{step.head}</p>
+                  <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px', lineHeight: 1.6 }}>{step.body}</p>
                 </div>
               </li>
             ))}
@@ -149,56 +168,50 @@ export default async function DoctorStartPage() {
 
         {/* Profile Summary */}
         {physician && (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-            <p className="text-xs font-semibold text-teal-600 uppercase tracking-wide mb-3">Your Profile</p>
-            <dl className="space-y-2 text-sm">
-              <div className="flex gap-2">
-                <dt className="text-slate-500 w-32 flex-shrink-0">Display name</dt>
-                <dd className="text-slate-800 font-medium">{physician.displayName}</dd>
+          <div style={{ background: '#0f1729', border: '1px solid #1e293b', borderRadius: '16px', padding: '20px' }}>
+            <p style={{ fontSize: '0.7rem', fontWeight: 600, color: '#2DD4BF', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Your Profile</p>
+            <dl style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.875rem' }}>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <dt style={{ color: '#64748b', width: '128px', flexShrink: 0 }}>Display name</dt>
+                <dd style={{ color: '#ffffff', fontWeight: 500, margin: 0 }}>{physician.displayName}</dd>
               </div>
               {physician.clinicName && (
-                <div className="flex gap-2">
-                  <dt className="text-slate-500 w-32 flex-shrink-0">Clinic</dt>
-                  <dd className="text-slate-800">{physician.clinicName}</dd>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <dt style={{ color: '#64748b', width: '128px', flexShrink: 0 }}>Clinic</dt>
+                  <dd style={{ color: '#e2e8f0', margin: 0 }}>{physician.clinicName}</dd>
                 </div>
               )}
               {physician.specialty && (
-                <div className="flex gap-2">
-                  <dt className="text-slate-500 w-32 flex-shrink-0">Specialty</dt>
-                  <dd className="text-slate-800">{physician.specialty}</dd>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <dt style={{ color: '#64748b', width: '128px', flexShrink: 0 }}>Specialty</dt>
+                  <dd style={{ color: '#e2e8f0', margin: 0 }}>{physician.specialty}</dd>
                 </div>
               )}
-              <div className="flex gap-2">
-                <dt className="text-slate-500 w-32 flex-shrink-0">Slug</dt>
-                <dd className="text-slate-600 font-mono text-xs">{physician.slug}</dd>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <dt style={{ color: '#64748b', width: '128px', flexShrink: 0 }}>Slug</dt>
+                <dd style={{ color: '#94a3b8', fontFamily: 'monospace', fontSize: '0.75rem', margin: 0 }}>{physician.slug}</dd>
               </div>
             </dl>
-            <p className="mt-3 text-xs text-slate-400">
-              To update your profile details, contact <a href="mailto:hello@myoguard.health" className="underline hover:text-slate-600">hello@myoguard.health</a>.
+            <p style={{ marginTop: '12px', fontSize: '0.75rem', color: '#64748b' }}>
+              To update your profile details, contact <a href="mailto:hello@myoguard.health" style={{ color: '#2DD4BF' }}>hello@myoguard.health</a>.
             </p>
           </div>
         )}
 
         {/* Patient Panel */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-          <p className="text-xs font-semibold text-teal-600 uppercase tracking-wide mb-3">Patient Overview</p>
-          <p className="text-sm text-slate-500 leading-relaxed mb-4">
+        <div style={{ background: '#0f1729', border: '1px solid #1e293b', borderRadius: '16px', padding: '20px' }}>
+          <p style={{ fontSize: '0.7rem', fontWeight: 600, color: '#2DD4BF', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Patient Overview</p>
+          <p style={{ fontSize: '0.875rem', color: '#64748b', lineHeight: 1.6, marginBottom: '16px' }}>
             View all your attributed patients, sorted by highest muscle-protection risk. Each patient card shows their latest MyoGuard Score, risk band, and key clinical flags.
           </p>
           <Link
             href="/doctor/patients"
-            className="inline-flex items-center gap-2 bg-teal-600 text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-teal-700 transition-colors"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#0d9488', color: '#ffffff', fontSize: '0.875rem', fontWeight: 600, padding: '10px 20px', borderRadius: '10px', textDecoration: 'none' }}
           >
             View Patient List →
           </Link>
         </div>
 
-        {/* Nav */}
-        <div>
-          <Link href="/doctor/patients" className="text-sm text-teal-600 hover:underline font-medium">
-            ← Patient Overview
-          </Link>
-        </div>
       </div>
     </main>
   );
