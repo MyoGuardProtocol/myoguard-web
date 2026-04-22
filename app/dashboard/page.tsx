@@ -37,13 +37,9 @@ export default async function PatientDashboardPage() {
     },
   }).catch(() => null);
 
-  if (
-    dbUser?.role === 'PHYSICIAN' ||
-    dbUser?.role === 'PHYSICIAN_PENDING' ||
-    dbUser?.role === 'ADMIN'
-  ) {
-    redirect('/doctor/onboarding');
-  }
+  if (dbUser?.role === 'PHYSICIAN')         redirect('/doctor/dashboard');
+  if (dbUser?.role === 'PHYSICIAN_PENDING') redirect('/doctor/onboarding/pending');
+  if (dbUser?.role === 'ADMIN')             redirect('/admin/physicians');
 
   const clerkUser  = await currentUser();
   const firstName  = clerkUser?.firstName

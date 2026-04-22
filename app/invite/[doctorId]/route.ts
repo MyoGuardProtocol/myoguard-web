@@ -22,10 +22,13 @@ export async function GET(
 ) {
   const { doctorId } = await params;
 
-  // Verify the referenced physician is real and active.
+  // Accept either a User.id or a PhysicianProfile slug (referralSlug).
   const doctor = await prisma.user
     .findFirst({
-      where:  { id: doctorId, role: 'PHYSICIAN' },
+      where: {
+        OR:   [{ id: doctorId }, { referralSlug: doctorId }],
+        role: 'PHYSICIAN',
+      },
       select: { id: true },
     })
     .catch(() => null);
@@ -35,9 +38,11 @@ export async function GET(
     return NextResponse.redirect(new URL('/', APP_URL));
   }
 
-  const response = NextResponse.redirect(new URL('/sign-in-new', APP_URL));
+  // Always store the canonical User.id in the cookie, regardless of
+  // whether a slug or id was passed in the URL.
+  const response = NextResponse.redirect(new URL('/sign-up', APP_URL));
 
-  response.cookies.set('mgReferredBy', doctorId, {
+  response.cookies.set('mgReferredBy', doctor.id, {
     httpOnly: true,
     secure:   process.env.NODE_ENV === 'production',
     sameSite: 'lax',
