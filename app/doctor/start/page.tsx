@@ -4,6 +4,7 @@ import { prisma } from '@/src/lib/prisma';
 import Link from 'next/link';
 import CopyButton from './CopyButton';
 import PhysicianAvatar from '@/src/components/ui/PhysicianAvatar';
+import PhysicianQRCode from '@/src/components/ui/PhysicianQRCode';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://myoguard.health';
 
@@ -106,6 +107,48 @@ export default async function DoctorStartPage() {
             </div>
           )}
         </div>
+
+        {/* QR Code */}
+        {(() => {
+          const inviteUrl = physician?.slug
+            ? `${APP_URL}/invite/${physician.slug}`
+            : null;
+          return inviteUrl ? (
+            <div style={{
+              background: '#0f1729',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: '16px',
+              padding: '24px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '16px',
+            }}>
+              <p style={{
+                fontSize: '11px',
+                color: 'rgba(255,255,255,0.35)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+                fontWeight: 600,
+                margin: 0,
+              }}>
+                Patient QR Code
+              </p>
+              <PhysicianQRCode
+                url={inviteUrl}
+                physicianName={physician!.displayName}
+              />
+              <p style={{
+                fontSize: '12px',
+                color: 'rgba(255,255,255,0.5)',
+                textAlign: 'center',
+                margin: 0,
+              }}>
+                Print or display for patients to scan in your clinic
+              </p>
+            </div>
+          ) : null;
+        })()}
 
         {/* Patient Code + Join Link */}
         {physician?.referralCode ? (
