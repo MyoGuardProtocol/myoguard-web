@@ -222,6 +222,7 @@ export default function AssessmentPage() {
       }
 
       const json = await res.json();
+      console.log("[assessment] API response:", json);
       if (!json.ok) {
         setServerError(json.detail ?? json.error ?? 'Failed to save assessment');
         return;
