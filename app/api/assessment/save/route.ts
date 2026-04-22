@@ -37,7 +37,8 @@ export async function POST(req: Request) {
 
       if (!dbUser) {
         const { clerkClient } = await import("@clerk/nextjs/server");
-        const clerkUser = await clerkClient().users.getUser(userId);
+        const client = await clerkClient();
+        const clerkUser = await client.users.getUser(userId);
         dbUser = await prisma.user.create({
           data: {
             clerkId:            userId,
