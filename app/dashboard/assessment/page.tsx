@@ -222,9 +222,11 @@ export default function AssessmentPage() {
       }
 
       const json = await res.json();
-      if (json.ok) {
-        router.push('/dashboard/report');
+      if (!json.ok) {
+        setServerError(json.detail ?? json.error ?? 'Failed to save assessment');
+        return;
       }
+      router.push('/dashboard/report');
     } catch (e) {
       setServerError(e instanceof Error ? e.message : 'Something went wrong. Please try again.');
     } finally {
