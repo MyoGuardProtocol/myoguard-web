@@ -58,7 +58,8 @@ export async function POST(req: Request) {
         );
       }
 
-      await prisma.assessment.create({
+      try {
+        await prisma.assessment.create({
           data: {
             userId:          dbUser.id,
             score:           composite ?? 0,
@@ -78,9 +79,15 @@ export async function POST(req: Request) {
             sleepHours:     sleepHours ?? null,
           },
         });
-
-      await prisma.$disconnect();
-      return NextResponse.json({ ok: true, saved: true });
+        await prisma.$disconnect();
+        return NextResponse.json({ ok: true, saved: true });
+      } catch (assessmentError: unknown) {
+        console.error("[assessment/save] prisma.assessment.create failed:", assessmentError);
+        return NextResponse.json(
+          { ok: false, error: "Assessment DB write failed", detail: String(assessmentError) },
+          { status: 500 },
+        );
+      }
 
     } catch (dbError: unknown) {
       console.error("[assessment/save] DB write failed:", dbError);
