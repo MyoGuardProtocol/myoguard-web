@@ -32,14 +32,14 @@ export async function POST(req: Request) {
     if (application.clerkUserId) {
       await prisma.user.update({
         where: { clerkId: application.clerkUserId },
-        data:  { role: "PHYSICIAN" },
+        data:  { role: "PHYSICIAN", isVerified: true },
       }).catch((e: unknown) => {
         console.error("[physician-review] User role update failed:", e);
       });
     } else {
       await prisma.user.updateMany({
         where: { email: application.email },
-        data:  { role: "PHYSICIAN" },
+        data:  { role: "PHYSICIAN", isVerified: true },
       }).catch((e: unknown) => {
         console.error("[physician-review] fallback email role update failed:", e);
       });
