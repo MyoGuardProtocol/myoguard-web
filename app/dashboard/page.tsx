@@ -1,34 +1,38 @@
-/**
- * /dashboard — Patient entry point.
- *
- * Server component: role check fires before render.
- *   PHYSICIAN / PHYSICIAN_PENDING / ADMIN → /doctor/dashboard
- *   PATIENT (or no DB row yet)            → patient dashboard
- */
+import { auth }        from '@clerk/nextjs/server';
+import { redirect }    from 'next/navigation';
+import { prisma }      from '@/src/lib/prisma';
+import SanctuaryScoreOrb from '@/src/components/ui/SanctuaryScoreOrb';
 
-import { auth, currentUser } from '@clerk/nextjs/server';
-import { redirect } from 'next/navigation';
-import { prisma } from '@/src/lib/prisma';
-import Link from 'next/link';
-import { SignOutButton } from '@clerk/nextjs';
+function longDate(d: Date): string {
+  return d.toLocaleDateString('en-GB', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  });
+}
 
 export default async function PatientDashboardPage() {
   const { userId } = await auth();
   if (!userId) redirect('/sign-in');
 
-  // ── Role check ────────────────────────────────────────────────────────────
-  const dbUser = await prisma.user.findUnique({
+  // ── Role check + data fetch ───────────────────────────────────────────────
+  const user = await prisma.user.findUnique({
     where:  { clerkId: userId },
     select: {
-      role:     true,
-      fullName: true,
+      role:       true,
+      fullName:   true,
+      physicianId: true,
       assessments: {
         select: {
-          score:          true,
-          riskBand:       true,
-          assessmentDate: true,
+          score:    true,
+          riskBand: true,
           protocolPlan: {
             select: { proteinTargetG: true },
+          },
+          muscleScore: {
+            select: {
+              score:          true,
+              riskBand:       true,
+              proteinTargetG: true,
+            },
           },
         },
         orderBy: { assessmentDate: 'desc' },
@@ -37,233 +41,221 @@ export default async function PatientDashboardPage() {
     },
   }).catch(() => null);
 
-  if (dbUser?.role === 'PHYSICIAN')         redirect('/doctor/dashboard');
-  if (dbUser?.role === 'PHYSICIAN_PENDING') redirect('/doctor/onboarding/pending');
-  if (dbUser?.role === 'ADMIN')             redirect('/admin/physicians');
+  if (user?.role === 'PHYSICIAN')         redirect('/doctor/dashboard');
+  if (user?.role === 'PHYSICIAN_PENDING') redirect('/doctor/onboarding/pending');
+  if (user?.role === 'ADMIN')             redirect('/admin/physicians');
 
-  const clerkUser  = await currentUser();
-  const firstName  = clerkUser?.firstName
-    ?? dbUser?.fullName?.split(' ')[0]
-    ?? 'there';
+  // ── Physician name lookup ────────────────────────────────────────────────
+  let physicianName: string | null = null;
+  if (user?.physicianId) {
+    const physician = await prisma.user.findUnique({
+      where:  { id: user.physicianId },
+      select: { fullName: true },
+    });
+    physicianName = physician?.fullName ?? null;
+  }
 
-  const latest        = dbUser?.assessments?.[0] ?? null;
-  const score         = latest ? Math.round(latest.score) : null;
-  const riskBand      = latest?.riskBand ?? null;
-  const proteinTarget = latest?.protocolPlan?.proteinTargetG
-    ? Math.round(latest.protocolPlan.proteinTargetG)
-    : null;
+  // ── Derived display values ───────────────────────────────────────────────
+  const ms           = user?.assessments?.[0]?.muscleScore ?? null;
+  const latestScore  = ms ? Math.round(ms.score) : 0;
+  const latestRisk   = ms?.riskBand ?? 'LOW';
+  const proteinTarget = ms?.proteinTargetG ? Math.round(ms.proteinTargetG) : 0;
+  const hasAssessment = !!(latestScore && latestScore > 0);
+  const firstName    = user?.fullName?.split(' ')[0] ?? 'there';
 
-  const riskColors: Record<string, { text: string; bg: string; border: string }> = {
-    LOW:      { text: 'text-teal-700',  bg: 'bg-teal-50',  border: 'border-teal-200' },
-    MODERATE: { text: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-200' },
-    HIGH:     { text: 'text-red-700',   bg: 'bg-red-50',   border: 'border-red-200' },
-    CRITICAL: { text: 'text-red-800',   bg: 'bg-red-100',  border: 'border-red-300' },
-  };
-  const riskCfg = riskBand ? riskColors[riskBand] : null;
-
-  // ── Time-based greeting ───────────────────────────────────────────────────
   const hour      = new Date().getHours();
   const timeOfDay = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
-  const today     = new Date().toLocaleDateString('en-GB', {
-    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-  });
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 font-sans">
+    <main style={{ background: "#080C14", minHeight: "100vh",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
 
-      {/* ── Header ── */}
-      <header className="sticky top-0 z-10 bg-white border-b border-slate-200 px-6 py-4">
-        <div className="max-w-3xl mx-auto flex items-center justify-between">
-          <Link href="/" className="text-xl font-bold text-slate-900">
-            Myo<span className="text-teal-600">Guard</span>
-          </Link>
-          <div className="flex items-center gap-4">
-            <Link href="/" className="text-slate-400 hover:text-slate-600 transition-colors" aria-label="Home">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round"
-                  d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
-              </svg>
-            </Link>
-            <SignOutButton redirectUrl="/">
-              <button className="text-xs text-slate-400 hover:text-slate-600 transition-colors">
-                Sign out
-              </button>
-            </SignOutButton>
+      {/* NAV BAR */}
+      <nav style={{
+        background: "#060D1E",
+        borderBottom: "1px solid rgba(255,255,255,0.07)",
+        position: "sticky", top: 0, zIndex: 50,
+        padding: "0 20px"
+      }}>
+        <div style={{ maxWidth: "640px", margin: "0 auto",
+          display: "flex", alignItems: "center",
+          justifyContent: "space-between", height: "56px" }}>
+          <span style={{ fontSize: "18px", fontWeight: "900",
+            letterSpacing: "-0.03em", color: "#F8FAFC" }}>
+            Myo<span style={{ color: "#2DD4BF" }}>Guard</span>
+          </span>
+          <div style={{
+            width: "34px", height: "34px", borderRadius: "50%",
+            background: "#1A2744", border: "1px solid #2DD4BF",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: "12px", fontWeight: "700", color: "#2DD4BF"
+          }}>
+            {user?.fullName?.split(" ").map((n: string) => n[0]).join("").slice(0,2).toUpperCase() ?? "P"}
           </div>
         </div>
-      </header>
+      </nav>
 
-      <main className="max-w-3xl mx-auto px-6 py-10 flex flex-col gap-8">
+      {/* HERO */}
+      <div style={{ maxWidth: "640px", margin: "0 auto",
+        padding: "32px 20px 0" }}>
 
-        {/* ── Hero greeting ── */}
-        <div>
-          <p className="text-xs text-slate-400 uppercase tracking-widest mb-1">{today}</p>
-          <h1 className="text-3xl font-bold text-slate-900">
-            Good {timeOfDay}, {firstName}.
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">Your muscle-protection dashboard</p>
-        </div>
+        {/* Greeting */}
+        <p style={{
+          fontFamily: "Georgia, serif",
+          fontSize: "22px", color: "#F1F5F9",
+          fontWeight: "400", fontStyle: "italic",
+          marginBottom: "4px"
+        }}>
+          Good {timeOfDay}, {firstName}.
+        </p>
+        <p style={{ fontSize: "13px", color: "#94A3B8",
+          marginBottom: "32px" }}>
+          Your muscle-protection status · {longDate(new Date())}
+        </p>
 
-        {/* ── Score card ── */}
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-8">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-6">
-            MyoGuard Score
-          </p>
-
-          {score !== null && riskCfg && riskBand ? (
-            <div className="flex flex-col gap-5">
-              <div className="flex items-end gap-4">
-                <span className={`text-7xl font-black leading-none ${riskCfg.text}`}>{score}</span>
-                <div className="flex flex-col gap-1 pb-1">
-                  <span className="text-slate-400 text-lg">/100</span>
-                  <span className={`text-xs font-semibold px-3 py-1 rounded-full ${riskCfg.bg} ${riskCfg.text} border ${riskCfg.border}`}>
-                    {riskBand === 'LOW'      ? 'Low Risk'
-                      : riskBand === 'MODERATE' ? 'Moderate Risk'
-                      : riskBand === 'HIGH'     ? 'High Risk'
-                      : 'Critical'}
-                  </span>
-                </div>
-              </div>
-
-              {/* Gradient progress bar */}
-              <div className="w-full h-3 rounded-full overflow-hidden bg-slate-100">
-                <div
-                  className="h-3 rounded-full transition-all duration-700"
-                  style={{
-                    width:      `${score}%`,
-                    background: 'linear-gradient(to right, #ef4444, #f59e0b, #14b8a6)',
-                  }}
-                />
-              </div>
-
-              <p className="text-xs text-slate-400">
-                Last assessed{' '}
-                {new Date(latest!.assessmentDate).toLocaleDateString('en-GB', {
-                  day: 'numeric', month: 'short', year: 'numeric',
-                })}
-              </p>
-            </div>
+        {/* Vitality Orb */}
+        <div style={{ display: "flex", flexDirection: "column",
+          alignItems: "center", marginBottom: "16px" }}>
+          {hasAssessment ? (
+            <SanctuaryScoreOrb
+              score={latestScore}
+              riskBand={latestRisk}
+            />
           ) : (
-            <div className="flex flex-col items-center justify-center py-6 gap-5 text-center">
-              <div className="w-16 h-16 rounded-full bg-teal-50 border border-teal-200 flex items-center justify-center">
-                <svg className="w-8 h-8 text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round"
-                    d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-base font-semibold text-slate-700">No assessment on file</p>
-                <p className="text-sm text-slate-400 mt-1">Takes 3 minutes. No account upgrade needed.</p>
-              </div>
-              <Link
-                href="/dashboard/assessment"
-                className="bg-teal-600 text-white px-8 py-3 rounded-xl text-sm font-semibold hover:bg-teal-700 transition-colors"
-              >
-                Take your first assessment →
-              </Link>
+            <div style={{
+              width: "180px", height: "180px", borderRadius: "50%",
+              background: "#0D1421", border: "2px dashed #1A2744",
+              display: "flex", alignItems: "center",
+              justifyContent: "center"
+            }}>
+              <span style={{ fontSize: "13px", color: "#475569",
+                textAlign: "center", padding: "20px" }}>
+                No score yet
+              </span>
             </div>
+          )}
+
+          {/* Physician care line */}
+          {physicianName && (
+            <p style={{ fontSize: "12px", color: "#94A3B8",
+              fontStyle: "italic", marginTop: "12px",
+              textAlign: "center" }}>
+              Under the care of{" "}
+              <span style={{ color: "#2DD4BF", fontStyle: "normal",
+                fontWeight: "600" }}>
+                {physicianName.replace(/^Dr\.?\s*/i, "Dr. ")}
+              </span>
+              {" "}
+              <span style={{ color: "#2DD4BF" }}>✓</span>
+            </p>
           )}
         </div>
 
-        {/* ── Three action cards ── */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-
-          {/* Card 1 — New Assessment (primary) */}
-          <Link
-            href="/dashboard/assessment"
-            className="bg-teal-600 text-white rounded-2xl shadow-sm p-5 flex flex-col gap-3 hover:bg-teal-700 transition-colors group"
-          >
-            <div className="w-9 h-9 rounded-xl bg-teal-500 flex items-center justify-center">
-              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round"
-                  d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-sm font-semibold">New Assessment</p>
-              <p className="text-xs text-teal-100 mt-0.5 leading-relaxed">
-                Generate a fresh MyoGuard Score and updated protocol
-              </p>
-            </div>
-            <span className="text-teal-200 text-xs font-medium group-hover:translate-x-0.5 transition-transform">→</span>
-          </Link>
-
-          {/* Card 2 — My Protocol */}
-          <Link
-            href="/dashboard/report"
-            className="bg-white border border-teal-200 rounded-2xl shadow-sm p-5 flex flex-col gap-3 hover:bg-teal-50 transition-colors group"
-          >
-            <div className="w-9 h-9 rounded-xl bg-teal-50 flex items-center justify-center">
-              <svg className="w-5 h-5 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round"
-                  d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-slate-800">My Protocol</p>
-              <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
-                View your personalised protein, fibre and supplement targets
-              </p>
-            </div>
-            <span className="text-teal-600 text-xs font-medium group-hover:translate-x-0.5 transition-transform">→</span>
-          </Link>
-
-          {/* Card 3 — Weekly Check-in */}
-          <Link
-            href="/dashboard/checkin"
-            className="bg-white border border-slate-200 rounded-2xl shadow-sm p-5 flex flex-col gap-3 hover:bg-slate-50 transition-colors group"
-          >
-            <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center">
-              <svg className="w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round"
-                  d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-slate-800">Weekly Check-in</p>
-              <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
-                Log this week — takes 60 seconds
-              </p>
-            </div>
-            <span className="text-slate-400 text-xs font-medium group-hover:translate-x-0.5 transition-transform">→</span>
-          </Link>
-
-        </div>
-
-        {/* ── Info strip ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="bg-slate-50 rounded-xl border border-slate-200 px-4 py-3">
-            <p className="text-xs text-slate-400 mb-1">Protein target</p>
-            <p className="text-sm font-semibold text-slate-700">
-              {proteinTarget ? `${proteinTarget} g/day` : '1.6 g/kg body weight'}
+        {/* Empty state */}
+        {!hasAssessment && (
+          <div style={{
+            background: "rgba(13,20,33,0.8)",
+            border: "1px solid #1A2744",
+            borderRadius: "16px", padding: "24px",
+            textAlign: "center", marginBottom: "24px",
+            backdropFilter: "blur(12px)"
+          }}>
+            <p style={{ fontFamily: "Georgia, serif",
+              fontSize: "16px", color: "#F1F5F9",
+              marginBottom: "8px" }}>
+              Your journey begins with your first reflection.
             </p>
-          </div>
-          <div className="bg-slate-50 rounded-xl border border-slate-200 px-4 py-3">
-            <p className="text-xs text-slate-400 mb-1">Next check-in</p>
-            <p className="text-sm font-semibold text-slate-700">
-              {latest ? 'Due this week' : 'Complete assessment first'}
+            <p style={{ fontSize: "13px", color: "#94A3B8",
+              marginBottom: "16px" }}>
+              Complete your first assessment to activate your
+              personalised muscle-protection protocol.
             </p>
+            <a href="/dashboard/assessment" style={{
+              display: "inline-block",
+              background: "#2DD4BF", color: "#080C14",
+              padding: "10px 24px", borderRadius: "99px",
+              fontSize: "13px", fontWeight: "700",
+              textDecoration: "none"
+            }}>
+              Begin Assessment →
+            </a>
           </div>
-          <div className="bg-slate-50 rounded-xl border border-slate-200 px-4 py-3">
-            <p className="text-xs text-slate-400 mb-1">Physician linked</p>
-            <p className="text-sm font-semibold text-slate-700">Not yet linked</p>
-          </div>
+        )}
+
+        {/* THREE ACTION TILES */}
+        <div style={{ display: "grid",
+          gridTemplateColumns: "1fr 1fr 1fr",
+          gap: "12px", marginBottom: "24px" }}>
+          {[
+            { label: "Log Today's Pulse", sub: "Weekly check-in",
+              href: "/dashboard/checkin", primary: true },
+            { label: "View My Protocol", sub: "Targets & supplements",
+              href: "/dashboard/report", primary: false },
+            { label: "The Odyssey", sub: "Your progress story",
+              href: "/dashboard/journey", primary: false },
+          ].map((card) => (
+            <a key={card.href} href={card.href} style={{
+              display: "block", textDecoration: "none",
+              background: card.primary
+                ? "rgba(45,212,191,0.08)"
+                : "rgba(13,20,33,0.8)",
+              border: `1px solid ${card.primary ? "#2DD4BF" : "#1A2744"}`,
+              borderRadius: "16px", padding: "16px 12px",
+              backdropFilter: "blur(12px)",
+            }}>
+              <p style={{ fontSize: "13px", fontWeight: "600",
+                color: card.primary ? "#2DD4BF" : "#F1F5F9",
+                marginBottom: "4px",
+                fontFamily: "Georgia, serif" }}>
+                {card.label}
+              </p>
+              <p style={{ fontSize: "11px", color: "#94A3B8" }}>
+                {card.sub}
+              </p>
+            </a>
+          ))}
         </div>
 
-      </main>
-
-      {/* ── Footer ── */}
-      <footer className="border-t border-slate-200 mt-10 px-6 py-6">
-        <div className="max-w-3xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
-          <p className="text-xs text-slate-400 text-center sm:text-left">
-            MyoGuard Clinical Oversight · For educational use only · Not a substitute for medical advice
-          </p>
-          <Link href="/privacy" className="text-xs text-slate-400 hover:text-slate-600 transition-colors underline">
-            Privacy Policy
-          </Link>
-        </div>
-      </footer>
-
-    </div>
+        {/* STATS STRIP */}
+        {hasAssessment && (
+          <div style={{
+            background: "#0D1421", border: "1px solid #1A2744",
+            borderRadius: "12px", padding: "14px 20px",
+            display: "flex", justifyContent: "space-between",
+            alignItems: "center", marginBottom: "32px"
+          }}>
+            <div>
+              <p style={{ fontSize: "10px", color: "#94A3B8",
+                textTransform: "uppercase", letterSpacing: "0.06em",
+                marginBottom: "2px" }}>Protein Target</p>
+              <p style={{ fontSize: "14px", fontWeight: "600",
+                color: "#F1F5F9", fontFamily: "Georgia, serif" }}>
+                {proteinTarget ? `${proteinTarget}g/day` : "—"}
+              </p>
+            </div>
+            <div style={{ textAlign: "center" }}>
+              <p style={{ fontSize: "10px", color: "#94A3B8",
+                textTransform: "uppercase", letterSpacing: "0.06em",
+                marginBottom: "2px" }}>Score</p>
+              <p style={{ fontSize: "14px", fontWeight: "600",
+                color: "#2DD4BF", fontFamily: "Georgia, serif" }}>
+                {latestScore}
+              </p>
+            </div>
+            {physicianName && (
+              <div style={{ textAlign: "right" }}>
+                <p style={{ fontSize: "10px", color: "#94A3B8",
+                  textTransform: "uppercase", letterSpacing: "0.06em",
+                  marginBottom: "2px" }}>Care Team</p>
+                <p style={{ fontSize: "13px", fontWeight: "600",
+                  color: "#2DD4BF" }}>
+                  {physicianName.replace(/^Dr\.?\s*/i, "Dr. ")} ✓
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </main>
   );
 }
