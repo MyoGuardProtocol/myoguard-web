@@ -62,6 +62,7 @@ export default async function PatientDashboardPage() {
   const proteinTarget = ms?.proteinTargetG ? Math.round(ms.proteinTargetG) : 0;
   const hasAssessment = !!(latestScore && latestScore > 0);
   const firstName    = user?.fullName?.split(' ')[0] ?? 'there';
+  const initials     = user?.fullName?.split(" ").map((n: string) => n[0]).join("").slice(0,2).toUpperCase() ?? "P";
 
   const hour      = new Date().getHours();
   const timeOfDay = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
@@ -84,14 +85,15 @@ export default async function PatientDashboardPage() {
             letterSpacing: "-0.03em", color: "#F8FAFC" }}>
             Myo<span style={{ color: "#2DD4BF" }}>Guard</span>
           </span>
-          <div style={{
+          <a href="/sign-out" title="Sign out" style={{
             width: "34px", height: "34px", borderRadius: "50%",
             background: "#1A2744", border: "1px solid #2DD4BF",
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: "12px", fontWeight: "700", color: "#2DD4BF"
+            fontSize: "12px", fontWeight: "700", color: "#2DD4BF",
+            textDecoration: "none", cursor: "pointer"
           }}>
-            {user?.fullName?.split(" ").map((n: string) => n[0]).join("").slice(0,2).toUpperCase() ?? "P"}
-          </div>
+            {initials}
+          </a>
         </div>
       </nav>
 

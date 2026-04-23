@@ -2,7 +2,6 @@ import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/src/lib/prisma';
 import Link from 'next/link';
-import DashboardHeader from '@/src/components/ui/DashboardHeader';
 import { generateWeeklyDigest } from '@/src/lib/weeklyDigest';
 
 // ─── Band config ───────────────────────────────────────────────────────────────
@@ -406,7 +405,27 @@ export default async function JourneyPage() {
     <main className="min-h-screen bg-slate-900 font-sans">
 
       {/* ── Sticky header ── */}
-      <DashboardHeader />
+      <nav style={{
+        background: "#060D1E",
+        borderBottom: "1px solid rgba(255,255,255,0.07)",
+        position: "sticky", top: 0, zIndex: 50,
+        padding: "0 20px",
+        marginBottom: "0"
+      }}>
+        <div style={{ maxWidth: "720px", margin: "0 auto",
+          display: "flex", alignItems: "center",
+          justifyContent: "space-between", height: "56px" }}>
+          <a href="/dashboard" style={{ textDecoration: "none",
+            fontSize: "18px", fontWeight: "900",
+            letterSpacing: "-0.03em", color: "#F8FAFC" }}>
+            Myo<span style={{ color: "#2DD4BF" }}>Guard</span>
+          </a>
+          <a href="/dashboard" style={{ fontSize: "13px",
+            color: "#94A3B8", textDecoration: "none" }}>
+            ← Dashboard
+          </a>
+        </div>
+      </nav>
 
       <div className="max-w-[1200px] mx-auto px-6 lg:px-8 pt-8 pb-16 space-y-8">
 

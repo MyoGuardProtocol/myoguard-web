@@ -675,7 +675,8 @@ export default async function ReportPage() {
                     Key Risk Drivers
                   </p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {interp.keyDrivers.map((driver, i) => (
+                    {interp.keyDrivers.map((driver, i) =>
+                      /deficit|−|below target/i.test(driver.text) ? null : (
                       <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
                         <span style={{
                           flexShrink: 0, marginTop: '2px',
