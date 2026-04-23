@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { z } from 'zod';
-import DashboardHeader from '@/src/components/ui/DashboardHeader';
 
 // ─── Symptoms list ───────────────────────────────────────────────────────────
 const SYMPTOMS = [
@@ -98,19 +97,6 @@ function daysToActivity(days: number): 'sedentary' | 'moderate' | 'active' {
   if (days >= 5) return 'active';
   if (days >= 2) return 'moderate';
   return 'sedentary';
-}
-
-// ─── Shared input class builders ─────────────────────────────────────────────
-const baseInput =
-  'w-full border rounded-lg px-4 py-3 text-sm text-slate-800 bg-white ' +
-  'placeholder-slate-400 focus:outline-none focus:ring-2 transition-colors';
-
-function inputCls(hasError: boolean) {
-  return `${baseInput} ${
-    hasError
-      ? 'border-red-400 focus:ring-red-300 bg-red-50/30'
-      : 'border-slate-300 focus:ring-teal-400'
-  }`;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -237,34 +223,95 @@ export default function AssessmentPage() {
 
   const hasErrors = Object.values(fieldErrors).some(Boolean);
 
+  // ─── Shared inline style helpers ─────────────────────────────────────────
+  const inputStyle = (hasError: boolean): React.CSSProperties => ({
+    width: '100%',
+    boxSizing: 'border-box',
+    background: '#0D1421',
+    border: `1px solid ${hasError ? '#FB7185' : '#1A2744'}`,
+    color: '#F1F5F9',
+    borderRadius: '8px',
+    padding: '10px 14px',
+    fontSize: '14px',
+    outline: 'none',
+    transition: 'border-color 0.15s',
+  });
+
   // ─── JSX ──────────────────────────────────────────────────────────────────
   return (
-    <main className="min-h-screen bg-slate-50 font-sans">
+    <main style={{
+      background: '#080C14',
+      minHeight: '100vh',
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    }}>
 
-      <DashboardHeader />
+      {/* Focus ring injected globally for this page */}
+      <style>{`
+        .myg-input:focus { border-color: #2DD4BF !important; }
+        .myg-input::placeholder { color: #475569; }
+        .myg-select option { background: #0D1421; color: #F1F5F9; }
+        .myg-select optgroup { background: #080C14; color: #94A3B8; }
+      `}</style>
 
-      <div className="max-w-[1200px] mx-auto px-6 lg:px-8 py-8">
+      {/* ── Nav ── */}
+      <nav style={{
+        background: '#060D1E',
+        borderBottom: '1px solid rgba(255,255,255,0.07)',
+        position: 'sticky', top: 0, zIndex: 50,
+        padding: '0 20px',
+      }}>
+        <div style={{
+          maxWidth: '640px', margin: '0 auto',
+          display: 'flex', alignItems: 'center',
+          justifyContent: 'space-between', height: '56px',
+        }}>
+          <a href="/dashboard" style={{
+            textDecoration: 'none', fontSize: '18px', fontWeight: '900',
+            letterSpacing: '-0.03em', color: '#F8FAFC',
+          }}>
+            Myo<span style={{ color: '#2DD4BF' }}>Guard</span>
+          </a>
+          <a href="/dashboard" style={{ fontSize: '13px', color: '#94A3B8', textDecoration: 'none' }}>
+            ← Dashboard
+          </a>
+        </div>
+      </nav>
 
-        <div className="mb-8">
-          <Link href="/dashboard" className="text-xs font-medium text-slate-500 hover:text-teal-600 transition-colors">
-            ← Back to Dashboard
-          </Link>
+      <div style={{ maxWidth: '640px', margin: '0 auto', padding: '32px 20px 48px' }}>
+
+        {/* ── Heading ── */}
+        <div style={{ marginBottom: '28px' }}>
+          <h1 style={{
+            fontFamily: 'Georgia, serif',
+            color: '#F1F5F9',
+            fontSize: '22px',
+            fontWeight: '600',
+            marginBottom: '6px',
+          }}>
+            New Assessment
+          </h1>
+          <p style={{ fontSize: '13px', color: '#94A3B8', lineHeight: '1.6' }}>
+            Enter your current details to generate a fresh MyoGuard Score and muscle-protection protocol.
+          </p>
         </div>
 
-        <div className="max-w-xl mx-auto">
-
-          <div className="mb-8">
-            <h1 className="text-xl font-semibold text-slate-800">New Assessment</h1>
-            <p className="mt-1 text-sm text-slate-500 leading-relaxed">
-              Enter your current details to generate a fresh MyoGuard Score and muscle-protection protocol.
-            </p>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm p-6 space-y-6">
+        {/* ── Form card ── */}
+        <div style={{
+          background: '#0D1421',
+          border: '1px solid #1A2744',
+          borderRadius: '16px',
+          padding: '24px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '24px',
+        }}>
 
           {/* ── Weight ── */}
           <div>
-            <label htmlFor="weightKg" className="block text-sm font-semibold text-slate-700 mb-1.5">
+            <label htmlFor="weightKg" style={{
+              display: 'block', fontSize: '13px', fontWeight: '600',
+              color: '#F1F5F9', marginBottom: '6px',
+            }}>
               Current Body Weight (kg)
             </label>
             <input
@@ -276,25 +323,34 @@ export default function AssessmentPage() {
               max={250}
               value={form.weightKg}
               onChange={e => setField('weightKg', e.target.value)}
-              className={inputCls(!!fieldErrors.weightKg)}
+              className="myg-input"
+              style={inputStyle(!!fieldErrors.weightKg)}
             />
             {fieldErrors.weightKg && (
-              <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
+              <p style={{ marginTop: '6px', fontSize: '12px', color: '#FB7185',
+                display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <span aria-hidden>⚠</span> {fieldErrors.weightKg}
               </p>
             )}
           </div>
 
-          {/* ── GLP-1 Medication + Dose (grouped select) ── */}
+          {/* ── GLP-1 Medication + Dose ── */}
           <div>
-            <label htmlFor="drugLabel" className="block text-sm font-semibold text-slate-700 mb-1.5">
+            <label htmlFor="drugLabel" style={{
+              display: 'block', fontSize: '13px', fontWeight: '600',
+              color: '#F1F5F9', marginBottom: '6px',
+            }}>
               GLP-1 Medication &amp; Dose
             </label>
             <select
               id="drugLabel"
               value={form.drugLabel}
               onChange={e => setField('drugLabel', e.target.value)}
-              className={inputCls(!!fieldErrors.drugLabel)}
+              className="myg-input myg-select"
+              style={{
+                ...inputStyle(!!fieldErrors.drugLabel),
+                color: form.drugLabel ? '#F1F5F9' : '#475569',
+              }}
             >
               <option value="">Select your GLP-1 medication and dose</option>
               <optgroup label="Ozempic (semaglutide injectable — diabetes)">
@@ -334,21 +390,25 @@ export default function AssessmentPage() {
               </optgroup>
             </select>
             {fieldErrors.drugLabel && (
-              <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
+              <p style={{ marginTop: '6px', fontSize: '12px', color: '#FB7185',
+                display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <span aria-hidden>⚠</span> {fieldErrors.drugLabel}
               </p>
             )}
-            <p className="mt-1.5 text-xs text-slate-400">
+            <p style={{ marginTop: '6px', fontSize: '12px', color: '#94A3B8' }}>
               Oral semaglutide (Rybelsus) doses are normalised to injectable equivalents for scoring
               purposes. If your medication is not listed, select the closest equivalent.
             </p>
           </div>
 
           {/* ── Exercise days + Hydration ── */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
 
             <div>
-              <label htmlFor="exerciseDaysWk" className="block text-sm font-semibold text-slate-700 mb-1.5">
+              <label htmlFor="exerciseDaysWk" style={{
+                display: 'block', fontSize: '13px', fontWeight: '600',
+                color: '#F1F5F9', marginBottom: '6px',
+              }}>
                 Exercise Days / Week
               </label>
               <input
@@ -361,19 +421,26 @@ export default function AssessmentPage() {
                 step={1}
                 value={form.exerciseDaysWk}
                 onChange={e => setField('exerciseDaysWk', e.target.value)}
-                className={inputCls(!!fieldErrors.exerciseDaysWk)}
+                className="myg-input"
+                style={inputStyle(!!fieldErrors.exerciseDaysWk)}
               />
               {fieldErrors.exerciseDaysWk ? (
-                <p className="mt-1.5 text-xs text-red-500 flex items-start gap-1">
-                  <span aria-hidden className="mt-px">⚠</span> {fieldErrors.exerciseDaysWk}
+                <p style={{ marginTop: '6px', fontSize: '12px', color: '#FB7185',
+                  display: 'flex', alignItems: 'flex-start', gap: '4px' }}>
+                  <span aria-hidden style={{ marginTop: '1px' }}>⚠</span> {fieldErrors.exerciseDaysWk}
                 </p>
               ) : (
-                <p className="mt-1.5 text-xs text-slate-400">Enter a whole number between 0 and 7</p>
+                <p style={{ marginTop: '6px', fontSize: '12px', color: '#94A3B8' }}>
+                  Enter a whole number between 0 and 7
+                </p>
               )}
             </div>
 
             <div>
-              <label htmlFor="hydrationLitres" className="block text-sm font-semibold text-slate-700 mb-1.5">
+              <label htmlFor="hydrationLitres" style={{
+                display: 'block', fontSize: '13px', fontWeight: '600',
+                color: '#F1F5F9', marginBottom: '6px',
+              }}>
                 Water Intake (litres / day)
               </label>
               <input
@@ -386,35 +453,48 @@ export default function AssessmentPage() {
                 step={0.1}
                 value={form.hydrationLitres}
                 onChange={e => setField('hydrationLitres', e.target.value)}
-                className={inputCls(!!fieldErrors.hydrationLitres)}
+                className="myg-input"
+                style={inputStyle(!!fieldErrors.hydrationLitres)}
               />
               {fieldErrors.hydrationLitres ? (
-                <p className="mt-1.5 text-xs text-red-500 flex items-start gap-1">
-                  <span aria-hidden className="mt-px">⚠</span> {fieldErrors.hydrationLitres}
+                <p style={{ marginTop: '6px', fontSize: '12px', color: '#FB7185',
+                  display: 'flex', alignItems: 'flex-start', gap: '4px' }}>
+                  <span aria-hidden style={{ marginTop: '1px' }}>⚠</span> {fieldErrors.hydrationLitres}
                 </p>
               ) : (
-                <p className="mt-1.5 text-xs text-slate-400">Decimals accepted (e.g. 1.5 L)</p>
+                <p style={{ marginTop: '6px', fontSize: '12px', color: '#94A3B8' }}>
+                  Decimals accepted (e.g. 1.5 L)
+                </p>
               )}
             </div>
           </div>
 
           {/* ── Symptoms ── */}
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
+            <label style={{
+              display: 'block', fontSize: '13px', fontWeight: '600',
+              color: '#F1F5F9', marginBottom: '10px',
+            }}>
               Current Symptoms{' '}
-              <span className="text-slate-400 font-normal">(select all that apply)</span>
+              <span style={{ color: '#94A3B8', fontWeight: '400' }}>(select all that apply)</span>
             </label>
-            <div className="flex flex-wrap gap-2">
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
               {SYMPTOMS.map(s => (
                 <button
                   key={s}
                   type="button"
                   onClick={() => toggleSymptom(s)}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
-                    form.symptoms.includes(s)
-                      ? 'bg-teal-600 border-teal-600 text-white'
-                      : 'bg-white border-slate-300 text-slate-600 hover:border-teal-400'
-                  }`}
+                  style={{
+                    borderRadius: '99px',
+                    border: `1px solid ${form.symptoms.includes(s) ? '#2DD4BF' : '#1A2744'}`,
+                    background: form.symptoms.includes(s) ? 'rgba(45,212,191,0.15)' : 'transparent',
+                    color: form.symptoms.includes(s) ? '#2DD4BF' : '#94A3B8',
+                    padding: '6px 14px',
+                    fontSize: '12px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                  }}
                 >
                   {s}
                 </button>
@@ -424,10 +504,16 @@ export default function AssessmentPage() {
 
           {/* ── Activity level hint ── */}
           {form.exerciseDaysWk !== '' && !fieldErrors.exerciseDaysWk && (
-            <div className="flex items-center gap-2 bg-teal-50 border border-teal-200 rounded-xl px-4 py-3">
-              <span className="text-sm">🏋️</span>
-              <p className="text-xs text-teal-700">
-                <span className="font-semibold">
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '10px',
+              background: 'rgba(45,212,191,0.07)',
+              border: '1px solid rgba(45,212,191,0.2)',
+              borderRadius: '12px',
+              padding: '12px 16px',
+            }}>
+              <span style={{ fontSize: '16px' }}>🏋️</span>
+              <p style={{ fontSize: '12px', color: '#94A3B8' }}>
+                <span style={{ fontWeight: '600', color: '#2DD4BF' }}>
                   {daysToActivity(parseInt(form.exerciseDaysWk, 10)) === 'active'
                     ? 'Active'
                     : daysToActivity(parseInt(form.exerciseDaysWk, 10)) === 'moderate'
@@ -441,15 +527,21 @@ export default function AssessmentPage() {
 
           {/* ── Server error ── */}
           {serverError && (
-            <div className="flex items-start gap-2 rounded-xl bg-red-50 border border-red-200 px-4 py-3">
-              <span className="text-red-500 mt-0.5 flex-shrink-0">⚠</span>
-              <p className="text-sm text-red-700">{serverError}</p>
+            <div style={{
+              display: 'flex', alignItems: 'flex-start', gap: '10px',
+              background: 'rgba(251,113,133,0.08)',
+              border: '1px solid rgba(251,113,133,0.3)',
+              borderRadius: '12px',
+              padding: '12px 16px',
+            }}>
+              <span style={{ color: '#FB7185', flexShrink: 0, marginTop: '1px' }}>⚠</span>
+              <p style={{ fontSize: '13px', color: '#FB7185' }}>{serverError}</p>
             </div>
           )}
 
           {/* ── Field summary hint on failed submit ── */}
           {submitAttempted && hasErrors && !serverError && (
-            <p className="text-xs text-slate-500 text-center">
+            <p style={{ fontSize: '12px', color: '#94A3B8', textAlign: 'center' }}>
               Please fix the highlighted fields above before continuing.
             </p>
           )}
@@ -459,27 +551,40 @@ export default function AssessmentPage() {
             type="button"
             onClick={handleSubmit}
             disabled={loading}
-            className={`w-full py-3.5 rounded-xl font-semibold text-sm transition-all ${
-              loading
-                ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                : 'bg-green-600 hover:bg-green-700 text-white shadow-sm'
-            }`}
+            style={{
+              width: '100%',
+              padding: '14px',
+              borderRadius: '99px',
+              fontWeight: '700',
+              fontSize: '14px',
+              border: 'none',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              background: loading ? '#1A2744' : '#2DD4BF',
+              color: loading ? '#475569' : '#080C14',
+              transition: 'opacity 0.15s',
+            }}
           >
             {loading ? 'Calculating your score…' : 'Generate My Muscle Protection Plan →'}
           </button>
 
-          </div>
-
-          <p className="mt-6 text-xs text-slate-400 text-center leading-relaxed">
-            This tool generates educational nutritional reference data only. It does not constitute
-            a physician–patient relationship or individualised medical advice. Review all recommendations
-            with your prescribing physician.{' '}
-            <Link href="/privacy" className="underline hover:text-slate-600 transition-colors">
-              Privacy Policy
-            </Link>
-          </p>
-
         </div>
+
+        {/* ── Disclaimer ── */}
+        <p style={{
+          marginTop: '24px',
+          fontSize: '11px',
+          color: '#475569',
+          textAlign: 'center',
+          lineHeight: '1.7',
+        }}>
+          This tool generates educational nutritional reference data only. It does not constitute
+          a physician–patient relationship or individualised medical advice. Review all recommendations
+          with your prescribing physician.{' '}
+          <Link href="/privacy" style={{ color: '#94A3B8', textDecoration: 'underline' }}>
+            Privacy Policy
+          </Link>
+        </p>
+
       </div>
     </main>
   );
