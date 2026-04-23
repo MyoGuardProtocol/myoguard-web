@@ -57,7 +57,7 @@ export async function POST(req: Request) {
       }
 
       try {
-        await prisma.assessment.create({
+        const savedAssessment = await prisma.assessment.create({
           data: {
             userId:          dbUser.id,
             score:           composite ?? 0,
@@ -77,7 +77,7 @@ export async function POST(req: Request) {
             sleepHours:     sleepHours ?? null,
           },
         });
-        return NextResponse.json({ ok: true, saved: true });
+        return NextResponse.json({ ok: true, saved: true, assessmentId: savedAssessment.id });
       } catch (assessmentError: unknown) {
         console.error("[assessment/save] prisma.assessment.create failed:", assessmentError);
         return NextResponse.json(
