@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { prisma } from "@/src/lib/prisma";
 
 export async function POST(req: Request) {
   try {
@@ -26,9 +27,6 @@ export async function POST(req: Request) {
 
     // Try database write
     try {
-      const { PrismaClient } = await import("@prisma/client");
-      const prisma = new PrismaClient();
-
       // Resolve DB user from Clerk userId — create row if webhook hasn't fired yet
       let dbUser = await prisma.user.findUnique({
         where:  { clerkId: userId },
@@ -79,7 +77,6 @@ export async function POST(req: Request) {
             sleepHours:     sleepHours ?? null,
           },
         });
-        await prisma.$disconnect();
         return NextResponse.json({ ok: true, saved: true });
       } catch (assessmentError: unknown) {
         console.error("[assessment/save] prisma.assessment.create failed:", assessmentError);
