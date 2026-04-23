@@ -4,7 +4,6 @@ import Link                      from 'next/link';
 import { prisma }                from '@/src/lib/prisma';
 import { generateWeeklyDigest }  from '@/src/lib/weeklyDigest';
 import {
-  BAND_LIGHT,
   buildInterpretation,
   buildSuggestedActions,
   buildEscalationSignal,
@@ -16,13 +15,12 @@ import {
 import ShareButton               from './ShareButton';
 import DownloadPDFButton         from './DownloadPDFButton';
 import PhysicianFeedback         from './PhysicianFeedback';
-import DashboardHeader           from '@/src/components/ui/DashboardHeader';
 
 const TREND_LABEL: Record<string, { text: string; colour: string; icon: string }> = {
-  improving:    { text: 'Improving',          colour: 'text-emerald-700', icon: '↑' },
-  stable:       { text: 'Stable',             colour: 'text-slate-600',   icon: '→' },
-  declining:    { text: 'Declining',           colour: 'text-red-700',    icon: '↓' },
-  insufficient: { text: 'Insufficient data',  colour: 'text-slate-500',   icon: '–' },
+  improving:    { text: 'Improving',         colour: '#2DD4BF', icon: '↑' },
+  stable:       { text: 'Stable',            colour: '#94A3B8', icon: '→' },
+  declining:    { text: 'Declining',         colour: '#FB7185', icon: '↓' },
+  insufficient: { text: 'Insufficient data', colour: '#475569', icon: '–' },
 };
 
 const MED_LABEL: Record<string, string> = {
@@ -36,19 +34,6 @@ const STAGE_LABEL: Record<string, string> = {
   MAINTENANCE:     'Maintenance',
   DISCONTINUING:   'Discontinuing',
 };
-
-// ─── Clinical functions imported from src/lib/reportClinical.ts ──────────────
-// buildInterpretation, buildSuggestedActions, buildEscalationSignal,
-// BAND_LIGHT, Band, Interpretation, SuggestedAction, EscalationSignal
-// are all re-exported from the shared module imported above.
-
-function longDate(d: Date): string {
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-}
-
-function shortDate(d: Date): string {
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-}
 
 // ─── Phase 1 QA Checklist ────────────────────────────────────────────────────
 //
@@ -97,7 +82,49 @@ function shortDate(d: Date): string {
 // □ /dashboard/report with assessment but no physician review → feedback panel shows locked state
 // □ Report status strip shows correct live state for all three indicators on first load
 
+// ─── Dark band display helper ─────────────────────────────────────────────────
+function darkBand(b: string): { label: string; color: string; bg: string; border: string } {
+  if (b === 'LOW')      return { label: 'Low Risk',      color: '#2DD4BF', bg: 'rgba(45,212,191,0.1)',   border: 'rgba(45,212,191,0.3)'   };
+  if (b === 'MODERATE') return { label: 'Moderate Risk', color: '#F59E0B', bg: 'rgba(245,158,11,0.1)',  border: 'rgba(245,158,11,0.3)'  };
+  return                       { label: 'High Risk',     color: '#FB7185', bg: 'rgba(248,113,113,0.1)', border: 'rgba(248,113,113,0.3)' };
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
+
+function longDate(d: Date): string {
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function shortDate(d: Date): string {
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+const NAV_STYLE: React.CSSProperties = {
+  background: '#060D1E',
+  borderBottom: '1px solid rgba(255,255,255,0.07)',
+  position: 'sticky', top: 0, zIndex: 50,
+  padding: '0 20px',
+};
+
+function DarkNav() {
+  return (
+    <nav style={NAV_STYLE}>
+      <div style={{ maxWidth: '720px', margin: '0 auto',
+        display: 'flex', alignItems: 'center',
+        justifyContent: 'space-between', height: '56px' }}>
+        <a href="/dashboard" style={{ textDecoration: 'none',
+          fontSize: '18px', fontWeight: '900',
+          letterSpacing: '-0.03em', color: '#F8FAFC' }}>
+          Myo<span style={{ color: '#2DD4BF' }}>Guard</span>
+        </a>
+        <a href="/dashboard" style={{ fontSize: '13px',
+          color: '#94A3B8', textDecoration: 'none' }}>
+          ← Dashboard
+        </a>
+      </div>
+    </nav>
+  );
+}
 
 export default async function ReportPage() {
   const { userId: clerkId } = await auth();
@@ -152,25 +179,29 @@ export default async function ReportPage() {
     });
   } catch (err) {
     console.error('[/dashboard/report] DB query failed:', err);
-    // DB tables missing or unreachable — show empty state rather than 500
     return (
-      <main className="min-h-screen bg-slate-50 font-sans">
-        <DashboardHeader />
-        <div className="flex items-center justify-center px-5 py-20">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 max-w-sm w-full text-center">
-            <div className="w-12 h-12 rounded-full bg-teal-100 flex items-center justify-center mx-auto mb-4">
-              <svg className="w-6 h-6 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </div>
-            <p className="text-slate-800 font-semibold mb-2">No protocol on file yet</p>
-            <p className="text-sm text-slate-500 mb-5 leading-relaxed">
-              Complete your first assessment to generate your personalised MyoGuard Protocol report.
+      <main style={{ background: '#080C14', minHeight: '100vh',
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        color: '#F1F5F9' }}>
+        <DarkNav />
+        <div style={{ display: 'flex', alignItems: 'center',
+          justifyContent: 'center', padding: '80px 20px' }}>
+          <div style={{ background: '#0D1421', border: '1px solid #1A2744',
+            borderRadius: '16px', padding: '32px', maxWidth: '360px',
+            width: '100%', textAlign: 'center' }}>
+            <p style={{ fontSize: '16px', fontWeight: '600',
+              color: '#F1F5F9', marginBottom: '8px' }}>
+              No protocol on file yet
             </p>
-            <Link
-              href="/dashboard/assessment"
-              className="bg-teal-600 text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-teal-700 transition-colors inline-block"
-            >
+            <p style={{ fontSize: '13px', color: '#94A3B8',
+              marginBottom: '20px', lineHeight: '1.6' }}>
+              Complete your first assessment to generate your personalised
+              MyoGuard Protocol report.
+            </p>
+            <Link href="/dashboard/assessment" style={{
+              display: 'inline-block', background: '#2DD4BF',
+              color: '#080C14', padding: '10px 24px', borderRadius: '99px',
+              fontSize: '13px', fontWeight: '700', textDecoration: 'none' }}>
               Take assessment →
             </Link>
           </div>
@@ -183,24 +214,30 @@ export default async function ReportPage() {
 
   const latestAssessment = user.assessments[0];
   if (!latestAssessment?.muscleScore) {
-    // No scored assessment yet — show a navigable empty state rather than a
-    // dead-end card. Nav header is included so users can return to the dashboard.
     return (
-      <main className="min-h-screen bg-slate-50 font-sans">
-        {/* Nav stays present so the user is never stranded */}
-        <DashboardHeader />
-        <div className="flex items-center justify-center px-5 py-20">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 max-w-sm w-full text-center">
-            <p className="text-2xl mb-3">📋</p>
-            <p className="text-slate-800 font-semibold mb-2">No assessment on record</p>
-            <p className="text-sm text-slate-500 mb-5 leading-relaxed">
-              A physician report is generated automatically after your first MyoGuard
-              assessment is scored. It only takes a few minutes.
+      <main style={{ background: '#080C14', minHeight: '100vh',
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        color: '#F1F5F9' }}>
+        <DarkNav />
+        <div style={{ display: 'flex', alignItems: 'center',
+          justifyContent: 'center', padding: '80px 20px' }}>
+          <div style={{ background: '#0D1421', border: '1px solid #1A2744',
+            borderRadius: '16px', padding: '32px', maxWidth: '360px',
+            width: '100%', textAlign: 'center' }}>
+            <p style={{ fontSize: '22px', marginBottom: '12px' }}>📋</p>
+            <p style={{ fontSize: '16px', fontWeight: '600',
+              color: '#F1F5F9', marginBottom: '8px' }}>
+              No assessment on record
             </p>
-            <Link
-              href="/dashboard/assessment"
-              className="bg-teal-600 text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-teal-700 transition-colors inline-block"
-            >
+            <p style={{ fontSize: '13px', color: '#94A3B8',
+              marginBottom: '20px', lineHeight: '1.6' }}>
+              A protocol report is generated automatically after your first
+              MyoGuard assessment is scored. It only takes a few minutes.
+            </p>
+            <Link href="/dashboard/assessment" style={{
+              display: 'inline-block', background: '#2DD4BF',
+              color: '#080C14', padding: '10px 24px', borderRadius: '99px',
+              fontSize: '13px', fontWeight: '700', textDecoration: 'none' }}>
               Start Your Assessment →
             </Link>
           </div>
@@ -209,18 +246,16 @@ export default async function ReportPage() {
     );
   }
 
-  const ms         = latestAssessment.muscleScore;
-  const score      = Math.round(ms.score);
-  const band       = ms.riskBand as Band;
-  const meta       = BAND_LIGHT[band];
+  const ms          = latestAssessment.muscleScore;
+  const score       = Math.round(ms.score);
+  const band        = ms.riskBand as Band;
+  const db          = darkBand(band);
   const pointsToLow = score < 80 ? 80 - score : null;
 
-  const digest = await generateWeeklyDigest(user.id);
+  const digest   = await generateWeeklyDigest(user.id);
   const trendCfg = TREND_LABEL[digest?.trendStatus ?? 'insufficient'];
 
-  // Assessments in chronological order for the history table
-  const historyAsc = [...user.assessments].reverse();
-
+  const historyAsc  = [...user.assessments].reverse();
   const generatedAt = new Date();
 
   // ── Clinical interpretation + suggested actions (pure, server-side) ──────────
@@ -241,7 +276,6 @@ export default async function ReportPage() {
   const interp  = buildInterpretation({ leanLossEstPct: ms.leanLossEstPct, ...sharedSignals });
   const actions = buildSuggestedActions(sharedSignals);
 
-  // Escalation signal — evaluated independently from interpretation + actions
   const signal = buildEscalationSignal({
     riskBand:        band,
     symptomAvg:      (latestAssessment.fatigue + latestAssessment.nausea + latestAssessment.muscleWeakness) / 3,
@@ -252,7 +286,7 @@ export default async function ReportPage() {
     trendStatus:     digest?.trendStatus ?? 'insufficient',
   });
 
-  // ── Physician review — load any previously saved record for this assessment ──
+  // ── Physician review ──────────────────────────────────────────────────────────
   const savedReview = await prisma.physicianReview.findUnique({
     where:  { assessmentId: latestAssessment.id },
     select: {
@@ -263,8 +297,6 @@ export default async function ReportPage() {
     },
   });
 
-  // Type-narrow the stored string values back to the component's union types.
-  // Invalid DB values (defensive) fall back to null rather than throwing.
   const toImpression = (s: string | null): 'stable' | 'monitoring' | 'intervention' | null =>
     s === 'stable' || s === 'monitoring' || s === 'intervention' ? s : null;
 
@@ -280,82 +312,85 @@ export default async function ReportPage() {
       }
     : null;
 
-  // ── Report status indicators — fetched once at render time ─────────────────
-  // Used by the screen-only status strip. Not rendered in print/PDF.
+  // ── Report status indicators ──────────────────────────────────────────────────
   const existingShareCard = await prisma.shareCard.findFirst({
     where:  { userId: user.id },
     select: { id: true },
   });
   const shareCardExists = existingShareCard !== null;
 
-  // Suggested PDF filename: MyoGuard-Report-Firstname-YYYY-MM-DD
-  const firstName      = (user.fullName ?? 'Patient').split(' ')[0];
-  const dateStamp      = generatedAt.toISOString().slice(0, 10);           // YYYY-MM-DD
-  const pdfFilename    = `MyoGuard-Report-${firstName}-${dateStamp}`;
+  const firstName   = (user.fullName ?? 'Patient').split(' ')[0];
+  const dateStamp   = generatedAt.toISOString().slice(0, 10);
+  const pdfFilename = `MyoGuard-Report-${firstName}-${dateStamp}`;
+
+  // ── Card surface style shared across sections ─────────────────────────────────
+  const card: React.CSSProperties = {
+    background: '#0D1421',
+    border: '1px solid #1A2744',
+    borderRadius: '16px',
+    padding: '24px',
+  };
+
+  const sectionHeading: React.CSSProperties = {
+    fontFamily: 'Georgia, serif',
+    color: '#F1F5F9',
+    fontSize: '16px',
+    fontWeight: '600',
+    marginBottom: '12px',
+  };
 
   return (
-    <main className="min-h-screen bg-slate-100 font-sans">
+    <main style={{ background: '#080C14', minHeight: '100vh',
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      color: '#F1F5F9' }}>
 
-      {/* ── Screen-only nav ── */}
-      <DashboardHeader />
+      {/* NAV */}
+      <DarkNav />
 
-      {/* ── Screen-only action bar ── */}
-      {/*
-        Hierarchy: Share (primary — teal outline) | Download PDF (secondary — teal solid).
-        PrintButton is intentionally omitted — DownloadPDFButton already triggers the
-        browser print dialog with the correct filename hint, covering both use-cases.
-        flex-wrap ensures the two buttons collapse to a second line on narrow viewports
-        without any horizontal overflow.
-      */}
-      <div className="print:hidden max-w-xl mx-auto px-5 py-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* ACTION BAR — screen only */}
+      <div className="print:hidden" style={{ maxWidth: '720px', margin: '0 auto', padding: '16px 20px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center',
+          justifyContent: 'space-between', gap: '12px' }}>
           <div>
-            <p className="text-sm font-bold text-slate-800">Physician Report</p>
-            <p className="text-xs text-slate-500">Download or share with your physician</p>
+            <p style={{ fontSize: '15px', fontWeight: '700',
+              fontFamily: 'Georgia, serif', color: '#F1F5F9' }}>
+              Your MyoGuard Protocol Report
+            </p>
+            <p style={{ fontSize: '12px', color: '#94A3B8' }}>
+              Download or share with your physician
+            </p>
           </div>
-          {/* Primary action first in DOM order matches visual left-to-right reading */}
-          <div className="flex flex-wrap items-center gap-2">
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
             <ShareButton />
             <DownloadPDFButton filename={pdfFilename} />
           </div>
         </div>
       </div>
 
-      {/* ── Report status strip (screen-only, informational) ── */}
-      {/*
-        Shows the live state of the three key workflow milestones at a glance.
-        Intentionally NOT rendered in print/PDF — it is transient screen state,
-        not clinical content. Never redesign this into an interactive surface.
-      */}
-      <div className="print:hidden max-w-xl mx-auto px-5 pb-3">
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
+      {/* STATUS STRIP — screen only */}
+      <div className="print:hidden" style={{ maxWidth: '720px', margin: '0 auto', padding: '0 20px 12px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px 20px' }}>
 
-          {/* ① Report generated */}
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" aria-hidden="true" />
-            <span className="text-[11px] text-slate-500 truncate">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%',
+              background: '#10b981', flexShrink: 0 }} />
+            <span style={{ fontSize: '11px', color: '#64748B' }}>
               Report generated {shortDate(generatedAt)}
             </span>
           </div>
 
-          {/* ② Share link */}
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span
-              className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${shareCardExists ? 'bg-emerald-500' : 'bg-slate-300'}`}
-              aria-hidden="true"
-            />
-            <span className="text-[11px] text-slate-500 truncate">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%',
+              background: shareCardExists ? '#10b981' : '#1E293B', flexShrink: 0 }} />
+            <span style={{ fontSize: '11px', color: '#64748B' }}>
               {shareCardExists ? 'Share link created' : 'Share link not yet created'}
             </span>
           </div>
 
-          {/* ③ Physician review */}
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span
-              className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${savedReview ? 'bg-emerald-500' : 'bg-slate-300'}`}
-              aria-hidden="true"
-            />
-            <span className="text-[11px] text-slate-500 truncate">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%',
+              background: savedReview ? '#10b981' : '#1E293B', flexShrink: 0 }} />
+            <span style={{ fontSize: '11px', color: '#64748B' }}>
               {savedReview
                 ? `Physician review saved ${shortDate(savedReview.reviewedAt)}`
                 : 'Physician review not yet saved'}
@@ -366,119 +401,153 @@ export default async function ReportPage() {
       </div>
 
       {/* ══════════════════════════════════════════════════════════════════════ */}
-      {/* ── REPORT DOCUMENT ── */}
+      {/* REPORT DOCUMENT                                                       */}
       {/* ══════════════════════════════════════════════════════════════════════ */}
-      <article
-        id="physician-report"
-        className="max-w-3xl mx-auto bg-white shadow-sm print:shadow-none mb-10 print:mb-0"
-      >
-        <div className="px-8 py-8 print:px-0 print:py-6 space-y-7">
+      <div id="physician-report"
+        style={{ maxWidth: '720px', margin: '0 auto', padding: '0 20px 48px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
 
           {/* ── Document header ── */}
-          <div className="flex items-start justify-between border-b-2 border-teal-600 pb-5">
+          <div style={{ borderBottom: '2px solid #2DD4BF', paddingBottom: '20px',
+            display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
             <div>
-              <p className="text-2xl font-black text-slate-900 tracking-tight">
-                Myo<span className="text-teal-600">Guard</span>
-                <span className="text-slate-400 font-light ml-1 text-base">Protocol</span>
+              <p style={{ fontSize: '22px', fontWeight: '900',
+                letterSpacing: '-0.02em', color: '#F8FAFC' }}>
+                Myo<span style={{ color: '#2DD4BF' }}>Guard</span>
+                <span style={{ color: '#475569', fontWeight: '300',
+                  marginLeft: '6px', fontSize: '15px' }}>Protocol</span>
               </p>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p style={{ fontSize: '12px', color: '#475569', marginTop: '2px' }}>
                 Physician-Formulated · Data-Driven Muscle Protection
               </p>
             </div>
-            <div className="text-right">
-              <p className="text-xs font-bold text-teal-700 uppercase tracking-wider">
-                Physician Report
+            <div style={{ textAlign: 'right' }}>
+              <p style={{ fontSize: '11px', fontWeight: '700', color: '#2DD4BF',
+                textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                Protocol Report
               </p>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px' }}>
                 Generated: {longDate(generatedAt)}
               </p>
-              <p className="text-[10px] text-slate-400 mt-0.5 font-mono">
+              <p style={{ fontSize: '10px', color: '#475569', marginTop: '2px',
+                fontFamily: 'monospace' }}>
                 REF: {latestAssessment.id.slice(-8).toUpperCase()}
               </p>
             </div>
           </div>
 
           {/* ── Patient info row ── */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 bg-slate-50 rounded-xl px-5 py-4 border border-slate-200">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px',
+            background: '#0D1421', border: '1px solid #1A2744',
+            borderRadius: '16px', padding: '16px 20px' }}>
             <div>
-              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Patient</p>
-              <p className="text-sm font-bold text-slate-900">{user.fullName}</p>
+              <p style={{ fontSize: '10px', color: '#94A3B8', textTransform: 'uppercase',
+                letterSpacing: '0.06em', marginBottom: '4px' }}>Patient</p>
+              <p style={{ fontSize: '14px', fontWeight: '700', color: '#F1F5F9' }}>
+                {user.fullName}
+              </p>
             </div>
             <div>
-              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Assessment Date</p>
-              <p className="text-sm font-semibold text-slate-800">{shortDate(latestAssessment.assessmentDate)}</p>
+              <p style={{ fontSize: '10px', color: '#94A3B8', textTransform: 'uppercase',
+                letterSpacing: '0.06em', marginBottom: '4px' }}>Assessment Date</p>
+              <p style={{ fontSize: '14px', fontWeight: '600', color: '#F1F5F9' }}>
+                {shortDate(latestAssessment.assessmentDate)}
+              </p>
             </div>
             {user.profile?.age && (
               <div>
-                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Age</p>
-                <p className="text-sm font-semibold text-slate-800">{user.profile.age} years</p>
+                <p style={{ fontSize: '10px', color: '#94A3B8', textTransform: 'uppercase',
+                  letterSpacing: '0.06em', marginBottom: '4px' }}>Age</p>
+                <p style={{ fontSize: '14px', fontWeight: '600', color: '#F1F5F9' }}>
+                  {user.profile.age} years
+                </p>
               </div>
             )}
           </div>
 
           {/* ══════════════════════════════════════════════════════════════════ */}
-          {/* ── SCORE SUMMARY ── */}
+          {/* SCORE SUMMARY                                                     */}
           {/* ══════════════════════════════════════════════════════════════════ */}
           <section>
-            <h2 className="text-[10px] font-bold text-teal-700 uppercase tracking-[0.18em] mb-3">
-              MyoGuard Muscle Protection Score
-            </h2>
+            <h2 style={sectionHeading}>MyoGuard Muscle Protection Score</h2>
 
-            <div className={`rounded-xl border-l-4 ${meta.border.replace('border-', 'border-l-')} border border-l-4 ${meta.border} ${meta.bg} px-5 py-5`}>
-              <div className="flex items-start justify-between gap-4 mb-4">
+            <div style={{ background: '#0D1421',
+              border: '1px solid #1A2744',
+              borderLeft: `4px solid ${db.color}`,
+              borderRadius: '16px', padding: '20px 24px' }}>
+
+              <div style={{ display: 'flex', alignItems: 'flex-start',
+                justifyContent: 'space-between', gap: '16px', marginBottom: '16px' }}>
                 <div>
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-6xl font-black text-slate-900 tabular-nums leading-none">
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                    <span style={{ fontSize: '60px', fontWeight: '900',
+                      fontFamily: 'Georgia, serif', color: '#2DD4BF', lineHeight: 1 }}>
                       {score}
                     </span>
-                    <span className="text-xl text-slate-400 font-light">/100</span>
+                    <span style={{ fontSize: '20px', color: '#475569', fontWeight: '300' }}>
+                      /100
+                    </span>
                   </div>
-                  <p className="text-xs text-slate-500 mt-1">
+                  <p style={{ fontSize: '12px', color: '#94A3B8', marginTop: '4px' }}>
                     Composite muscle-loss risk score — higher is better
                   </p>
                 </div>
-                <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                  <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border ${meta.bg} ${meta.border} ${meta.colour}`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />
-                    {meta.label}
+                <div style={{ display: 'flex', flexDirection: 'column',
+                  alignItems: 'flex-end', gap: '8px', flexShrink: 0 }}>
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '6px',
+                    padding: '6px 12px', borderRadius: '99px',
+                    fontSize: '12px', fontWeight: '700',
+                    background: db.bg, border: `1px solid ${db.border}`, color: db.color,
+                  }}>
+                    <span style={{ width: '6px', height: '6px',
+                      borderRadius: '50%', background: db.color }} />
+                    {db.label}
                   </span>
-                  <span className="text-xs font-semibold text-slate-600 tabular-nums">
+                  <span style={{ fontSize: '12px', fontWeight: '600', color: '#94A3B8' }}>
                     {ms.leanLossEstPct}% estimated lean mass loss risk
                   </span>
                 </div>
               </div>
 
               {/* Score bar */}
-              <div className="h-3 rounded-full bg-white/70 overflow-hidden flex gap-px mb-3 border border-slate-200">
-                <div className="h-full bg-red-200"     style={{ width: '40%' }} />
-                <div className="h-full bg-orange-200"  style={{ width: '20%' }} />
-                <div className="h-full bg-amber-200"   style={{ width: '20%' }} />
-                <div className="h-full bg-emerald-200" style={{ width: '20%' }} />
-              </div>
-              {/* Score thumb indicator */}
-              <div className="relative h-1 mb-4">
-                <div
-                  className={`absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full border-2 border-white shadow-sm ${meta.barCls}`}
-                  style={{ left: `${Math.min(97, Math.max(3, score))}%` }}
-                />
+              <div style={{ height: '10px', borderRadius: '99px', background: '#080C14',
+                overflow: 'hidden', position: 'relative', marginBottom: '16px' }}>
+                <div style={{ position: 'absolute', left: 0, top: 0, height: '100%',
+                  width: '40%', background: 'rgba(251,113,133,0.45)' }} />
+                <div style={{ position: 'absolute', left: '40%', top: 0, height: '100%',
+                  width: '20%', background: 'rgba(245,158,11,0.45)' }} />
+                <div style={{ position: 'absolute', left: '60%', top: 0, height: '100%',
+                  width: '20%', background: 'rgba(251,191,36,0.45)' }} />
+                <div style={{ position: 'absolute', left: '80%', top: 0, height: '100%',
+                  width: '20%', background: 'rgba(45,212,191,0.45)' }} />
+                <div style={{
+                  position: 'absolute', top: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  left: `${Math.min(97, Math.max(3, score))}%`,
+                  width: '14px', height: '14px', borderRadius: '50%',
+                  background: db.color, border: '2px solid #080C14',
+                }} />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-white/70 rounded-lg px-3 py-2.5 border border-slate-200">
-                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div style={{ background: '#080C14', border: '1px solid #1A2744',
+                  borderRadius: '12px', padding: '12px 16px' }}>
+                  <p style={{ fontSize: '10px', color: '#94A3B8', textTransform: 'uppercase',
+                    letterSpacing: '0.06em', marginBottom: '4px' }}>
                     Distance to Low Risk
                   </p>
-                  <p className="text-sm font-bold text-slate-900">
-                    {pointsToLow !== null
-                      ? `${pointsToLow} points`
-                      : '✓ In optimal zone'}
+                  <p style={{ fontSize: '14px', fontWeight: '600', color: '#F1F5F9' }}>
+                    {pointsToLow !== null ? `${pointsToLow} points` : '✓ In optimal zone'}
                   </p>
                 </div>
-                <div className="bg-white/70 rounded-lg px-3 py-2.5 border border-slate-200">
-                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5">
+                <div style={{ background: '#080C14', border: '1px solid #1A2744',
+                  borderRadius: '12px', padding: '12px 16px' }}>
+                  <p style={{ fontSize: '10px', color: '#94A3B8', textTransform: 'uppercase',
+                    letterSpacing: '0.06em', marginBottom: '4px' }}>
                     Daily Protein Target
                   </p>
-                  <p className="text-sm font-bold text-slate-900 tabular-nums">
+                  <p style={{ fontSize: '14px', fontWeight: '600', color: '#2DD4BF' }}>
                     {Math.round(ms.proteinTargetG)} g/day
                   </p>
                 </div>
@@ -487,169 +556,175 @@ export default async function ReportPage() {
           </section>
 
           {/* ══════════════════════════════════════════════════════════════════ */}
-          {/* ── ESCALATION ALERT (conditional) ── */}
-          {/* Rendered only when buildEscalationSignal() detects triggered       */}
-          {/* criteria. Appears above Clinical Interpretation for maximum        */}
-          {/* physician visibility. Prints cleanly with print-color-adjust.      */}
+          {/* PATIENT SUMMARY CARD (Part C)                                     */}
           {/* ══════════════════════════════════════════════════════════════════ */}
-          {signal.escalate && (
+          <div style={{
+            background: ms.score >= 70
+              ? 'rgba(45,212,191,0.08)'
+              : ms.score >= 50
+              ? 'rgba(245,158,11,0.08)'
+              : 'rgba(248,113,113,0.08)',
+            border: `1px solid ${
+              ms.score >= 70 ? '#2DD4BF40' :
+              ms.score >= 50 ? '#F59E0B40' : '#FB718540'
+            }`,
+            borderRadius: '16px',
+            padding: '20px 24px',
+          }}>
+            <p style={{
+              fontFamily: 'Georgia, serif',
+              fontSize: '15px',
+              color: '#F1F5F9',
+              lineHeight: '1.6',
+              marginBottom: '12px',
+            }}>
+              {ms.score >= 70
+                ? 'Your muscle protection is on track. Keep hitting your protein target and maintaining your activity — your body is responding well.'
+                : ms.score >= 50
+                ? 'Your muscle protection needs some attention. Focus on your daily protein target — this is the most important action you can take right now.'
+                : 'Your muscle protection needs immediate attention. Speak with your physician about adjusting your protocol.'
+              }
+            </p>
+            <div style={{
+              display: 'inline-block',
+              background: 'rgba(45,212,191,0.12)',
+              border: '1px solid #2DD4BF40',
+              borderRadius: '99px',
+              padding: '6px 16px',
+              fontSize: '13px',
+              fontWeight: '600',
+              color: '#2DD4BF',
+            }}>
+              Daily protein target: {ms.proteinTargetG}g
+            </div>
+          </div>
+
+          {/* ══════════════════════════════════════════════════════════════════ */}
+          {/* ESCALATION ALERT — hidden from patient view (Part B-1)            */}
+          {/* ══════════════════════════════════════════════════════════════════ */}
+          {false && (
             <section aria-live="assertive">
-              <div className={`rounded-xl border-2 px-5 py-4 space-y-2.5 ${
-                signal.urgency === 'urgent'
-                  ? 'border-red-400 bg-red-50'
-                  : 'border-amber-400 bg-amber-50'
-              }`}>
-
-                {/* ── Header row ── */}
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    {/* Exclamation icon */}
-                    <span className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ${
-                      signal.urgency === 'urgent' ? 'bg-red-100' : 'bg-amber-100'
-                    }`}>
-                      <svg
-                        className={`w-4.5 h-4.5 ${signal.urgency === 'urgent' ? 'text-red-700' : 'text-amber-700'}`}
-                        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round"
-                          d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
-                        />
-                      </svg>
-                    </span>
-                    <p className={`text-sm font-black tracking-tight ${
-                      signal.urgency === 'urgent' ? 'text-red-900' : 'text-amber-900'
-                    }`}>
-                      Physician Escalation Alert
-                    </p>
-                  </div>
-
-                  {/* Urgency badge */}
-                  <span className={`flex-shrink-0 text-[10px] font-black uppercase tracking-[0.15em] px-2.5 py-1 rounded border ${
-                    signal.urgency === 'urgent'
-                      ? 'bg-red-100 text-red-700 border-red-300'
-                      : 'bg-amber-100 text-amber-700 border-amber-300'
-                  }`}>
-                    {signal.urgency === 'urgent' ? 'Urgent' : 'Monitor'}
-                  </span>
-                </div>
-
-                {/* ── Reason ── */}
-                <p className={`text-xs leading-relaxed ${
-                  signal.urgency === 'urgent' ? 'text-red-800' : 'text-amber-800'
-                }`}>
+              <div style={{ borderRadius: '16px', border: '2px solid',
+                borderColor: signal.urgency === 'urgent' ? '#f87171' : '#fbbf24',
+                background: signal.urgency === 'urgent' ? 'rgba(239,68,68,0.08)' : 'rgba(245,158,11,0.08)',
+                padding: '16px 20px' }}>
+                <p style={{ fontWeight: '800', color: signal.urgency === 'urgent' ? '#FB7185' : '#F59E0B' }}>
+                  Physician Escalation Alert
+                </p>
+                <p style={{ fontSize: '13px', marginTop: '8px', color: '#94A3B8' }}>
                   {signal.reason}
                 </p>
-
-                {/* ── Call to action ── */}
-                <p className={`text-[11px] font-semibold ${
-                  signal.urgency === 'urgent' ? 'text-red-700' : 'text-amber-700'
-                }`}>
-                  Consider reassessment or intervention.
-                </p>
-
               </div>
             </section>
           )}
 
           {/* ══════════════════════════════════════════════════════════════════ */}
-          {/* ── CLINICAL INTERPRETATION ── */}
+          {/* CLINICAL INTERPRETATION                                            */}
           {/* ══════════════════════════════════════════════════════════════════ */}
           <section>
-            <h2 className="text-[10px] font-bold text-teal-700 uppercase tracking-[0.18em] mb-3">
-              Clinical Interpretation
-            </h2>
+            <h2 style={sectionHeading}>Clinical Interpretation</h2>
 
-            <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100">
+            <div style={{ background: '#0D1421', border: '1px solid #1A2744',
+              borderRadius: '16px', overflow: 'hidden' }}>
 
-              {/* ── Row 1: Risk Category + 30-day projection ── */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 sm:divide-x divide-slate-100">
-
-                {/* Risk category */}
-                <div className="px-5 py-4">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2.5">
+              {/* Row 1: Risk Category + 30-day projection */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+                <div style={{ padding: '16px 20px',
+                  borderBottom: '1px solid #1A2744', borderRight: '1px solid #1A2744' }}>
+                  <p style={{ fontSize: '10px', color: '#94A3B8', textTransform: 'uppercase',
+                    letterSpacing: '0.06em', marginBottom: '10px' }}>
                     Risk Category
                   </p>
-                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border mb-2 ${meta.bg} ${meta.border} ${meta.colour}`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '6px',
+                    padding: '4px 10px', borderRadius: '99px', marginBottom: '8px',
+                    fontSize: '12px', fontWeight: '700',
+                    background: db.bg, border: `1px solid ${db.border}`, color: db.color,
+                  }}>
+                    <span style={{ width: '6px', height: '6px',
+                      borderRadius: '50%', background: db.color }} />
                     {interp.riskCategory.label}
                   </span>
-                  <p className="text-xs text-slate-600 leading-relaxed mt-1.5">
+                  <p style={{ fontSize: '12px', color: '#94A3B8', lineHeight: '1.5', marginTop: '6px' }}>
                     {interp.riskCategory.detail}
                   </p>
                 </div>
 
-                {/* 30-day lean mass projection */}
-                <div className="px-5 py-4">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2.5">
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid #1A2744' }}>
+                  <p style={{ fontSize: '10px', color: '#94A3B8', textTransform: 'uppercase',
+                    letterSpacing: '0.06em', marginBottom: '10px' }}>
                     30-Day Lean Mass Projection
                   </p>
-                  <p className={`text-2xl font-black tabular-nums leading-tight mb-1 ${meta.colour}`}>
+                  <p style={{ fontSize: '24px', fontWeight: '900', color: db.color,
+                    fontFamily: 'Georgia, serif', lineHeight: 1, marginBottom: '4px' }}>
                     {ms.leanLossEstPct}%
-                    <span className="text-sm font-normal text-slate-500 ml-1">lean loss risk</span>
+                    <span style={{ fontSize: '13px', fontWeight: '400',
+                      color: '#94A3B8', marginLeft: '6px' }}>lean loss risk</span>
                   </p>
-                  <p className="text-xs text-slate-600 leading-relaxed">
+                  <p style={{ fontSize: '12px', color: '#94A3B8', lineHeight: '1.5' }}>
                     {interp.leanMassProjection.split('. ').slice(1).join('. ')}
                   </p>
                 </div>
               </div>
 
-              {/* ── Row 2: Key Risk Drivers + Protocol Adherence ── */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 sm:divide-x divide-slate-100">
-
-                {/* Key risk drivers */}
-                <div className="px-5 py-4">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-3">
+              {/* Row 2: Key Risk Drivers + Protocol Adherence */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+                <div style={{ padding: '16px 20px', borderRight: '1px solid #1A2744' }}>
+                  <p style={{ fontSize: '10px', color: '#94A3B8', textTransform: 'uppercase',
+                    letterSpacing: '0.06em', marginBottom: '12px' }}>
                     Key Risk Drivers
                   </p>
-                  <ul className="space-y-2">
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {interp.keyDrivers.map((driver, i) => (
-                      <li key={i} className="flex items-start gap-2.5">
-                        {/* Severity pill */}
-                        <span className={`flex-shrink-0 mt-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-black ${
-                          driver.severity === 'concern'
-                            ? 'bg-red-100 text-red-700'
+                      <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                        <span style={{
+                          flexShrink: 0, marginTop: '2px',
+                          width: '16px', height: '16px', borderRadius: '50%',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: '9px', fontWeight: '900',
+                          background: driver.severity === 'concern'
+                            ? 'rgba(251,113,133,0.15)'
                             : driver.severity === 'caution'
-                            ? 'bg-amber-100 text-amber-700'
-                            : 'bg-emerald-100 text-emerald-700'
-                        }`}>
+                            ? 'rgba(245,158,11,0.15)'
+                            : 'rgba(45,212,191,0.15)',
+                          color: driver.severity === 'concern' ? '#FB7185'
+                            : driver.severity === 'caution' ? '#F59E0B' : '#2DD4BF',
+                        }}>
                           {driver.severity === 'concern' ? '!' : driver.severity === 'caution' ? '~' : '✓'}
                         </span>
-                        <span className={`text-[11px] leading-snug ${
-                          driver.severity === 'concern'
-                            ? 'text-red-800'
-                            : driver.severity === 'caution'
-                            ? 'text-amber-800'
-                            : 'text-slate-500'
-                        }`}>
+                        <span style={{
+                          fontSize: '12px', lineHeight: '1.5',
+                          color: driver.severity === 'concern' ? '#FB7185'
+                            : driver.severity === 'caution' ? '#F59E0B' : '#94A3B8',
+                        }}>
                           {driver.text}
                         </span>
-                      </li>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 </div>
 
-                {/* Protocol adherence signal */}
-                <div className="px-5 py-4">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-3">
+                <div style={{ padding: '16px 20px' }}>
+                  <p style={{ fontSize: '10px', color: '#94A3B8', textTransform: 'uppercase',
+                    letterSpacing: '0.06em', marginBottom: '12px' }}>
                     Protocol Adherence Signal
                   </p>
                   {interp.adherenceSignal.lines.length > 0 ? (
-                    <ul className="space-y-2">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       {interp.adherenceSignal.lines.map((line, i) => {
-                        // Colour-code by adherence keyword embedded in the line
                         const isHigh = line.includes('High') || line.includes('Consistent') || line.includes('Strong');
-                        const isLow  = line.includes('Low') || line.includes('Poor') || line.includes('Poor');
+                        const isLow  = line.includes('Low') || line.includes('Poor');
                         return (
-                          <li key={i} className={`text-[11px] leading-snug ${
-                            isHigh ? 'text-emerald-700' : isLow ? 'text-red-700' : 'text-slate-700'
-                          }`}>
+                          <p key={i} style={{ fontSize: '12px', lineHeight: '1.5',
+                            color: isHigh ? '#2DD4BF' : isLow ? '#FB7185' : '#94A3B8' }}>
                             {line}
-                          </li>
+                          </p>
                         );
                       })}
-                    </ul>
+                    </div>
                   ) : (
-                    <p className="text-xs text-slate-500 italic leading-relaxed">
+                    <p style={{ fontSize: '12px', color: '#475569',
+                      fontStyle: 'italic', lineHeight: '1.5' }}>
                       {interp.adherenceSignal.summary}
                     </p>
                   )}
@@ -660,182 +735,148 @@ export default async function ReportPage() {
           </section>
 
           {/* ══════════════════════════════════════════════════════════════════ */}
-          {/* ── SUGGESTED PHYSICIAN ACTIONS ── */}
+          {/* SUGGESTED PHYSICIAN ACTIONS — hidden from patient view (Part B-2) */}
           {/* ══════════════════════════════════════════════════════════════════ */}
-          <section>
-            <h2 className="text-[10px] font-bold text-teal-700 uppercase tracking-[0.18em] mb-3">
-              Suggested Physician Actions
-            </h2>
-
-            <ol className="space-y-2.5">
-              {actions.map((action, i) => {
-                // Per-urgency visual tokens
-                const urgencyTokens = {
-                  urgent: {
-                    cardBorder:  'border-red-200',
-                    cardBg:      'bg-red-50/60',
-                    numBg:       'bg-red-100 text-red-700',
-                    badgeBg:     'bg-red-100 text-red-700 border-red-200',
-                    timeBg:      'bg-red-100/70 text-red-600',
-                    label:       'Urgent',
-                  },
-                  recommended: {
-                    cardBorder:  'border-amber-200',
-                    cardBg:      'bg-amber-50/40',
-                    numBg:       'bg-amber-100 text-amber-700',
-                    badgeBg:     'bg-amber-100 text-amber-700 border-amber-200',
-                    timeBg:      'bg-amber-100/70 text-amber-600',
-                    label:       'Recommended',
-                  },
-                  maintenance: {
-                    cardBorder:  'border-emerald-200',
-                    cardBg:      'bg-emerald-50/40',
-                    numBg:       'bg-emerald-100 text-emerald-700',
-                    badgeBg:     'bg-emerald-100 text-emerald-700 border-emerald-200',
-                    timeBg:      'bg-emerald-100/70 text-emerald-600',
-                    label:       'Maintenance',
-                  },
-                }[action.urgency];
-
-                return (
-                  <li
-                    key={i}
-                    className={`rounded-xl border px-4 py-3.5 flex items-start gap-3.5 ${urgencyTokens.cardBorder} ${urgencyTokens.cardBg}`}
-                  >
-                    {/* Step number */}
-                    <span className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black mt-0.5 ${urgencyTokens.numBg}`}>
-                      {i + 1}
-                    </span>
-
-                    <div className="flex-1 min-w-0 space-y-1.5">
-                      {/* Badge row */}
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wide ${urgencyTokens.badgeBg}`}>
-                          {action.urgency === 'urgent'      && (
-                            <svg className="w-2.5 h-2.5 flex-shrink-0" fill="none" viewBox="0 0 10 10" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 2v3m0 2.5v.5" />
-                            </svg>
-                          )}
-                          {action.urgency === 'recommended' && (
-                            <svg className="w-2.5 h-2.5 flex-shrink-0" fill="none" viewBox="0 0 10 10" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 1a4 4 0 100 8A4 4 0 005 1zm0 2v2.5l1.5 1" />
-                            </svg>
-                          )}
-                          {action.urgency === 'maintenance' && (
-                            <svg className="w-2.5 h-2.5 flex-shrink-0" fill="none" viewBox="0 0 10 10" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M2 5l2.5 2.5 3.5-3.5" />
-                            </svg>
-                          )}
-                          {urgencyTokens.label}
-                        </span>
-                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${urgencyTokens.timeBg}`}>
-                          {action.timeframe}
-                        </span>
-                      </div>
-
-                      {/* Action text */}
-                      <p className="text-xs text-slate-700 leading-relaxed">
-                        {action.text}
-                      </p>
-                    </div>
+          {false && (
+            <section>
+              <h2 style={sectionHeading}>Suggested Physician Actions</h2>
+              <ol style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {actions.map((action, i) => (
+                  <li key={i} style={{ background: '#0D1421', border: '1px solid #1A2744',
+                    borderRadius: '16px', padding: '14px 16px' }}>
+                    <p style={{ fontSize: '12px', color: '#94A3B8' }}>{action.text}</p>
                   </li>
-                );
-              })}
-            </ol>
-          </section>
+                ))}
+              </ol>
+            </section>
+          )}
 
           {/* ══════════════════════════════════════════════════════════════════ */}
-          {/* ── PHYSICIAN FEEDBACK ── */}
+          {/* PHYSICIAN REVIEW — hidden from patient view (Part B-3)            */}
           {/* ══════════════════════════════════════════════════════════════════ */}
-          <section>
-            <h2 className="text-[10px] font-bold text-teal-700 uppercase tracking-[0.18em] mb-3">
-              Physician Review
-            </h2>
-            <PhysicianFeedback
-              assessmentId={latestAssessment.id}
-              initialFeedback={initialFeedback}
-            />
-          </section>
+          {false && (
+            <section>
+              <h2 style={sectionHeading}>Physician Review</h2>
+              <PhysicianFeedback
+                assessmentId={latestAssessment.id}
+                initialFeedback={initialFeedback}
+              />
+            </section>
+          )}
 
           {/* ══════════════════════════════════════════════════════════════════ */}
-          {/* ── TRAJECTORY & PROJECTION ── */}
+          {/* TREND & CONSISTENCY                                                */}
           {/* ══════════════════════════════════════════════════════════════════ */}
           {digest && (digest.projectedScore !== null || digest.streakWeeks > 0) && (
             <section>
-              <h2 className="text-[10px] font-bold text-teal-700 uppercase tracking-[0.18em] mb-3">
-                Trend & Consistency
-              </h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <div className="border border-slate-200 rounded-xl px-4 py-3.5">
-                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">30-Day Projection</p>
-                  <p className="text-2xl font-black text-slate-900 tabular-nums leading-tight">
+              <h2 style={sectionHeading}>Trend & Consistency</h2>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                <div style={{ ...card, padding: '16px' }}>
+                  <p style={{ fontSize: '10px', color: '#94A3B8', textTransform: 'uppercase',
+                    letterSpacing: '0.06em', marginBottom: '6px' }}>
+                    30-Day Projection
+                  </p>
+                  <p style={{ fontSize: '22px', fontWeight: '700', color: '#2DD4BF',
+                    fontFamily: 'Georgia, serif' }}>
                     {digest.projectedScore !== null ? Math.round(digest.projectedScore) : '—'}
-                    {digest.projectedScore !== null && <span className="text-sm text-slate-400 font-light ml-0.5">/100</span>}
+                    {digest.projectedScore !== null && (
+                      <span style={{ fontSize: '13px', color: '#475569',
+                        fontWeight: '400', marginLeft: '2px' }}>/100</span>
+                    )}
                   </p>
                 </div>
-                <div className="border border-slate-200 rounded-xl px-4 py-3.5">
-                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Score Trend</p>
-                  <p className={`text-base font-bold ${trendCfg.colour} flex items-center gap-1`}>
-                    <span>{trendCfg.icon}</span>
-                    {trendCfg.text}
+                <div style={{ ...card, padding: '16px' }}>
+                  <p style={{ fontSize: '10px', color: '#94A3B8', textTransform: 'uppercase',
+                    letterSpacing: '0.06em', marginBottom: '6px' }}>
+                    Score Trend
+                  </p>
+                  <p style={{ fontSize: '15px', fontWeight: '700', color: trendCfg.colour,
+                    display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span>{trendCfg.icon}</span> {trendCfg.text}
                   </p>
                 </div>
-                <div className="border border-slate-200 rounded-xl px-4 py-3.5">
-                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Check-in Streak</p>
-                  <p className="text-2xl font-black text-slate-900 tabular-nums leading-tight">
+                <div style={{ ...card, padding: '16px' }}>
+                  <p style={{ fontSize: '10px', color: '#94A3B8', textTransform: 'uppercase',
+                    letterSpacing: '0.06em', marginBottom: '6px' }}>
+                    Check-in Streak
+                  </p>
+                  <p style={{ fontSize: '22px', fontWeight: '700', color: '#F1F5F9',
+                    fontFamily: 'Georgia, serif' }}>
                     {digest.streakWeeks}
-                    <span className="text-sm text-slate-400 font-light ml-1">
+                    <span style={{ fontSize: '13px', color: '#475569',
+                      fontWeight: '400', marginLeft: '4px' }}>
                       wk{digest.streakWeeks !== 1 ? 's' : ''}
                     </span>
                   </p>
-                  <p className="text-[10px] text-slate-400">Best: {digest.bestStreak} wks</p>
+                  <p style={{ fontSize: '10px', color: '#475569' }}>
+                    Best: {digest.bestStreak} wks
+                  </p>
                 </div>
               </div>
             </section>
           )}
 
           {/* ══════════════════════════════════════════════════════════════════ */}
-          {/* ── SCORE HISTORY ── */}
+          {/* ASSESSMENT HISTORY                                                 */}
           {/* ══════════════════════════════════════════════════════════════════ */}
           {historyAsc.length >= 2 && (
             <section>
-              <h2 className="text-[10px] font-bold text-teal-700 uppercase tracking-[0.18em] mb-3">
-                Assessment History
-              </h2>
-              <div className="border border-slate-200 rounded-xl overflow-hidden">
-                <table className="w-full text-sm">
+              <h2 style={sectionHeading}>Assessment History</h2>
+              <div style={{ background: '#0D1421', border: '1px solid #1A2744',
+                borderRadius: '16px', overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200">
-                      <th className="text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide px-4 py-2.5">Date</th>
-                      <th className="text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide px-4 py-2.5">Score</th>
-                      <th className="text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide px-4 py-2.5">Risk Band</th>
-                      <th className="text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide px-4 py-2.5">Change</th>
+                    <tr style={{ borderBottom: '1px solid #1A2744' }}>
+                      <th style={{ textAlign: 'left', fontSize: '10px', color: '#94A3B8',
+                        textTransform: 'uppercase', letterSpacing: '0.06em', padding: '10px 16px' }}>
+                        Date
+                      </th>
+                      <th style={{ textAlign: 'left', fontSize: '10px', color: '#94A3B8',
+                        textTransform: 'uppercase', letterSpacing: '0.06em', padding: '10px 16px' }}>
+                        Score
+                      </th>
+                      {false && (
+                        <th style={{ textAlign: 'left', fontSize: '10px', color: '#94A3B8',
+                          textTransform: 'uppercase', letterSpacing: '0.06em', padding: '10px 16px' }}>
+                          Risk Band
+                        </th>
+                      )}
+                      <th style={{ textAlign: 'left', fontSize: '10px', color: '#94A3B8',
+                        textTransform: 'uppercase', letterSpacing: '0.06em', padding: '10px 16px' }}>
+                        Change
+                      </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody>
                     {historyAsc.map((a, i) => {
-                      const s    = a.muscleScore ? Math.round(a.muscleScore.score) : null;
-                      const prev = historyAsc[i - 1]?.muscleScore?.score ?? null;
+                      const s     = a.muscleScore ? Math.round(a.muscleScore.score) : null;
+                      const prev  = historyAsc[i - 1]?.muscleScore?.score ?? null;
                       const delta = s !== null && prev !== null ? Math.round(s - prev) : null;
-                      const b    = (a.muscleScore?.riskBand ?? 'HIGH') as Band;
-                      const bm   = BAND_LIGHT[b];
                       return (
-                        <tr key={a.id} className={i === historyAsc.length - 1 ? 'bg-teal-50/50' : ''}>
-                          <td className="px-4 py-2.5 text-slate-700 font-medium">{shortDate(a.assessmentDate)}</td>
-                          <td className="px-4 py-2.5 font-bold text-slate-900 tabular-nums">{s ?? '—'}</td>
-                          <td className="px-4 py-2.5">
-                            <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border ${bm.bg} ${bm.border} ${bm.colour}`}>
-                              <span className={`w-1 h-1 rounded-full ${bm.dot}`} />
-                              {bm.label}
-                            </span>
+                        <tr key={a.id} style={{
+                          borderBottom: i < historyAsc.length - 1 ? '1px solid #1A2744' : 'none',
+                          background: i === historyAsc.length - 1 ? 'rgba(45,212,191,0.04)' : 'transparent',
+                        }}>
+                          <td style={{ padding: '10px 16px', fontSize: '13px', color: '#94A3B8' }}>
+                            {shortDate(a.assessmentDate)}
                           </td>
-                          <td className="px-4 py-2.5 tabular-nums">
+                          <td style={{ padding: '10px 16px', fontSize: '14px', fontWeight: '700',
+                            color: '#2DD4BF', fontFamily: 'Georgia, serif' }}>
+                            {s ?? '—'}
+                          </td>
+                          {false && (
+                            <td style={{ padding: '10px 16px' }}>
+                              {/* Risk band hidden from patient view */}
+                            </td>
+                          )}
+                          <td style={{ padding: '10px 16px' }}>
                             {delta !== null ? (
-                              <span className={`text-xs font-semibold ${delta > 0 ? 'text-emerald-600' : delta < 0 ? 'text-red-600' : 'text-slate-400'}`}>
+                              <span style={{ fontSize: '12px', fontWeight: '600',
+                                color: delta > 0 ? '#2DD4BF' : delta < 0 ? '#FB7185' : '#475569' }}>
                                 {delta > 0 ? '+' : ''}{delta}
                               </span>
                             ) : (
-                              <span className="text-slate-300 text-xs">—</span>
+                              <span style={{ fontSize: '12px', color: '#1A2744' }}>—</span>
                             )}
                           </td>
                         </tr>
@@ -848,52 +889,72 @@ export default async function ReportPage() {
           )}
 
           {/* ══════════════════════════════════════════════════════════════════ */}
-          {/* ── MEDICATION & ASSESSMENT INPUTS ── */}
+          {/* ASSESSMENT INPUTS                                                  */}
           {/* ══════════════════════════════════════════════════════════════════ */}
           <section>
-            <h2 className="text-[10px] font-bold text-teal-700 uppercase tracking-[0.18em] mb-3">
-              Assessment Inputs
-            </h2>
-            <div className="border border-slate-200 rounded-xl overflow-hidden">
-              <div className="grid grid-cols-2 divide-x divide-y divide-slate-100">
-                {/* Left column */}
-                <div className="px-4 py-3">
-                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Body Weight</p>
-                  <p className="text-sm font-bold text-slate-900">{latestAssessment.weightKg} kg</p>
+            <h2 style={sectionHeading}>Assessment Inputs</h2>
+            <div style={{ background: '#0D1421', border: '1px solid #1A2744',
+              borderRadius: '16px', overflow: 'hidden' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+                <div style={{ padding: '14px 16px',
+                  borderBottom: '1px solid #1A2744', borderRight: '1px solid #1A2744' }}>
+                  <p style={{ fontSize: '10px', color: '#94A3B8', textTransform: 'uppercase',
+                    letterSpacing: '0.06em', marginBottom: '4px' }}>Body Weight</p>
+                  <p style={{ fontSize: '14px', fontWeight: '600', color: '#F1F5F9' }}>
+                    {latestAssessment.weightKg} kg
+                  </p>
                 </div>
-                <div className="px-4 py-3">
-                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Protein Intake</p>
-                  <p className="text-sm font-bold text-slate-900">{Math.round(latestAssessment.proteinGrams)} g/day</p>
+                <div style={{ padding: '14px 16px', borderBottom: '1px solid #1A2744' }}>
+                  <p style={{ fontSize: '10px', color: '#94A3B8', textTransform: 'uppercase',
+                    letterSpacing: '0.06em', marginBottom: '4px' }}>Protein Intake</p>
+                  <p style={{ fontSize: '14px', fontWeight: '600', color: '#F1F5F9' }}>
+                    {Math.round(latestAssessment.proteinGrams)} g/day
+                  </p>
                 </div>
-                <div className="px-4 py-3">
-                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Exercise Frequency</p>
-                  <p className="text-sm font-bold text-slate-900">{latestAssessment.exerciseDaysWk} days/week</p>
+                <div style={{ padding: '14px 16px', borderRight: '1px solid #1A2744' }}>
+                  <p style={{ fontSize: '10px', color: '#94A3B8', textTransform: 'uppercase',
+                    letterSpacing: '0.06em', marginBottom: '4px' }}>Exercise Frequency</p>
+                  <p style={{ fontSize: '14px', fontWeight: '600', color: '#F1F5F9' }}>
+                    {latestAssessment.exerciseDaysWk} days/week
+                  </p>
                 </div>
-                <div className="px-4 py-3">
-                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Hydration</p>
-                  <p className="text-sm font-bold text-slate-900">{latestAssessment.hydrationLitres} L/day</p>
+                <div style={{ padding: '14px 16px' }}>
+                  <p style={{ fontSize: '10px', color: '#94A3B8', textTransform: 'uppercase',
+                    letterSpacing: '0.06em', marginBottom: '4px' }}>Hydration</p>
+                  <p style={{ fontSize: '14px', fontWeight: '600', color: '#F1F5F9' }}>
+                    {latestAssessment.hydrationLitres} L/day
+                  </p>
                 </div>
                 {user.profile?.glp1Medication && (
-                  <div className="px-4 py-3 col-span-2">
-                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5">GLP-1 Medication</p>
-                    <p className="text-sm font-bold text-slate-900">
+                  <div style={{ padding: '14px 16px', gridColumn: 'span 2',
+                    borderTop: '1px solid #1A2744' }}>
+                    <p style={{ fontSize: '10px', color: '#94A3B8', textTransform: 'uppercase',
+                      letterSpacing: '0.06em', marginBottom: '4px' }}>GLP-1 Medication</p>
+                    <p style={{ fontSize: '14px', fontWeight: '600', color: '#F1F5F9' }}>
                       {MED_LABEL[user.profile.glp1Medication] ?? user.profile.glp1Medication}
                       {user.profile.glp1DoseMg && (
-                        <span className="font-normal text-slate-600"> — {user.profile.glp1DoseMg} mg/week</span>
+                        <span style={{ fontWeight: '400', color: '#94A3B8' }}>
+                          {' '}— {user.profile.glp1DoseMg} mg/week
+                        </span>
                       )}
                       {user.profile.glp1Stage && (
-                        <span className="font-normal text-slate-500"> · {STAGE_LABEL[user.profile.glp1Stage] ?? user.profile.glp1Stage}</span>
+                        <span style={{ fontWeight: '400', color: '#475569' }}>
+                          {' '}· {STAGE_LABEL[user.profile.glp1Stage] ?? user.profile.glp1Stage}
+                        </span>
                       )}
                     </p>
                   </div>
                 )}
               </div>
               {latestAssessment.symptoms.length > 0 && (
-                <div className="px-4 py-3 border-t border-slate-100">
-                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-2">Reported Symptoms</p>
-                  <div className="flex flex-wrap gap-1.5">
+                <div style={{ padding: '14px 16px', borderTop: '1px solid #1A2744' }}>
+                  <p style={{ fontSize: '10px', color: '#94A3B8', textTransform: 'uppercase',
+                    letterSpacing: '0.06em', marginBottom: '8px' }}>Reported Symptoms</p>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                     {latestAssessment.symptoms.map((s: string) => (
-                      <span key={s} className="text-xs bg-slate-100 text-slate-700 border border-slate-200 rounded-full px-2.5 py-0.5">
+                      <span key={s} style={{ fontSize: '12px', background: '#080C14',
+                        color: '#94A3B8', border: '1px solid #1A2744',
+                        borderRadius: '99px', padding: '3px 12px' }}>
                         {s}
                       </span>
                     ))}
@@ -904,41 +965,51 @@ export default async function ReportPage() {
           </section>
 
           {/* ══════════════════════════════════════════════════════════════════ */}
-          {/* ── CHECK-IN ADHERENCE ── */}
+          {/* CHECK-IN ADHERENCE                                                 */}
           {/* ══════════════════════════════════════════════════════════════════ */}
           {user.weeklyCheckins.length > 0 && (
             <section>
-              <h2 className="text-[10px] font-bold text-teal-700 uppercase tracking-[0.18em] mb-3">
+              <h2 style={sectionHeading}>
                 Weekly Check-in Adherence (last {user.weeklyCheckins.length} weeks)
               </h2>
-              <div className="border border-slate-200 rounded-xl overflow-hidden">
-                <table className="w-full text-sm">
+              <div style={{ background: '#0D1421', border: '1px solid #1A2744',
+                borderRadius: '16px', overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200">
-                      <th className="text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide px-4 py-2.5">Week of</th>
-                      <th className="text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide px-4 py-2.5">Avg Protein</th>
-                      <th className="text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide px-4 py-2.5">Workouts</th>
-                      <th className="text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide px-4 py-2.5">Hydration</th>
+                    <tr style={{ borderBottom: '1px solid #1A2744' }}>
+                      {['Week of', 'Avg Protein', 'Workouts', 'Hydration'].map(h => (
+                        <th key={h} style={{ textAlign: 'left', fontSize: '10px', color: '#94A3B8',
+                          textTransform: 'uppercase', letterSpacing: '0.06em', padding: '10px 16px' }}>
+                          {h}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {user.weeklyCheckins.map((c: { weekStart: Date; avgProteinG: number | null; totalWorkouts: number | null; avgHydration: number | null; proteinAdherence: number | null; exerciseAdherence: number | null }) => (
-                      <tr key={c.weekStart.toISOString()}>
-                        <td className="px-4 py-2.5 text-slate-700">{shortDate(c.weekStart)}</td>
-                        <td className="px-4 py-2.5 text-slate-800 tabular-nums font-medium">
+                  <tbody>
+                    {user.weeklyCheckins.map((
+                      c: { weekStart: Date; avgProteinG: number | null; totalWorkouts: number | null; avgHydration: number | null; proteinAdherence: number | null; exerciseAdherence: number | null },
+                      idx: number,
+                    ) => (
+                      <tr key={c.weekStart.toISOString()} style={{
+                        borderBottom: idx < user.weeklyCheckins.length - 1 ? '1px solid #1A2744' : 'none',
+                      }}>
+                        <td style={{ padding: '10px 16px', fontSize: '13px', color: '#94A3B8' }}>
+                          {shortDate(c.weekStart)}
+                        </td>
+                        <td style={{ padding: '10px 16px', fontSize: '13px', color: '#F1F5F9' }}>
                           {c.avgProteinG != null
-                            ? <><span className="font-bold">{Math.round(c.avgProteinG)}</span> g/day</>
-                            : <span className="text-slate-400">—</span>}
+                            ? <><span style={{ fontWeight: '700' }}>{Math.round(c.avgProteinG)}</span> g/day</>
+                            : <span style={{ color: '#475569' }}>—</span>}
                         </td>
-                        <td className="px-4 py-2.5 text-slate-800 tabular-nums font-medium">
+                        <td style={{ padding: '10px 16px', fontSize: '13px', color: '#F1F5F9' }}>
                           {c.totalWorkouts != null
-                            ? <><span className="font-bold">{c.totalWorkouts}</span> sessions</>
-                            : <span className="text-slate-400">—</span>}
+                            ? <><span style={{ fontWeight: '700' }}>{c.totalWorkouts}</span> sessions</>
+                            : <span style={{ color: '#475569' }}>—</span>}
                         </td>
-                        <td className="px-4 py-2.5 text-slate-800 tabular-nums font-medium">
+                        <td style={{ padding: '10px 16px', fontSize: '13px', color: '#F1F5F9' }}>
                           {c.avgHydration != null
-                            ? <><span className="font-bold">{c.avgHydration}</span> L/day</>
-                            : <span className="text-slate-400">—</span>}
+                            ? <><span style={{ fontWeight: '700' }}>{c.avgHydration}</span> L/day</>
+                            : <span style={{ color: '#475569' }}>—</span>}
                         </td>
                       </tr>
                     ))}
@@ -949,38 +1020,40 @@ export default async function ReportPage() {
           )}
 
           {/* ══════════════════════════════════════════════════════════════════ */}
-          {/* ── CLINICAL EXPLANATION ── */}
+          {/* CLINICAL SUMMARY                                                   */}
           {/* ══════════════════════════════════════════════════════════════════ */}
           <section>
-            <h2 className="text-[10px] font-bold text-teal-700 uppercase tracking-[0.18em] mb-3">
-              Clinical Summary
-            </h2>
-            <div className="border border-slate-200 rounded-xl px-5 py-4 bg-slate-50">
-              <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">
+            <h2 style={sectionHeading}>Clinical Summary</h2>
+            <div style={{ ...card }}>
+              <p style={{ fontSize: '13px', color: '#94A3B8', lineHeight: '1.6',
+                whiteSpace: 'pre-line' }}>
                 {ms.explanation}
               </p>
             </div>
           </section>
 
-          {/* ── Recommended action ── */}
+          {/* ── Recommended Next Step ── */}
           {digest?.nextAction && (
             <section>
-              <h2 className="text-[10px] font-bold text-teal-700 uppercase tracking-[0.18em] mb-3">
-                Recommended Next Step
-              </h2>
-              <div className={`border rounded-xl px-5 py-4 flex items-start gap-3 ${
-                digest.nextActionType === 'urgent'
-                  ? 'border-red-200 bg-red-50'
-                  : digest.nextActionType === 'recommended'
-                  ? 'border-amber-200 bg-amber-50'
-                  : 'border-teal-200 bg-teal-50'
-              }`}>
-                <span className="text-lg flex-shrink-0 mt-0.5">
+              <h2 style={sectionHeading}>Recommended Next Step</h2>
+              <div style={{
+                background: '#0D1421',
+                border: `1px solid ${
+                  digest.nextActionType === 'urgent'      ? 'rgba(251,113,133,0.3)' :
+                  digest.nextActionType === 'recommended' ? 'rgba(245,158,11,0.3)'  :
+                                                           'rgba(45,212,191,0.3)'
+                }`,
+                borderRadius: '16px', padding: '16px 20px',
+                display: 'flex', alignItems: 'flex-start', gap: '12px',
+              }}>
+                <span style={{ fontSize: '18px', flexShrink: 0 }}>
                   {digest.nextActionType === 'urgent' ? '⚠️' : digest.nextActionType === 'recommended' ? '💡' : '✅'}
                 </span>
-                <p className={`text-sm font-semibold leading-snug ${
-                  digest.nextActionType === 'urgent' ? 'text-red-800' : digest.nextActionType === 'recommended' ? 'text-amber-800' : 'text-teal-800'
-                }`}>
+                <p style={{
+                  fontSize: '13px', fontWeight: '600', lineHeight: '1.5',
+                  color: digest.nextActionType === 'urgent' ? '#FB7185'
+                    : digest.nextActionType === 'recommended' ? '#F59E0B' : '#2DD4BF',
+                }}>
                   {digest.nextAction}
                 </p>
               </div>
@@ -988,34 +1061,36 @@ export default async function ReportPage() {
           )}
 
           {/* ══════════════════════════════════════════════════════════════════ */}
-          {/* ── FOOTER DISCLAIMER ── */}
+          {/* FOOTER                                                             */}
           {/* ══════════════════════════════════════════════════════════════════ */}
-          <footer className="border-t-2 border-slate-200 pt-5 space-y-2">
-            <p className="text-[10px] text-slate-500 leading-relaxed">
-              <span className="font-semibold text-slate-700">CONFIDENTIALITY NOTICE: </span>
+          <footer style={{ borderTop: '1px solid #1A2744', paddingTop: '20px' }}>
+            <p style={{ fontSize: '11px', color: '#475569',
+              lineHeight: '1.6', marginBottom: '8px' }}>
+              <span style={{ fontWeight: '600', color: '#94A3B8' }}>CONFIDENTIALITY NOTICE: </span>
               This document contains protected health information generated by the MyoGuard Protocol
               system. It is intended solely for the named patient and their treating physician.
               Unauthorised disclosure is prohibited.
             </p>
-            <p className="text-[10px] text-slate-500 leading-relaxed">
-              <span className="font-semibold text-slate-700">CLINICAL DISCLAIMER: </span>
+            <p style={{ fontSize: '11px', color: '#475569',
+              lineHeight: '1.6', marginBottom: '12px' }}>
+              <span style={{ fontWeight: '600', color: '#94A3B8' }}>CLINICAL DISCLAIMER: </span>
               MyoGuard Protocol provides clinical decision support and educational guidance based on
               published GLP-1 muscle-loss research. It does not replace the clinical judgement of the
               treating physician. All recommendations should be reviewed in the context of the patient's
               full medical history and current treatment plan.
             </p>
-            <div className="flex items-center justify-between pt-1">
-              <p className="text-[10px] text-slate-400">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <p style={{ fontSize: '11px', color: '#475569' }}>
                 myoguard.health · © {new Date().getFullYear()} MyoGuard Protocol
               </p>
-              <p className="text-[10px] text-slate-400 font-mono">
+              <p style={{ fontSize: '11px', color: '#475569', fontFamily: 'monospace' }}>
                 {longDate(generatedAt)}
               </p>
             </div>
           </footer>
 
         </div>
-      </article>
+      </div>
 
     </main>
   );
