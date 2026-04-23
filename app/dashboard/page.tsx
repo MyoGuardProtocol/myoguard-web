@@ -143,7 +143,9 @@ export default async function PatientDashboardPage() {
               Under the care of{" "}
               <span style={{ color: "#2DD4BF", fontStyle: "normal",
                 fontWeight: "600" }}>
-                {physicianName.replace(/^Dr\.?\s*/i, "Dr. ")}
+                {physicianName.trim().match(/^Dr\.?\s/i)
+                  ? physicianName.replace(/^Dr\.?\s*/i, "Dr. ")
+                  : `Dr. ${physicianName}`}
               </span>
               {" "}
               <span style={{ color: "#2DD4BF" }}>✓</span>
@@ -249,7 +251,9 @@ export default async function PatientDashboardPage() {
                   marginBottom: "2px" }}>Care Team</p>
                 <p style={{ fontSize: "13px", fontWeight: "600",
                   color: "#2DD4BF" }}>
-                  {physicianName.replace(/^Dr\.?\s*/i, "Dr. ")} ✓
+                  {physicianName.trim().match(/^Dr\.?\s/i)
+                    ? physicianName.replace(/^Dr\.?\s*/i, "Dr. ")
+                    : `Dr. ${physicianName}`} ✓
                 </p>
               </div>
             )}
