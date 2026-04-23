@@ -77,6 +77,25 @@ export async function POST(req: Request) {
             sleepHours:     sleepHours ?? null,
           },
         });
+
+        // Create MuscleScore linked to this assessment
+        await prisma.muscleScore.create({
+          data: {
+            assessmentId:   savedAssessment.id,
+            score:          composite ?? 0,
+            riskBand:       risk ?? "LOW",
+            leanLossEstPct: risk === "HIGH" ? 35 : risk === "MODERATE" ? 20 : 10,
+            proteinTargetG: protein ? Math.round(protein * 1.5) : 120,
+            explanation:    risk === "HIGH"
+              ? "Significant lean mass loss risk detected. Immediate protocol review indicated."
+              : risk === "MODERATE"
+              ? "Protein adequacy or recovery environment is suboptimal. Supplementation recommended."
+              : "Lean mass loss risk is within acceptable clinical range. Continue current protocol.",
+          },
+        }).catch((e: unknown) => {
+          console.error("[assessment/save] MuscleScore create failed:", e);
+        });
+
         return NextResponse.json({ ok: true, saved: true, assessmentId: savedAssessment.id });
       } catch (assessmentError: unknown) {
         console.error("[assessment/save] prisma.assessment.create failed:", assessmentError);
