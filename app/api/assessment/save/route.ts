@@ -58,6 +58,7 @@ export async function POST(req: Request) {
 
       try {
         const savedAssessment = await prisma.assessment.create({
+          select: { id: true, userId: true },
           data: {
             userId:          dbUser.id,
             score:           composite ?? 0,
@@ -82,6 +83,7 @@ export async function POST(req: Request) {
         await prisma.muscleScore.create({
           data: {
             assessmentId:   savedAssessment.id,
+            userId:         savedAssessment.userId,
             score:          composite ?? 0,
             riskBand:       risk ?? "LOW",
             leanLossEstPct: risk === "HIGH" ? 35 : risk === "MODERATE" ? 20 : 10,
