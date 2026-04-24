@@ -504,9 +504,11 @@ export default async function ReportPage() {
                       borderRadius: '50%', background: db.color }} />
                     {db.label}
                   </span>
+                  {false && (
                   <span style={{ fontSize: '12px', fontWeight: '600', color: '#94A3B8' }}>
                     {ms.leanLossEstPct}% estimated lean mass loss risk
                   </span>
+                  )}
                 </div>
               </div>
 
