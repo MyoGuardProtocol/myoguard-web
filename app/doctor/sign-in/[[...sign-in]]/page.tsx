@@ -97,6 +97,15 @@ export default async function PhysicianSignInPage() {
             },
             footerAction: { display: "none" },
             footerPages: { display: "none" },
+            otpCodeFieldInput: {
+              backgroundColor: "#1e293b",
+              border: "1px solid #334155",
+              color: "#ffffff",
+              caretColor: "#2DD4BF",
+            },
+            formResendCodeLink: {
+              color: "#2DD4BF",
+            },
           },
         }}
       />
