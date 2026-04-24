@@ -150,6 +150,41 @@ export default async function DoctorStartPage() {
           ) : null;
         })()}
 
+        {/* Print Patient Handout */}
+        <a href="/doctor/invite/print" style={{
+          display: 'flex', alignItems: 'center', gap: '12px',
+          background: '#0f1729', border: '1px solid rgba(255,255,255,0.08)',
+          borderRadius: '16px', padding: '20px 24px',
+          textDecoration: 'none', marginTop: '0',
+        }}>
+          <div style={{
+            width: '40px', height: '40px', borderRadius: '10px',
+            background: 'rgba(45,212,191,0.1)',
+            border: '1px solid rgba(45,212,191,0.2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0,
+          }}>
+            <svg width="20" height="20" fill="none" viewBox="0 0 24 24"
+              stroke="#2DD4BF" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round"
+                d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+            </svg>
+          </div>
+          <div>
+            <p style={{ fontSize: '14px', fontWeight: '600', color: '#F1F5F9', marginBottom: '2px' }}>
+              Print Patient Handout
+            </p>
+            <p style={{ fontSize: '12px', color: '#94A3B8' }}>
+              Premium clinical prescription — QR code, physician credentials, sign-off
+            </p>
+          </div>
+          <svg style={{ marginLeft: 'auto', flexShrink: 0 }}
+            width="16" height="16" fill="none" viewBox="0 0 24 24"
+            stroke="#94A3B8" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </a>
+
         {/* Patient Code + Join Link */}
         {physician?.referralCode ? (
           <div style={{ background: '#0f1729', border: '1px solid #1e293b', borderRadius: '16px', padding: '20px' }}>

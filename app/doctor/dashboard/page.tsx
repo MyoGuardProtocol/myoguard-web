@@ -115,7 +115,7 @@ export default async function DoctorDashboardPage() {
           <p className="text-slate-500 text-sm mb-8">
             Your physician account is verified and active.
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <a href="/doctor/patients"
               className="bg-white border border-slate-200 rounded-2xl p-6 hover:border-teal-300 transition-colors text-left">
               <p className="text-sm font-semibold text-slate-900">My Patients</p>
@@ -130,6 +130,11 @@ export default async function DoctorDashboardPage() {
               className="bg-white border border-slate-200 rounded-2xl p-6 hover:border-teal-300 transition-colors text-left">
               <p className="text-sm font-semibold text-slate-900">Invite Patients</p>
               <p className="text-xs text-slate-400 mt-1">Share your referral link or QR code</p>
+            </a>
+            <a href="/doctor/invite/print"
+              className="bg-white border border-slate-200 rounded-2xl p-6 hover:border-teal-300 transition-colors text-left">
+              <p className="text-sm font-semibold text-slate-900">Print Handout</p>
+              <p className="text-xs text-slate-400 mt-1">Clinical prescription with QR code &amp; sign-off</p>
             </a>
           </div>
         </div>
