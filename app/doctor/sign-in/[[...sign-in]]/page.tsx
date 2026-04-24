@@ -73,7 +73,6 @@ export default async function PhysicianSignInPage() {
         path="/doctor/sign-in"
         signUpUrl="/doctor/sign-up"
         forceRedirectUrl="/doctor/dashboard"
-        preferredSignInStrategy="otp"
         appearance={{
           variables: {
             colorBackground: "#0A0A0A",
