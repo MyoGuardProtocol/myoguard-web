@@ -25,19 +25,26 @@ export default async function InvitePrintPage() {
 
   const physician = await prisma.user.findUnique({
     where:  { clerkId },
-    select: { id: true, role: true, fullName: true },
+    select: { id: true, role: true, fullName: true, referralSlug: true },
   }).catch(() => null);
 
   if (!physician)                            redirect('/doctor/sign-in');
   if (physician.role === 'PHYSICIAN_PENDING') redirect('/doctor/dashboard');
   if (physician.role !== 'PHYSICIAN')         redirect('/doctor/sign-in');
 
-  const inviteUrl = `${APP_URL}/invite/${physician.id}`;
+  const doctorName  = physician.fullName ?? '';
+  const displayName = doctorName.trim().match(/^Dr\.?\s/i)
+    ? doctorName.replace(/^Dr\.?\s*/i, 'Dr. ')
+    : `Dr. ${doctorName}`;
+
+  const inviteUrl = physician.referralSlug
+    ? `${APP_URL}/invite/${physician.referralSlug}`
+    : `${APP_URL}/invite/${physician.id}`;
 
   return (
     <PrintableHandout
       inviteUrl={inviteUrl}
-      doctorName={physician.fullName}
+      doctorName={displayName}
     />
   );
 }
