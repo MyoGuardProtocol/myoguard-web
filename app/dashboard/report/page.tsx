@@ -850,57 +850,6 @@ export default async function ReportPage() {
             </section>
           )}
 
-          {/* ══════════════════════════════════════════════════════════════════ */}
-          {/* TREND & CONSISTENCY — moved to Odyssey                            */}
-          {/* ══════════════════════════════════════════════════════════════════ */}
-          {false && (
-            <section>
-              <h2 style={sectionHeading}>Trend & Consistency</h2>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
-                <div style={{ ...card, padding: '16px' }}>
-                  <p style={{ fontSize: '10px', color: '#94A3B8', textTransform: 'uppercase',
-                    letterSpacing: '0.06em', marginBottom: '6px' }}>
-                    30-Day Projection
-                  </p>
-                  <p style={{ fontSize: '22px', fontWeight: '700', color: '#2DD4BF',
-                    fontFamily: 'Georgia, serif' }}>
-                    {digest.projectedScore !== null ? Math.round(digest.projectedScore) : '—'}
-                    {digest.projectedScore !== null && (
-                      <span style={{ fontSize: '13px', color: '#475569',
-                        fontWeight: '400', marginLeft: '2px' }}>/100</span>
-                    )}
-                  </p>
-                </div>
-                <div style={{ ...card, padding: '16px' }}>
-                  <p style={{ fontSize: '10px', color: '#94A3B8', textTransform: 'uppercase',
-                    letterSpacing: '0.06em', marginBottom: '6px' }}>
-                    Score Trend
-                  </p>
-                  <p style={{ fontSize: '15px', fontWeight: '700', color: trendCfg.colour,
-                    display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span>{trendCfg.icon}</span> {trendCfg.text}
-                  </p>
-                </div>
-                <div style={{ ...card, padding: '16px' }}>
-                  <p style={{ fontSize: '10px', color: '#94A3B8', textTransform: 'uppercase',
-                    letterSpacing: '0.06em', marginBottom: '6px' }}>
-                    Check-in Streak
-                  </p>
-                  <p style={{ fontSize: '22px', fontWeight: '700', color: '#F1F5F9',
-                    fontFamily: 'Georgia, serif' }}>
-                    {digest.streakWeeks}
-                    <span style={{ fontSize: '13px', color: '#475569',
-                      fontWeight: '400', marginLeft: '4px' }}>
-                      wk{digest.streakWeeks !== 1 ? 's' : ''}
-                    </span>
-                  </p>
-                  <p style={{ fontSize: '10px', color: '#475569' }}>
-                    Best: {digest.bestStreak} wks
-                  </p>
-                </div>
-              </div>
-            </section>
-          )}
 
           {/* ══════════════════════════════════════════════════════════════════ */}
           {/* ASSESSMENT HISTORY — moved to Odyssey                             */}
