@@ -451,7 +451,7 @@ export default async function ReportPage() {
               <p style={{ fontSize: '10px', color: '#94A3B8', textTransform: 'uppercase',
                 letterSpacing: '0.06em', marginBottom: '4px' }}>Assessment Date</p>
               <p style={{ fontSize: '14px', fontWeight: '600', color: '#F1F5F9' }}>
-                {shortDate(latestAssessment.assessmentDate)}
+                {new Date(latestAssessment.assessmentDate).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
               </p>
             </div>
             {user.profile?.age && (

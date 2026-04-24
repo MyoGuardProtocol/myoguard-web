@@ -174,7 +174,7 @@ export default async function ResultsPage({
             {firstName ? `${firstName}'s Score` : 'Your Score'}
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            {longDate(assessment.assessmentDate)}
+            {new Date(assessment.assessmentDate).toLocaleString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
           </p>
         </div>
 
@@ -229,7 +229,7 @@ export default async function ResultsPage({
                 Since Last Assessment
               </p>
               <span className="text-[10px] text-slate-500">
-                {shortDate(previousAssessment.assessmentDate)}
+                {new Date(previousAssessment.assessmentDate).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
               </span>
             </div>
 

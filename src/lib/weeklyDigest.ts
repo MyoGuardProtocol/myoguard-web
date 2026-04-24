@@ -85,11 +85,12 @@ function computeTrajectory(
   const first    = recent[0];
   const last     = recent[recent.length - 1];
   const daysDiff = Math.max(
-    1,
     (last.assessmentDate.getTime() - first.assessmentDate.getTime()) / 86_400_000,
+    7,
   );
 
   let ratePerDay = (last.score - first.score) / daysDiff;
+  ratePerDay = Math.max(-0.5, Math.min(0.5, ratePerDay));
 
   if (checkins[0]) {
     const ci = checkins[0];

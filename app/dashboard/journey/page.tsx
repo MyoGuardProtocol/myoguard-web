@@ -32,6 +32,9 @@ function shortDate(d: Date): string {
 function weekLabel(d: Date): string {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
+function dateWithTime(d: Date): string {
+  return d.toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
 
 // ─── Trend display config ──────────────────────────────────────────────────────
 type TrendStatus = 'improving' | 'stable' | 'declining' | 'insufficient';
@@ -210,7 +213,7 @@ function buildRecentWins(
         icon:    '↑',
         iconCls: 'text-emerald-400 bg-emerald-900/40 border-emerald-800',
         text:    `Score improved +${Math.round(gain)} points`,
-        date:    shortDate(latest.assessmentDate),
+        date:    dateWithTime(latest.assessmentDate),
       });
     }
   }
@@ -439,8 +442,8 @@ export default async function JourneyPage() {
           </h1>
           <p className="text-xs text-slate-500 mt-1">
             {scored.length === 1
-              ? `First assessment · ${shortDate(latest.assessmentDate)}`
-              : `${scored.length} assessments · started ${shortDate(first.assessmentDate)}`}
+              ? `First assessment · ${dateWithTime(latest.assessmentDate)}`
+              : `${scored.length} assessments · started ${dateWithTime(first.assessmentDate)}`}
           </p>
         </div>
 
@@ -916,7 +919,7 @@ export default async function JourneyPage() {
               <div className="flex gap-1.5 mb-4">
                 {scored.map((a) => (
                   <div key={a.id} className="flex-1 text-center min-w-0">
-                    <span className="text-[8px] text-slate-600 truncate block">{shortDate(a.assessmentDate)}</span>
+                    <span className="text-[8px] text-slate-600 truncate block">{dateWithTime(a.assessmentDate)}</span>
                   </div>
                 ))}
               </div>
