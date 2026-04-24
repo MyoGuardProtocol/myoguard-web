@@ -600,6 +600,87 @@ export default async function ReportPage() {
           </div>
 
           {/* ══════════════════════════════════════════════════════════════════ */}
+          {/* THIS WEEK'S FOCUS                                                  */}
+          {/* ══════════════════════════════════════════════════════════════════ */}
+          <div style={{
+            background: '#0D1421',
+            border: '1px solid #1A2744',
+            borderRadius: '16px',
+            padding: '24px',
+            marginBottom: '24px',
+          }}>
+            <p style={{
+              fontFamily: 'Georgia, serif',
+              fontSize: '16px', fontWeight: '600',
+              color: '#F1F5F9', marginBottom: '16px',
+            }}>
+              This Week&apos;s Focus
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                <div style={{
+                  width: '24px', height: '24px', borderRadius: '50%',
+                  background: 'rgba(45,212,191,0.12)',
+                  border: '1px solid rgba(45,212,191,0.3)',
+                  display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', flexShrink: 0, marginTop: '2px',
+                }}>
+                  <span style={{ fontSize: '11px', color: '#2DD4BF', fontWeight: '700' }}>1</span>
+                </div>
+                <div>
+                  <p style={{ fontSize: '14px', fontWeight: '600', color: '#F1F5F9', marginBottom: '4px' }}>
+                    Hit your protein target daily
+                  </p>
+                  <p style={{ fontSize: '13px', color: '#94A3B8', lineHeight: '1.5' }}>
+                    {ms.proteinTargetG}g/day — spread across 4–5 meals.
+                    Whey protein supplement recommended if dietary intake falls short.
+                  </p>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                <div style={{
+                  width: '24px', height: '24px', borderRadius: '50%',
+                  background: 'rgba(45,212,191,0.12)',
+                  border: '1px solid rgba(45,212,191,0.3)',
+                  display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', flexShrink: 0, marginTop: '2px',
+                }}>
+                  <span style={{ fontSize: '11px', color: '#2DD4BF', fontWeight: '700' }}>2</span>
+                </div>
+                <div>
+                  <p style={{ fontSize: '14px', fontWeight: '600', color: '#F1F5F9', marginBottom: '4px' }}>
+                    Complete at least 2 resistance sessions
+                  </p>
+                  <p style={{ fontSize: '13px', color: '#94A3B8', lineHeight: '1.5' }}>
+                    Compound movements — squat, press, row, hinge.
+                    Resistance training is the most evidence-supported strategy for
+                    preserving muscle during GLP-1 therapy.
+                  </p>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                <div style={{
+                  width: '24px', height: '24px', borderRadius: '50%',
+                  background: 'rgba(45,212,191,0.12)',
+                  border: '1px solid rgba(45,212,191,0.3)',
+                  display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', flexShrink: 0, marginTop: '2px',
+                }}>
+                  <span style={{ fontSize: '11px', color: '#2DD4BF', fontWeight: '700' }}>3</span>
+                </div>
+                <div>
+                  <p style={{ fontSize: '14px', fontWeight: '600', color: '#F1F5F9', marginBottom: '4px' }}>
+                    Log your weekly check-in
+                  </p>
+                  <p style={{ fontSize: '13px', color: '#94A3B8', lineHeight: '1.5' }}>
+                    Takes 60 seconds. Consistent logging builds your progress trajectory in The Odyssey.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ══════════════════════════════════════════════════════════════════ */}
           {/* ESCALATION ALERT — hidden from patient view (Part B-1)            */}
           {/* ══════════════════════════════════════════════════════════════════ */}
           {false && (
@@ -627,10 +708,10 @@ export default async function ReportPage() {
             <div style={{ background: '#0D1421', border: '1px solid #1A2744',
               borderRadius: '16px', overflow: 'hidden' }}>
 
-              {/* Row 1: Risk Category + 30-day projection */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+              {/* Row 1: Risk Category */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr' }}>
                 <div style={{ padding: '16px 20px',
-                  borderBottom: '1px solid #1A2744', borderRight: '1px solid #1A2744' }}>
+                  borderBottom: '1px solid #1A2744' }}>
                   <p style={{ fontSize: '10px', color: '#94A3B8', textTransform: 'uppercase',
                     letterSpacing: '0.06em', marginBottom: '10px' }}>
                     Risk Category
@@ -650,6 +731,7 @@ export default async function ReportPage() {
                   </p>
                 </div>
 
+                {false && (
                 <div style={{ padding: '16px 20px', borderBottom: '1px solid #1A2744' }}>
                   <p style={{ fontSize: '10px', color: '#94A3B8', textTransform: 'uppercase',
                     letterSpacing: '0.06em', marginBottom: '10px' }}>
@@ -665,11 +747,12 @@ export default async function ReportPage() {
                     {interp.leanMassProjection.split('. ').slice(1).join('. ')}
                   </p>
                 </div>
+                )}
               </div>
 
               {/* Row 2: Key Risk Drivers + Protocol Adherence */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
-                <div style={{ padding: '16px 20px', borderRight: '1px solid #1A2744' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr' }}>
+                <div style={{ padding: '16px 20px' }}>
                   <p style={{ fontSize: '10px', color: '#94A3B8', textTransform: 'uppercase',
                     letterSpacing: '0.06em', marginBottom: '12px' }}>
                     Key Risk Drivers
@@ -705,6 +788,7 @@ export default async function ReportPage() {
                   </div>
                 </div>
 
+                {false && (
                 <div style={{ padding: '16px 20px' }}>
                   <p style={{ fontSize: '10px', color: '#94A3B8', textTransform: 'uppercase',
                     letterSpacing: '0.06em', marginBottom: '12px' }}>
@@ -730,6 +814,7 @@ export default async function ReportPage() {
                     </p>
                   )}
                 </div>
+                )}
               </div>
 
             </div>
@@ -766,9 +851,9 @@ export default async function ReportPage() {
           )}
 
           {/* ══════════════════════════════════════════════════════════════════ */}
-          {/* TREND & CONSISTENCY                                                */}
+          {/* TREND & CONSISTENCY — moved to Odyssey                            */}
           {/* ══════════════════════════════════════════════════════════════════ */}
-          {digest && (digest.projectedScore !== null || digest.streakWeeks > 0) && (
+          {false && digest && (digest.projectedScore !== null || digest.streakWeeks > 0) && (
             <section>
               <h2 style={sectionHeading}>Trend & Consistency</h2>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
@@ -818,9 +903,9 @@ export default async function ReportPage() {
           )}
 
           {/* ══════════════════════════════════════════════════════════════════ */}
-          {/* ASSESSMENT HISTORY                                                 */}
+          {/* ASSESSMENT HISTORY — moved to Odyssey                             */}
           {/* ══════════════════════════════════════════════════════════════════ */}
-          {historyAsc.length >= 2 && (
+          {false && historyAsc.length >= 2 && (
             <section>
               <style>{`
                 .hist-row { cursor: pointer; transition: background 0.15s; }
@@ -903,7 +988,7 @@ export default async function ReportPage() {
           {/* ASSESSMENT INPUTS                                                  */}
           {/* ══════════════════════════════════════════════════════════════════ */}
           <section>
-            <h2 style={sectionHeading}>Assessment Inputs</h2>
+            <h2 style={sectionHeading}>Your Assessment Details</h2>
             <div style={{ background: '#0D1421', border: '1px solid #1A2744',
               borderRadius: '16px', overflow: 'hidden' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
@@ -976,9 +1061,9 @@ export default async function ReportPage() {
           </section>
 
           {/* ══════════════════════════════════════════════════════════════════ */}
-          {/* CHECK-IN ADHERENCE                                                 */}
+          {/* CHECK-IN ADHERENCE — moved to Odyssey                             */}
           {/* ══════════════════════════════════════════════════════════════════ */}
-          {user.weeklyCheckins.length > 0 && (
+          {false && user.weeklyCheckins.length > 0 && (
             <section>
               <h2 style={sectionHeading}>
                 Weekly Check-in Adherence (last {user.weeklyCheckins.length} weeks)
@@ -1031,8 +1116,9 @@ export default async function ReportPage() {
           )}
 
           {/* ══════════════════════════════════════════════════════════════════ */}
-          {/* CLINICAL SUMMARY                                                   */}
+          {/* CLINICAL SUMMARY — physician view only                            */}
           {/* ══════════════════════════════════════════════════════════════════ */}
+          {false && (
           <section>
             <h2 style={sectionHeading}>Clinical Summary</h2>
             <div style={{ ...card }}>
@@ -1042,6 +1128,7 @@ export default async function ReportPage() {
               </p>
             </div>
           </section>
+          )}
 
           {/* ── Recommended Next Step ── */}
           {digest?.nextAction && (
@@ -1070,6 +1157,23 @@ export default async function ReportPage() {
               </div>
             </section>
           )}
+
+          {/* ══════════════════════════════════════════════════════════════════ */}
+          {/* ODYSSEY LINK                                                       */}
+          {/* ══════════════════════════════════════════════════════════════════ */}
+          <div style={{ textAlign: 'center', padding: '24px 0' }}>
+            <a href="/dashboard/journey" style={{
+              display: 'inline-flex', alignItems: 'center', gap: '8px',
+              background: 'rgba(45,212,191,0.08)',
+              border: '1px solid rgba(45,212,191,0.3)',
+              borderRadius: '99px', padding: '12px 24px',
+              textDecoration: 'none',
+              fontSize: '13px', fontWeight: '600',
+              color: '#2DD4BF',
+            }}>
+              View your progress in The Odyssey →
+            </a>
+          </div>
 
           {/* ══════════════════════════════════════════════════════════════════ */}
           {/* FOOTER                                                             */}
