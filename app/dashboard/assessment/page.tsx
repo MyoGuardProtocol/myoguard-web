@@ -188,10 +188,11 @@ export default function AssessmentPage() {
         recoveryScore,
         risk,
         weight,
-        protein:    Math.round(weight * 1.6),
-        drug:       isTirz ? 'tirzepatide' : 'semaglutide',
+        protein:       Math.round(weight * 1.6),
+        drug:          isTirz ? 'tirzepatide' : 'semaglutide',
         giSymptoms,
-        sleepHours: 7,
+        sleepHours:    7,
+        activityLevel: daysToActivity(days),
       };
 
       const res = await fetch('/api/assessment/save', {

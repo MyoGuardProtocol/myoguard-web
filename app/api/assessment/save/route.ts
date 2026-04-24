@@ -19,7 +19,7 @@ export async function POST(req: Request) {
     const {
       composite, leanScore, recoveryScore,
       risk, weight, protein, drug,
-      giSymptoms, sleepHours
+      giSymptoms, sleepHours, activityLevel,
     } = body;
 
     // Suppress unused-var warnings — fields captured for future use
@@ -80,6 +80,13 @@ export async function POST(req: Request) {
         });
 
         // Create MuscleScore linked to this assessment
+        const activityMultiplier =
+          activityLevel === "active"   ? 2.0 :
+          activityLevel === "moderate" ? 1.7 : 1.5;
+        const proteinTargetG = weight
+          ? Math.round(weight * activityMultiplier)
+          : 120;
+
         await prisma.muscleScore.create({
           data: {
             assessmentId:   savedAssessment.id,
@@ -87,7 +94,7 @@ export async function POST(req: Request) {
             score:          composite ?? 0,
             riskBand:       risk ?? "LOW",
             leanLossEstPct: risk === "HIGH" ? 35 : risk === "MODERATE" ? 20 : 10,
-            proteinTargetG: protein ? Math.round(protein * 1.5) : 120,
+            proteinTargetG,
             explanation:    risk === "HIGH"
               ? "Significant lean mass loss risk detected. Immediate protocol review indicated."
               : risk === "MODERATE"
