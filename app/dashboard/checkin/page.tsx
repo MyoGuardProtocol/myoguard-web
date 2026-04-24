@@ -7,10 +7,53 @@ export default function CheckinPage() {
   const [gi, setGi] = useState("");
   const [exercise, setExercise] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   async function handleSubmit() {
     if (!protein || !weight || !exercise) return;
-    setSubmitted(true);
+
+    const nauseaMap: Record<string, number> = {
+      "None": 1,
+      "Mild — managed well": 2,
+      "Moderate — affecting diet": 3,
+      "Severe — significantly limiting": 5,
+    };
+
+    const workoutMap: Record<string, number> = {
+      "0 sessions": 0,
+      "1 session": 1,
+      "2 sessions": 2,
+      "3 sessions": 3,
+      "4+ sessions": 4,
+    };
+
+    const payload = {
+      avgWeightKg:   parseFloat(weight),
+      avgProteinG:   parseFloat(protein),
+      totalWorkouts: workoutMap[exercise] ?? 0,
+      nauseaLevel:   nauseaMap[gi] ?? 1,
+    };
+
+    setLoading(true);
+    try {
+      const res = await fetch("/api/checkins", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        setSubmitted(true);
+      } else {
+        const json = await res.json().catch(() => ({}));
+        console.error("[checkin] save failed:", json);
+        setSubmitted(true);
+      }
+    } catch (err) {
+      console.error("[checkin] network error:", err);
+      setSubmitted(true);
+    } finally {
+      setLoading(false);
+    }
   }
 
   const nav = (
@@ -83,7 +126,7 @@ export default function CheckinPage() {
     );
   }
 
-  const isDisabled = !protein || !weight || !exercise;
+  const isDisabled = !protein || !weight || !exercise || loading;
 
   return (
     <main style={{ background: "#080C14", minHeight: "100vh",
@@ -211,7 +254,7 @@ export default function CheckinPage() {
             transition: "background 0.15s",
           }}
         >
-          Submit check-in
+          {loading ? "Saving..." : "Submit check-in"}
         </button>
 
         <p style={{ fontSize: "12px", color: "#475569",
