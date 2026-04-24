@@ -1,88 +1,118 @@
 'use client';
 
-import QRCode from 'react-qr-code';
+import { QRCodeSVG } from 'qrcode.react';
 
-interface Props {
+type Props = {
   inviteUrl:  string;
   doctorName: string;
-}
+};
 
-/**
- * PrintableHandout — clean white PDF-style page.
- *
- * The Print button triggers window.print(). In Chrome/Edge the user can
- * "Save as PDF" from the print dialog. The print:hidden utilities hide
- * browser chrome (the button, padding) so the printed output is clean.
- */
 export default function PrintableHandout({ inviteUrl, doctorName }: Props) {
   return (
-    <div className="min-h-screen bg-white font-sans flex flex-col items-center justify-center px-6 py-10 print:p-0 print:min-h-0">
+    <div style={{ background: '#080C14', minHeight: '100vh', padding: '40px 20px' }}>
 
-      {/* Print / Save PDF button — hidden when printing */}
-      <button
-        onClick={() => window.print()}
-        className="mb-8 bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm px-6 py-2.5 rounded-xl transition-colors print:hidden"
+      <style>{`
+        @media print {
+          .no-print { display: none !important; }
+          body { background: white !important; margin: 0; }
+          .paper { box-shadow: none !important; margin: 0 !important; }
+        }
+        @page { size: A4; margin: 2cm }
+      `}</style>
+
+      {/* Print button */}
+      <div className="no-print flex justify-end mb-6" style={{ maxWidth: '720px', margin: '0 auto 24px' }}>
+        <button
+          onClick={() => window.print()}
+          className="bg-[#2DD4BF] text-[#080C14] px-6 py-2 rounded-full font-bold text-[13px]"
+        >
+          Print Document
+        </button>
+      </div>
+
+      {/* Paper */}
+      <div
+        className="paper bg-white mx-auto p-12 shadow-[0_20px_60px_rgba(0,0,0,0.4)]"
+        style={{ maxWidth: '720px' }}
       >
-        Print / Save as PDF
-      </button>
 
-      {/* ── Handout sheet ── */}
-      <div className="w-full max-w-xs border border-slate-200 rounded-2xl p-8 text-center shadow-sm print:border-0 print:shadow-none print:rounded-none print:max-w-none print:p-10">
-
-        {/* Logo */}
-        <p className="text-3xl font-black tracking-tight text-slate-900 mb-0.5">
-          Myo<span className="text-teal-600">Guard</span>
-        </p>
-        <p className="text-[10px] font-semibold tracking-[0.18em] text-slate-400 uppercase mb-8">
-          Protocol Platform
-        </p>
-
-        {/* QR Code — high-contrast black border for reliable scanning */}
-        <div className="flex justify-center mb-6">
-          <div
-            style={{ border: '5px solid #0f172a', borderRadius: 16, padding: 12, display: 'inline-block', background: '#ffffff' }}
-          >
-            <QRCode
-              value={inviteUrl}
-              size={220}
-              fgColor="#0f172a"
-              bgColor="#ffffff"
-              level="H"
-            />
+        {/* Header */}
+        <div className="flex justify-between items-start border-b-2 border-black pb-5">
+          <div>
+            <div>
+              <span className="font-serif text-2xl font-black text-black">Myo</span>
+              <span className="font-serif text-2xl font-black" style={{ color: '#0d9488' }}>Guard</span>
+            </div>
+            <p className="text-[10px] tracking-[2px] uppercase text-slate-500 mt-1">Protocol Platform</p>
+          </div>
+          <div className="text-right">
+            <p className="font-serif text-base font-bold text-black">{doctorName}</p>
+            <p className="text-[11px] text-emerald-800 font-semibold mt-0.5">MyoGuard Certified Physician</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              {new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+            </p>
           </div>
         </div>
 
-        {/* Instruction */}
-        <p className="text-sm font-semibold text-slate-900 mb-2">
-          Scan to join your protocol
-        </p>
-        <p className="text-xs text-slate-500 leading-relaxed mb-5">
-          Your physician, <strong className="text-slate-700">{doctorName}</strong>,
-          has set up a personalised muscle-protection protocol for you.
-          Scan to create your free account and get started.
-        </p>
-
-        {/* URL fallback */}
-        <div
-          style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: '10px 14px', marginBottom: 24 }}
-        >
-          <p style={{ fontSize: 10, color: '#94a3b8', marginBottom: 4 }}>Or visit</p>
-          <p style={{ fontSize: 11, color: '#0d9488', fontFamily: 'monospace', wordBreak: 'break-all', margin: 0 }}>
-            {inviteUrl}
+        {/* Clinical Invitation */}
+        <div className="mt-7">
+          <h2 className="font-serif text-xl font-bold mb-3">
+            Muscle Protection Protocol — Patient Invitation
+          </h2>
+          <p className="text-[14px] leading-7 text-slate-800">
+            {doctorName} has prescribed the MyoGuard Protocol as part of your GLP-1 therapy
+            management plan. This evidence-based programme is designed to protect your muscle
+            mass, optimise your nutritional targets, and monitor your progress throughout
+            treatment.
           </p>
+          <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mt-4">
+            Your Protocol Includes:
+          </p>
+          <ul className="mt-2 space-y-0 text-[14px] text-slate-800 leading-8 list-none p-0">
+            <li>• Personalised Sarcopenia Risk Assessment</li>
+            <li>• Daily Metabolic Protein &amp; Hydration Targets</li>
+            <li>• Evidence-based Supplementation Guidance</li>
+            <li>• Weekly Vitality Check-ins</li>
+          </ul>
+        </div>
+
+        {/* Activation Hub */}
+        <div className="mt-7 text-center">
+          <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-3">
+            Scan to activate your protocol
+          </p>
+          <div className="border border-slate-200 p-4 inline-block rounded-lg">
+            <QRCodeSVG value={inviteUrl} size={180} level="H" />
+          </div>
+          <p className="text-[11px] text-slate-400 font-mono mt-2">{inviteUrl}</p>
+        </div>
+
+        {/* Sign-off */}
+        <div className="mt-10 pt-5 border-t border-slate-200 flex justify-between items-end">
+          <div>
+            <p className="text-slate-400 text-[13px] mb-1">X__________________________</p>
+            <p className="text-[13px] font-semibold text-black">{doctorName}</p>
+            <p className="text-[11px] text-emerald-800">MyoGuard Certified Physician</p>
+          </div>
+          <div>
+            <p className="text-right text-[13px] text-slate-400">Date: _______________</p>
+          </div>
         </div>
 
         {/* Disclaimer */}
-        <p style={{ fontSize: 9, color: '#94a3b8', lineHeight: 1.7, margin: 0 }}>
-          Use requires physician oversight and patient consent.<br />
-          This tool provides educational guidance only and does not replace medical advice.<br />
-          © 2026 MyoGuard Protocol · MyoGuard Clinical Oversight
-        </p>
-      </div>
+        <div className="mt-6 text-center text-[9px] text-slate-400 leading-5">
+          <p>
+            This invitation is issued under the clinical oversight of {doctorName}.
+            MyoGuard Protocol provides evidence-based clinical decision support for GLP-1
+            muscle preservation. This document does not constitute individualised medical
+            advice.
+          </p>
+          <p>
+            © 2026 Meridian Wellness Systems LLC · Clinical Decision Support Only · myoguard.health
+          </p>
+        </div>
 
-      <p className="mt-6 text-xs text-slate-400 print:hidden">
-        Use <strong>Ctrl+P</strong> (or ⌘P on Mac) to open the print dialog.
-      </p>
+      </div>
     </div>
   );
 }

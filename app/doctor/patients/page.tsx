@@ -264,12 +264,14 @@ export default async function PatientsPage() {
         </div>
       </header>
 
-      <div className="max-w-6xl mx-auto px-6 py-6">
-        <PatientGrowthCard
-          doctorId={physician.id}
-          doctorName={physician.fullName}
-        />
-      </div>
+      {patients.length === 0 && (
+        <div className="max-w-6xl mx-auto px-6 py-6">
+          <PatientGrowthCard
+            doctorId={physician.id}
+            doctorName={physician.fullName}
+          />
+        </div>
+      )}
       <PatientCommandCenter patients={patients} isVerified={physician.isVerified} />
     </main>
   );
