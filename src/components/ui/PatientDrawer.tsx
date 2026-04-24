@@ -806,7 +806,7 @@ export default function PatientDrawer({
                   borderRadius:  8,
                   background:    'transparent',
                   border:        '1.5px solid rgba(100,116,139,0.45)',
-                  color:         evidenceConfirmed ? '#4ADE80' : 'rgba(255,255,255,0.55)',
+                  color:         evidenceConfirmed ? '#2DD4BF' : 'rgba(255,255,255,0.55)',
                   fontSize:      13,
                   fontWeight:    700,
                   letterSpacing: '0.01em',
@@ -815,7 +815,7 @@ export default function PatientDrawer({
                 }}
               >
                 {evidenceConfirmed
-                  ? 'Evidence packet generated — ready for EHR upload'
+                  ? 'Clinical data logged — EHR export coming in Phase 2'
                   : 'Generate Clinical Evidence Packet'}
               </button>
 
