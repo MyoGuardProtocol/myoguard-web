@@ -853,7 +853,7 @@ export default async function ReportPage() {
           {/* ══════════════════════════════════════════════════════════════════ */}
           {/* TREND & CONSISTENCY — moved to Odyssey                            */}
           {/* ══════════════════════════════════════════════════════════════════ */}
-          {false && digest && (digest.projectedScore !== null || digest.streakWeeks > 0) && (
+          {false && digest != null && (digest.projectedScore !== null || digest.streakWeeks > 0) && (
             <section>
               <h2 style={sectionHeading}>Trend & Consistency</h2>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
