@@ -73,6 +73,7 @@ export default async function PhysicianSignInPage() {
         path="/doctor/sign-in"
         signUpUrl="/doctor/sign-up"
         forceRedirectUrl="/doctor/dashboard"
+        preferredSignInStrategy="otp"
         appearance={{
           variables: {
             colorBackground: "#0A0A0A",
@@ -101,9 +102,10 @@ export default async function PhysicianSignInPage() {
         }}
       />
 
-      <p style={{ textAlign: "center", fontSize: "13px", color: "#94A3B8", marginTop: "16px" }}>
-        After clicking the link in your email,
-        return to this tab — you will be signed in automatically.
+      <p style={{ textAlign: "center", fontSize: "13px", color: "#94A3B8", marginTop: "16px", lineHeight: "1.6" }}>
+        Enter your email above and we will send you a
+        6-digit code to sign in instantly.
+        No password required.
       </p>
 
       <SessionPoller />
