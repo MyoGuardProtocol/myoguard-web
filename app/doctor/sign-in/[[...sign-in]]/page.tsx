@@ -3,7 +3,6 @@ import { redirect } from 'next/navigation';
 import { prisma } from '@/src/lib/prisma';
 import { SignIn } from '@clerk/nextjs';
 import Link from 'next/link';
-import SessionPoller from '@/src/components/ui/SessionPoller';
 
 /**
  * /doctor/sign-in — Physician-specific sign-in surface.
@@ -115,8 +114,6 @@ export default async function PhysicianSignInPage() {
         6-digit code to sign in instantly.
         No password required.
       </p>
-
-      <SessionPoller />
 
       <p style={{ textAlign: "center", marginTop: "16px", fontSize: "13px", color: "#64748b" }}>
         Not yet registered?{" "}
