@@ -822,6 +822,12 @@ export default async function ReportPage() {
           {/* ══════════════════════════════════════════════════════════════════ */}
           {historyAsc.length >= 2 && (
             <section>
+              <style>{`
+                .hist-row { cursor: pointer; transition: background 0.15s; }
+                .hist-row:hover { background: rgba(45,212,191,0.05) !important; }
+                .hist-row td:first-child { position: relative; }
+                .hist-row-link { position: absolute; inset: 0; z-index: 1; }
+              `}</style>
               <h2 style={sectionHeading}>Assessment History</h2>
               <div style={{ background: '#0D1421', border: '1px solid #1A2744',
                 borderRadius: '16px', overflow: 'hidden' }}>
@@ -854,12 +860,16 @@ export default async function ReportPage() {
                       const prev  = historyAsc[i - 1]?.muscleScore?.score ?? null;
                       const delta = s !== null && prev !== null ? Math.round(s - prev) : null;
                       return (
-                        <tr key={a.id} style={{
+                        <tr key={a.id} className="hist-row" style={{
                           borderBottom: i < historyAsc.length - 1 ? '1px solid #1A2744' : 'none',
                           background: i === historyAsc.length - 1 ? 'rgba(45,212,191,0.04)' : 'transparent',
                         }}>
                           <td style={{ padding: '10px 16px', fontSize: '13px', color: '#94A3B8' }}>
-                            {shortDate(a.assessmentDate)}
+                            <a href={`/dashboard/results/${a.id}`} className="hist-row-link" aria-label={`View assessment from ${new Date(a.assessmentDate).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`} />
+                            {new Date(a.assessmentDate).toLocaleString('en-GB', {
+                              day: 'numeric', month: 'short', year: 'numeric',
+                              hour: '2-digit', minute: '2-digit',
+                            })}
                           </td>
                           <td style={{ padding: '10px 16px', fontSize: '14px', fontWeight: '700',
                             color: '#2DD4BF', fontFamily: 'Georgia, serif' }}>
