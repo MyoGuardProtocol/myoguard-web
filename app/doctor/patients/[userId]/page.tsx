@@ -309,7 +309,7 @@ export default async function PatientDetailPage({
             <div className="bg-slate-900 rounded-2xl p-5 text-white">
               {/* Eyebrow */}
               <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-3">
-                Latest MyoGuard Score · {shortDate(latest.assessmentDate)}
+                Latest MyoGuard Score · {new Date(latest.assessmentDate).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
               </p>
 
               {/* Score row */}
@@ -382,14 +382,15 @@ export default async function PatientDetailPage({
             {/* ── Escalation Alert (physician-only) ───────────────────────── */}
             {escalate && (
               <div style={{
-                background: 'rgba(248,113,113,0.08)',
-                border: '1px solid rgba(248,113,113,0.3)',
+                background: 'rgba(248,113,113,0.15)',
+                border: '1px solid rgba(248,113,113,0.5)',
+                borderLeft: '4px solid #FB7185',
                 borderRadius: '16px', padding: '20px 24px',
                 marginBottom: '16px',
               }}>
-                <p style={{ fontSize: '11px', fontWeight: '700',
+                <p style={{ fontSize: '12px', fontWeight: '700',
                   color: '#FB7185', textTransform: 'uppercase',
-                  letterSpacing: '0.08em', marginBottom: '8px' }}>
+                  letterSpacing: '0.08em', marginBottom: '12px' }}>
                   ⚠ Clinical Escalation Alert
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
