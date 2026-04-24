@@ -138,9 +138,6 @@ export default async function PatientsPage() {
 
   // Build OR clause for patient lookup
   const orClauses: Record<string, unknown>[] = [{ physicianId: physician.id }];
-  if (physician.referralSlug) {
-    orClauses.push({ referralSlug: physician.referralSlug });
-  }
 
   const rawPatients = await prisma.user.findMany({
     where: { role: 'PATIENT', OR: orClauses },
