@@ -564,7 +564,7 @@ export default async function PatientDetailPage({
                 return (
                   <Link
                     key={a.id}
-                    href={`/dashboard/results/${a.id}`}
+                    href={`/doctor/patients/${patientId}/results/${a.id}`}
                     className={`flex items-center gap-4 rounded-xl px-4 py-3 cursor-pointer transition-colors hover:bg-teal-50 hover:border-teal-200 ${
                       isLatest ? 'bg-slate-50 border border-slate-200' : ''
                     }`}
