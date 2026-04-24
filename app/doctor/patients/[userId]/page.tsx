@@ -252,6 +252,16 @@ export default async function PatientDetailPage({
   const band = latestBand ?? 'LOW';
   const rm   = RISK_META[band] ?? RISK_META.LOW;
 
+  // ── Clinical escalation derivation (physician-only) ────────────────────────
+  const latestMs       = latest?.muscleScore;
+  const proteinDeficit = latestMs
+    ? (latestMs.proteinTargetG ?? 0) - (latest?.proteinGrams ?? 0)
+    : 0;
+  const escalate =
+    proteinDeficit > 30 ||
+    (latest?.exerciseDaysWk ?? 0) < 2 ||
+    (latestMs?.leanLossEstPct ?? 0) > 25;
+
   return (
     <main className="min-h-screen bg-slate-50 font-sans">
 
@@ -369,6 +379,100 @@ export default async function PatientDetailPage({
               </div>
             </div>
 
+            {/* ── Escalation Alert (physician-only) ───────────────────────── */}
+            {escalate && (
+              <div style={{
+                background: 'rgba(248,113,113,0.08)',
+                border: '1px solid rgba(248,113,113,0.3)',
+                borderRadius: '16px', padding: '20px 24px',
+                marginBottom: '16px',
+              }}>
+                <p style={{ fontSize: '11px', fontWeight: '700',
+                  color: '#FB7185', textTransform: 'uppercase',
+                  letterSpacing: '0.08em', marginBottom: '8px' }}>
+                  ⚠ Clinical Escalation Alert
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {proteinDeficit > 30 && (
+                    <p style={{ fontSize: '13px', color: '#fca5a5' }}>
+                      Critical protein deficit: −{Math.round(proteinDeficit)}g/day below target
+                      ({latest?.proteinGrams}g reported, {latestMs?.proteinTargetG}g required)
+                    </p>
+                  )}
+                  {(latest?.exerciseDaysWk ?? 0) < 2 && (
+                    <p style={{ fontSize: '13px', color: '#fca5a5' }}>
+                      Insufficient resistance stimulus: {latest?.exerciseDaysWk} session(s)/week
+                      — minimum 2 required
+                    </p>
+                  )}
+                  {(latestMs?.leanLossEstPct ?? 0) > 25 && (
+                    <p style={{ fontSize: '13px', color: '#fca5a5' }}>
+                      Elevated lean mass loss risk: {latestMs?.leanLossEstPct}% estimated
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ── Suggested Clinical Actions (physician-only) ──────────────── */}
+            <div style={{
+              background: '#0D1421', border: '1px solid #1A2744',
+              borderRadius: '16px', padding: '20px 24px',
+              marginBottom: '16px',
+            }}>
+              <p style={{ fontSize: '11px', fontWeight: '700',
+                color: '#94A3B8', textTransform: 'uppercase',
+                letterSpacing: '0.08em', marginBottom: '16px' }}>
+                Suggested Clinical Actions
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {proteinDeficit > 30 && (
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                    <span style={{ fontSize: '10px', fontWeight: '700',
+                      color: '#FB7185', background: 'rgba(248,113,133,0.12)',
+                      padding: '3px 8px', borderRadius: '99px',
+                      flexShrink: 0, marginTop: '2px' }}>URGENT</span>
+                    <p style={{ fontSize: '13px', color: '#F1F5F9', lineHeight: '1.5' }}>
+                      Increase daily protein to {latestMs?.proteinTargetG}g/day.
+                      Consider structured supplementation — whey protein or dietitian referral.
+                    </p>
+                  </div>
+                )}
+                {(latest?.exerciseDaysWk ?? 0) < 2 && (
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                    <span style={{ fontSize: '10px', fontWeight: '700',
+                      color: '#FB7185', background: 'rgba(248,113,133,0.12)',
+                      padding: '3px 8px', borderRadius: '99px',
+                      flexShrink: 0, marginTop: '2px' }}>URGENT</span>
+                    <p style={{ fontSize: '13px', color: '#F1F5F9', lineHeight: '1.5' }}>
+                      Prescribe structured resistance training — minimum 2 sessions/week,
+                      compound movements prioritised.
+                    </p>
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                  <span style={{ fontSize: '10px', fontWeight: '700',
+                    color: '#2DD4BF', background: 'rgba(45,212,191,0.12)',
+                    padding: '3px 8px', borderRadius: '99px',
+                    flexShrink: 0, marginTop: '2px' }}>MONITOR</span>
+                  <p style={{ fontSize: '13px', color: '#F1F5F9', lineHeight: '1.5' }}>
+                    Schedule nutritional labs at next visit: Ferritin, B12, Vitamin D,
+                    Zinc, Magnesium, Thiamine — particularly if on GLP-1 for 3+ months.
+                  </p>
+                </div>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                  <span style={{ fontSize: '10px', fontWeight: '700',
+                    color: '#94A3B8', background: 'rgba(148,163,184,0.12)',
+                    padding: '3px 8px', borderRadius: '99px',
+                    flexShrink: 0, marginTop: '2px' }}>ROUTINE</span>
+                  <p style={{ fontSize: '13px', color: '#F1F5F9', lineHeight: '1.5' }}>
+                    Monthly MyoGuard reassessment recommended to track protocol
+                    response across dose escalation steps.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             {/* ── Assessment snapshot ──────────────────────────────────────── */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
               <div className="flex items-center gap-2 mb-4">
@@ -457,9 +561,10 @@ export default async function PatientDetailPage({
                 const isLatest = i === 0;
 
                 return (
-                  <div
+                  <Link
                     key={a.id}
-                    className={`flex items-center gap-4 rounded-xl px-4 py-3 ${
+                    href={`/dashboard/results/${a.id}`}
+                    className={`flex items-center gap-4 rounded-xl px-4 py-3 cursor-pointer transition-colors hover:bg-teal-50 hover:border-teal-200 ${
                       isLatest ? 'bg-slate-50 border border-slate-200' : ''
                     }`}
                   >
@@ -485,7 +590,7 @@ export default async function PatientDetailPage({
                         </span>
                       )}
                     </p>
-                  </div>
+                  </Link>
                 );
               })}
             </div>
