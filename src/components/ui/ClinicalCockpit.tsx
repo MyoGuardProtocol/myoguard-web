@@ -33,7 +33,8 @@ export type CockpitAssmt = {
     giSeverity:             string | null;
     leanVelocityFlag:       string | null;
     leanVelocityPct:        number | null;
-    stageMultiplierApplied: number | null;
+    stageMultiplierApplied:    number | null;
+    recentProteinAdherencePct: number | null;
   } | null;
 };
 
@@ -48,6 +49,7 @@ const C = {
   tealBorder:  'rgba(45,212,191,0.22)',
   amber:       '#F59E0B',
   amberBg:     'rgba(245,158,11,0.10)',
+  amberBorder: 'rgba(245,158,11,0.22)',
   orange:      '#FB923C',
   orangeBg:    'rgba(251,146,60,0.10)',
   slate:       '#94A3B8',
@@ -316,14 +318,37 @@ export default function ClinicalCockpit({ assessments }: { assessments: CockpitA
     DISCONTINUATION: 'Rebound risk monitoring',
   };
 
-  // ── 8. Alerts
-  const alerts: string[] = [];
-  if (velFlag === 'concerning')      alerts.push('Lean mass velocity: concerning rate of change');
-  if (velFlag === 'critical_review') alerts.push('Lean mass velocity: critical review required');
-  if (giSev === 'severe')            alerts.push('Severe GI intolerance — protocol absorption limited');
-  if (ms.proteinStepTargetG != null) alerts.push('Step protein target active — GI-driven accommodation');
-  if (latest.sleepHours != null && latest.sleepHours < 6)
-                                     alerts.push('Sleep below 6 hours — anabolic recovery impaired');
+  // ── 8. Radar Alerts — 3-tier tripwire logic
+  // sriDrop > 0 means score worsened (latest score is lower than previous).
+  const sriDrop: number | null =
+    assessments.length >= 2 && assessments[1]?.muscleScore != null
+      ? assessments[1].muscleScore.score - ms.score
+      : null;
+
+  const adherencePct = ms.recentProteinAdherencePct;
+
+  // Level 3: critical_review AND confirmed floor adherence < 60%
+  const isLevel3 =
+    velFlag === 'critical_review' &&
+    adherencePct != null &&
+    adherencePct < 60;
+
+  // Level 2 triggers; collected so each reason renders as its own card
+  const level2: string[] = [];
+  if (sriDrop != null && sriDrop >= 15)
+    level2.push(`SRI declined ${Math.round(sriDrop)} points`);
+  if (velFlag === 'concerning')
+    level2.push('Lean mass velocity at concerning rate of change');
+  // Downgrade: critical_review without adherence data → Level 2
+  if (velFlag === 'critical_review' && adherencePct == null)
+    level2.push('Lean velocity elevated — protein adherence data unavailable');
+
+  // Level 1 triggers; only surfaced when no Level 2 or Level 3 is active
+  const level1: { reason: string }[] = [];
+  if (sriDrop != null && sriDrop >= 7 && sriDrop < 15)
+    level1.push({ reason: `SRI declined ${Math.round(sriDrop)} points` });
+  if (giSev === 'moderate')
+    level1.push({ reason: 'Moderate GI constraint noted' });
 
   // ─────────────────────────────────────────────────────────────────────────────
 
@@ -679,36 +704,89 @@ export default function ClinicalCockpit({ assessments }: { assessments: CockpitA
         )}
       </div>
 
-      {/* 8. Alerts Panel — full width */}
+      {/* 8. Radar Alerts — 3-tier tripwire panel */}
       <div style={card}>
-        <p style={eyebrow}>Clinical Observations</p>
+        <p style={eyebrow}>Radar Alerts</p>
 
-        {alerts.length === 0 ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ color: C.teal, fontSize: '15px' }}>✓</span>
-            <p style={{ fontSize: '13px', color: C.muted }}>No immediate alerts</p>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {alerts.map((alert, i) => (
-              <div key={i} style={{
-                display:     'flex',
-                alignItems:  'flex-start',
-                gap:         '10px',
-                padding:     '10px 12px',
-                background:  C.roseBg,
-                border:      `1px solid ${C.roseBorder}`,
-                borderLeft:  `3px solid ${C.rose}`,
-                borderRadius:'8px',
+        {isLevel3 ? (
+          /* Level 3 — Priority Clinical Review */
+          <div style={{
+            padding:      '14px 16px',
+            background:   'rgba(251,113,133,0.16)',
+            border:       `1px solid rgba(251,113,133,0.45)`,
+            borderLeft:   `4px solid ${C.rose}`,
+            borderRadius: '8px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+              <span style={{ color: C.rose, fontSize: '14px', flexShrink: 0 }}>⚠</span>
+              <span style={{
+                fontSize:      '10px',
+                fontWeight:    700,
+                color:         C.rose,
+                textTransform: 'uppercase',
+                letterSpacing: '0.10em',
               }}>
-                <span style={{ color: C.rose, fontSize: '13px', flexShrink: 0, marginTop: '1px' }}>
-                  ⚠
+                Priority Clinical Review Required
+              </span>
+            </div>
+            <p style={{ fontSize: '12px', color: '#FDA4AF', lineHeight: 1.6, paddingLeft: '22px' }}>
+              Lean velocity concern with severe protein adherence deficit
+              {adherencePct != null && (
+                <span style={{ color: C.rose, fontWeight: 700 }}>
+                  {' '}({adherencePct.toFixed(1)}% of Clinical Protein Floor)
                 </span>
+              )}
+            </p>
+          </div>
+        ) : level2.length > 0 ? (
+          /* Level 2 — Acute Risk */
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {level2.map((reason, i) => (
+              <div key={i} style={{
+                display:      'flex',
+                alignItems:   'flex-start',
+                gap:          '10px',
+                padding:      '10px 12px',
+                background:   C.roseBg,
+                border:       `1px solid ${C.roseBorder}`,
+                borderLeft:   `3px solid ${C.rose}`,
+                borderRadius: '8px',
+              }}>
+                <span style={{ color: C.rose, fontSize: '13px', flexShrink: 0, marginTop: '1px' }}>⚠</span>
                 <p style={{ fontSize: '12px', color: '#FDA4AF', lineHeight: 1.55 }}>
-                  {alert}
+                  <span style={{ fontWeight: 700, color: C.rose }}>Acute Risk: </span>
+                  {reason} — review titration schedule
                 </p>
               </div>
             ))}
+          </div>
+        ) : level1.length > 0 ? (
+          /* Level 1 — Clinical Drift */
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {level1.map((item, i) => (
+              <div key={i} style={{
+                display:      'flex',
+                alignItems:   'flex-start',
+                gap:          '10px',
+                padding:      '10px 12px',
+                background:   C.amberBg,
+                border:       `1px solid ${C.amberBorder}`,
+                borderLeft:   `3px solid ${C.amber}`,
+                borderRadius: '8px',
+              }}>
+                <span style={{ color: C.amber, fontSize: '13px', flexShrink: 0, marginTop: '1px' }}>◈</span>
+                <p style={{ fontSize: '12px', color: '#FCD34D', lineHeight: 1.55 }}>
+                  <span style={{ fontWeight: 700, color: C.amber }}>Clinical Drift Detected: </span>
+                  {item.reason}
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          /* No alerts */
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ color: C.teal, fontSize: '15px' }}>✓</span>
+            <p style={{ fontSize: '13px', color: C.muted }}>No immediate clinical alerts. Protocol stable.</p>
           </div>
         )}
       </div>

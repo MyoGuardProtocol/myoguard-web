@@ -406,7 +406,8 @@ export default async function PatientDetailPage({
                   giSeverity:             a.muscleScore.giSeverity             ?? null,
                   leanVelocityFlag:       a.muscleScore.leanVelocityFlag       ?? null,
                   leanVelocityPct:        a.muscleScore.leanVelocityPct        ?? null,
-                  stageMultiplierApplied: a.muscleScore.stageMultiplierApplied ?? null,
+                  stageMultiplierApplied:    a.muscleScore.stageMultiplierApplied    ?? null,
+                  recentProteinAdherencePct: a.muscleScore.recentProteinAdherencePct ?? null,
                 } : null,
               }))}
             />
