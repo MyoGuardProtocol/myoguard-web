@@ -20,7 +20,7 @@ export default function PrivacyPolicy() {
       <div className="max-w-3xl mx-auto px-6 py-10">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-slate-800">Privacy Policy</h1>
-          <p className="text-sm text-slate-500 mt-2">Last updated: March 2026 · Governing law: Trinidad and Tobago</p>
+          <p className="text-sm text-slate-500 mt-2">Last updated: April 2026 · Governing law: Wyoming, USA</p>
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 space-y-8 text-sm text-slate-600 leading-relaxed">
@@ -149,7 +149,7 @@ export default function PrivacyPolicy() {
           <section>
             <h2 className="text-base font-semibold text-slate-800 mb-3">9. Governing Law</h2>
             <p>
-              This Privacy Policy is governed by and construed in accordance with the laws of the Republic of Trinidad and Tobago. Any disputes arising from this policy shall be subject to the exclusive jurisdiction of the courts of Trinidad and Tobago.
+              This Privacy Policy is governed by and construed in accordance with the laws of the State of Wyoming, United States. Any disputes arising from this policy shall be subject to the exclusive jurisdiction of the courts of Wyoming, USA.
             </p>
           </section>
 
@@ -174,7 +174,7 @@ export default function PrivacyPolicy() {
         </div>
 
         <p className="mt-6 text-xs text-slate-400 text-center">
-          © 2026 MyoGuard Protocol · MyoGuard Clinical Oversight · Governing law: Trinidad and Tobago
+          © 2026 Meridian Wellness Systems LLC · myoguard.health
         </p>
       </div>
     </main>

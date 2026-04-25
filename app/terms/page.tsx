@@ -21,7 +21,7 @@ export default function TermsOfUse() {
       <div className="max-w-3xl mx-auto px-6 py-10">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-slate-800">Terms of Use</h1>
-          <p className="text-sm text-slate-500 mt-2">Last updated: April 2026 · Governing law: Trinidad and Tobago</p>
+          <p className="text-sm text-slate-500 mt-2">Last updated: April 2026 · Governing law: Wyoming, USA</p>
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 space-y-8 text-sm text-slate-600 leading-relaxed">
@@ -143,7 +143,7 @@ export default function TermsOfUse() {
           <section>
             <h2 className="text-base font-semibold text-slate-800 mb-3">8. Governing Law and Jurisdiction</h2>
             <p className="mb-3">
-              These Terms are governed by and construed in accordance with the laws of the <span className="font-medium text-slate-700">Republic of Trinidad and Tobago</span>, without regard to its conflict of law provisions. Any dispute arising out of or in connection with these Terms shall be subject to the exclusive jurisdiction of the courts of Trinidad and Tobago.
+              These Terms are governed by and construed in accordance with the laws of the <span className="font-medium text-slate-700">State of Wyoming, United States</span>, without regard to its conflict of law provisions. Any dispute arising out of or in connection with these Terms shall be subject to the exclusive jurisdiction of the courts of Wyoming, USA.
             </p>
             <p>
               Notwithstanding the foregoing, MyoGuard Protocol acknowledges applicable international data protection and consumer protection regulations where required by law, including GDPR (EU/EEA users) and CCPA (California users). Where a conflict exists between these Terms and mandatory local law, local law shall prevail to the extent required.
@@ -161,7 +161,7 @@ export default function TermsOfUse() {
               <p className="mt-1">
                 <a href="mailto:docb@myoguard.health" className="text-teal-600 hover:underline">docb@myoguard.health</a>
               </p>
-              <p className="mt-1 text-slate-500">Meridian Health Holding · Trinidad and Tobago</p>
+              <p className="mt-1 text-slate-500">Meridian Wellness Systems LLC · 30 N Gould St, STE R, Sheridan, WY 82801</p>
             </div>
           </section>
 
@@ -186,7 +186,7 @@ export default function TermsOfUse() {
         </div>
 
         <p className="mt-6 text-xs text-slate-400 text-center">
-          © 2026 MyoGuard Protocol · MyoGuard Clinical Oversight · Governing law: Trinidad and Tobago
+          © 2026 Meridian Wellness Systems LLC · myoguard.health
         </p>
       </div>
     </main>
