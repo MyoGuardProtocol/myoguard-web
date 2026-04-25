@@ -5,6 +5,7 @@ import Link from 'next/link';
 import ContributingFactors, { type Factor, type ImpactLevel } from '@/src/components/ui/ContributingFactors';
 import PhysicianNav from '@/src/components/ui/PhysicianNav';
 import PhysicianReviewPanel from '@/src/components/ui/PhysicianReviewPanel';
+import ClinicalCockpit from '@/src/components/ui/ClinicalCockpit';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -41,11 +42,18 @@ const PATIENT_SELECT = {
     include: {
       muscleScore: {
         select: {
-          score:          true,
-          riskBand:       true,
-          leanLossEstPct: true,
-          proteinTargetG: true,
-          explanation:    true,
+          score:                  true,
+          riskBand:               true,
+          leanLossEstPct:         true,
+          proteinTargetG:         true,
+          explanation:            true,
+          // SRI v2 fields
+          proteinStandardG:       true,
+          proteinStepTargetG:     true,
+          giSeverity:             true,
+          leanVelocityFlag:       true,
+          leanVelocityPct:        true,
+          stageMultiplierApplied: true,
         },
       },
       physicianReview: {
@@ -378,6 +386,29 @@ export default async function PatientDetailPage({
                 ))}
               </div>
             </div>
+
+            {/* ── Clinical Cockpit (SRI v2 command center) ────────────────── */}
+            <ClinicalCockpit
+              assessments={history.slice(0, 6).map(a => ({
+                assessmentDate:  a.assessmentDate,
+                sleepHours:      a.sleepHours      ?? null,
+                sleepQuality:    a.sleepQuality     ?? null,
+                glp1Stage:       a.glp1Stage        ?? null,
+                gripStrengthKg:  a.gripStrengthKg   ?? null,
+                muscleScore:     a.muscleScore ? {
+                  score:                  a.muscleScore.score,
+                  riskBand:               a.muscleScore.riskBand as string,
+                  leanLossEstPct:         a.muscleScore.leanLossEstPct,
+                  proteinTargetG:         a.muscleScore.proteinTargetG,
+                  proteinStandardG:       a.muscleScore.proteinStandardG       ?? null,
+                  proteinStepTargetG:     a.muscleScore.proteinStepTargetG     ?? null,
+                  giSeverity:             a.muscleScore.giSeverity             ?? null,
+                  leanVelocityFlag:       a.muscleScore.leanVelocityFlag       ?? null,
+                  leanVelocityPct:        a.muscleScore.leanVelocityPct        ?? null,
+                  stageMultiplierApplied: a.muscleScore.stageMultiplierApplied ?? null,
+                } : null,
+              }))}
+            />
 
             {/* ── Escalation Alert (physician-only) ───────────────────────── */}
             {escalate && (
