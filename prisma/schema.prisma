@@ -97,6 +97,8 @@ model Assessment {
   recoveryStatus  String?
   /// Hand-grip dynamometer reading in kg — used for grip-velocity triage
   gripStrengthKg  Float?
+  /// GLP-1 treatment stage captured at assessment time: INITIATION | DOSE_ESCALATION | MAINTENANCE | DISCONTINUATION
+  glp1Stage       String?
   user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   muscleScore     MuscleScore?
   physicianReview PhysicianReview?
@@ -107,12 +109,26 @@ model MuscleScore {
   id             String     @id @default(cuid())
   userId         String
   assessmentId   String     @unique
-  score          Float
-  riskBand       RiskBand
-  leanLossEstPct Float
-  proteinTargetG Float
-  explanation    String
-  generatedAt    DateTime   @default(now())
+  score                  Float
+  riskBand               RiskBand
+  leanLossEstPct         Float
+  proteinTargetG         Float
+  explanation            String
+  generatedAt            DateTime   @default(now())
+  /// Lower-bound protein target (activity-adjusted clinical floor)
+  proteinStandardG       Float?
+  /// Temporary step-down protein target for moderate/severe GI symptoms
+  proteinStepTargetG     Int?
+  /// Explains the floor/step distinction and when full floor resumes
+  stepRationale          String?
+  /// GI severity classification: none | mild | moderate | severe
+  giSeverity             String?
+  /// Estimated lean mass loss velocity derived from leanLossEstPct
+  leanVelocityPct        Float?
+  /// Lean velocity flag: insufficient_data | stable | concerning | critical_review
+  leanVelocityFlag       String?
+  /// GLP-1 stage multiplier applied to score (1.0 = no stage pressure)
+  stageMultiplierApplied Float?
   assessment     Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
   user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

@@ -88,9 +88,11 @@ type FormData = {
   exerciseDaysWk:  string;
   hydrationLitres: string;
   symptoms:        string[];
+  sleepHours?:     number;
+  sleepQuality?:   number;
 };
 
-type FieldErrors = Partial<Record<keyof Omit<FormData, 'symptoms'>, string>>;
+type FieldErrors = Partial<Record<keyof Omit<FormData, 'symptoms' | 'sleepHours' | 'sleepQuality'>, string>>;
 
 /** Map exercise days → activityLevel enum expected by AssessmentInputSchema */
 function daysToActivity(days: number): 'sedentary' | 'moderate' | 'active' {
@@ -109,6 +111,8 @@ export default function AssessmentPage() {
     exerciseDaysWk:  '',
     hydrationLitres: '',
     symptoms:        [],
+    sleepHours:      undefined,
+    sleepQuality:    undefined,
   });
 
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -162,58 +166,35 @@ export default function AssessmentPage() {
 
     setLoading(true);
     try {
-      const weight       = parseFloat(form.weightKg);
       const days         = parseInt(form.exerciseDaysWk, 10);
       const selectedDrug = GLP1_DRUGS.find(d => d.label === form.drugLabel);
-      const doseMg       = selectedDrug?.value ?? 0;
       const isTirz       = form.drugLabel.toLowerCase().includes('mounjaro') ||
                            form.drugLabel.toLowerCase().includes('zepbound');
 
-      // Derive a composite score locally (50-point base, adjusted by exercise and dose adherence)
-      const exerciseBonus  = Math.min(days * 5, 25);
-      const doseRatio      = selectedDrug ? doseMg / selectedDrug.max : 0.5;
-      const composite      = Math.min(100, Math.round(50 + exerciseBonus + doseRatio * 25));
-      const leanScore      = Math.min(100, Math.round(40 + exerciseBonus + doseRatio * 20));
-      const recoveryScore  = Math.min(100, Math.round(50 + exerciseBonus * 0.8));
-      const risk: 'LOW' | 'MODERATE' | 'HIGH' =
-        composite >= 70 ? 'LOW' : composite >= 45 ? 'MODERATE' : 'HIGH';
-
-      const giSymptoms = form.symptoms.filter(s =>
-        ['Nausea', 'Constipation', 'Bloating'].includes(s)
-      ).join(', ') || 'None';
-
-      const payload = {
-        composite,
-        leanScore,
-        recoveryScore,
-        risk,
-        weight,
-        protein:       Math.round(weight * 1.6),
-        drug:          isTirz ? 'tirzepatide' : 'semaglutide',
-        giSymptoms,
-        sleepHours:    7,
-        activityLevel: daysToActivity(days),
+      const payload: Record<string, unknown> = {
+        weight:         form.weightKg,
+        unit:           'kg',
+        medication:     isTirz ? 'tirzepatide' : 'semaglutide',
+        doseMg:         selectedDrug?.value ?? 0,
+        activityLevel:  daysToActivity(days),
+        symptoms:       form.symptoms,
+        exerciseDaysWk: days,
       };
+      if (form.sleepHours   !== undefined) payload.sleepHours   = form.sleepHours;
+      if (form.sleepQuality !== undefined) payload.sleepQuality = form.sleepQuality;
 
-      const res = await fetch('/api/assessment/save', {
+      const res = await fetch('/api/assessment', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify(payload),
       });
 
       if (!res.ok) {
-        const text = await res.text();
-        console.error('Save failed:', text);
-        setServerError('Could not save assessment. Please try again.');
+        const json = await res.json().catch(() => ({})) as { error?: string };
+        setServerError(json.error ?? 'Could not save assessment. Please try again.');
         return;
       }
 
-      const json = await res.json();
-      console.log("[assessment] API response:", json);
-      if (!json.ok) {
-        setServerError(json.detail ?? json.error ?? 'Failed to save assessment');
-        return;
-      }
       router.push('/dashboard/report');
     } catch (e) {
       setServerError(e instanceof Error ? e.message : 'Something went wrong. Please try again.');
@@ -501,6 +482,83 @@ export default function AssessmentPage() {
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* ── Sleep & Recovery (Section C — optional) ── */}
+          <div>
+            <div style={{ marginBottom: '10px' }}>
+              <span style={{ fontSize: '13px', fontWeight: '600', color: '#F1F5F9' }}>
+                Sleep &amp; Recovery{' '}
+                <span style={{ color: '#94A3B8', fontWeight: '400' }}>(optional — improves score accuracy)</span>
+              </span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+
+              <div>
+                <label htmlFor="sleepHours" style={{
+                  display: 'block', fontSize: '12px', fontWeight: '500',
+                  color: '#94A3B8', marginBottom: '6px',
+                }}>
+                  Hours of sleep / night
+                </label>
+                <input
+                  id="sleepHours"
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="e.g. 7"
+                  min={0}
+                  max={14}
+                  step={0.5}
+                  value={form.sleepHours ?? ''}
+                  onChange={e => {
+                    const v = e.target.value;
+                    setFormState(prev => ({
+                      ...prev,
+                      sleepHours: v === '' ? undefined : parseFloat(v),
+                    }));
+                  }}
+                  className="myg-input"
+                  style={inputStyle(false)}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="sleepQuality" style={{
+                  display: 'block', fontSize: '12px', fontWeight: '500',
+                  color: '#94A3B8', marginBottom: '6px',
+                }}>
+                  Sleep quality (1 = poor, 5 = excellent)
+                </label>
+                <select
+                  id="sleepQuality"
+                  value={form.sleepQuality ?? ''}
+                  onChange={e => {
+                    const v = e.target.value;
+                    setFormState(prev => ({
+                      ...prev,
+                      sleepQuality: v === '' ? undefined : parseInt(v, 10),
+                    }));
+                  }}
+                  className="myg-input myg-select"
+                  style={{
+                    ...inputStyle(false),
+                    color: form.sleepQuality !== undefined ? '#F1F5F9' : '#475569',
+                  }}
+                >
+                  <option value="">Select quality</option>
+                  <option value="1">1 — Poor</option>
+                  <option value="2">2 — Fair</option>
+                  <option value="3">3 — OK</option>
+                  <option value="4">4 — Good</option>
+                  <option value="5">5 — Excellent</option>
+                </select>
+              </div>
+
+            </div>
+            <p style={{ marginTop: '8px', fontSize: '12px', color: '#475569', lineHeight: '1.6' }}>
+              Sleep data activates the recovery modifier in your MyoGuard Score.
+              Fewer than 6.5 hours or poor quality (≤ 2) reduces your score by 10 points.
+            </p>
           </div>
 
           {/* ── Activity level hint ── */}

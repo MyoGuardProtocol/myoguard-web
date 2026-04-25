@@ -12,6 +12,10 @@ export const AssessmentInputSchema = z.object({
   // ── Recovery & Sleep (optional — section C of the form) ─────────────────
   sleepHours:    z.number().min(0).max(14).optional(),
   sleepQuality:  z.number().int().min(1).max(5).optional(),
+  // ── GLP-1 context (optional — unlocks stage multiplier and grip triage) ──
+  glp1Stage:     z.enum(['INITIATION', 'DOSE_ESCALATION', 'MAINTENANCE', 'DISCONTINUATION']).optional(),
+  gripStrengthKg: z.number().positive().optional(),
+  exerciseDaysWk: z.number().int().min(0).max(7).optional(),
 });
 
 export type AssessmentInputSchema = z.infer<typeof AssessmentInputSchema>;

@@ -27,6 +27,7 @@
  */
 
 export type RecoveryStatus = 'optimal' | 'impaired' | 'critical';
+export type GiSeverity    = 'none' | 'mild' | 'moderate' | 'severe';
 
 export type AssessmentInput = {
   weight:        string;          // raw string from form input
@@ -36,15 +37,19 @@ export type AssessmentInput = {
   activityLevel: 'sedentary' | 'moderate' | 'active';
   symptoms:      string[];
   // ── Recovery inputs (optional — form section C) ──────────────────────────
-  sleepHours?:   number;          // average hours per night (0–12)
-  sleepQuality?: number;          // 1 (very poor) – 5 (excellent)
+  sleepHours?:    number;         // average hours per night (0–14)
+  sleepQuality?:  number;         // 1 (very poor) – 5 (excellent)
+  // ── GLP-1 context (optional — unlocks stage multiplier and finer scoring) ─
+  glp1Stage?:     'INITIATION' | 'DOSE_ESCALATION' | 'MAINTENANCE' | 'DISCONTINUATION';
+  gripStrengthKg?: number;        // hand-grip reading in kg (stored, not scored here)
+  exerciseDaysWk?: number;        // exact days/week — replaces bucket scoring when present
 };
 
 export type RiskBand = 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL';
 
 export type ProtocolResult = {
   weightKg:              number;
-  proteinStandard:       number;   // g/day (activity-adjusted lower bound)
+  proteinStandard:       number;   // g/day (activity-adjusted lower bound / clinical floor)
   proteinAggressive:     number;   // g/day (activity-adjusted upper bound)
   fiber:                 number;   // g/day
   hydration:             number;   // litres/day
@@ -53,9 +58,14 @@ export type ProtocolResult = {
   leanLossEstPct:        number;   // estimated lean mass loss % risk
   explanation:           string;   // plain-language clinical summary
   // ── Recovery fields ──────────────────────────────────────────────────────
-  recoveryStatus:        RecoveryStatus;
+  recoveryStatus:          RecoveryStatus;
   recoveryModifierApplied: boolean; // true if the 10-pt penalty was applied
   criticalOverrideApplied: boolean; // true if sleep+protein forced CRITICAL
+  // ── GI + stage fields ────────────────────────────────────────────────────
+  giSeverity:             GiSeverity;
+  stageMultiplierApplied: number;   // 1.0 = no stage; >1.0 = risk pressure applied
+  proteinStepTargetG:     number | null; // temporary step target for moderate/severe GI
+  stepRationale:          string | null; // explains floor/step split and resumption criteria
 };
 
 // ─── Protein multipliers by activity level ────────────────────────────────────
@@ -82,6 +92,16 @@ const LEAN_LOSS_BY_BAND: Record<RiskBand, number> = {
   CRITICAL: 30,
 };
 
+// ─── GLP-1 stage risk multipliers ────────────────────────────────────────────
+// Applied as risk pressure: each point above 1.0 maps to 100× score penalty.
+// MAINTENANCE = 1.0 (no pressure). Higher stages reflect greater catabolic risk.
+const STAGE_MULTIPLIERS: Record<string, number> = {
+  INITIATION:      1.15,
+  DOSE_ESCALATION: 1.25,
+  MAINTENANCE:     1.00,
+  DISCONTINUATION: 1.10,
+};
+
 // ─── Recovery thresholds ──────────────────────────────────────────────────────
 const SLEEP_IMPAIRED_HOURS    = 6.5;  // < this → impaired (penalty applies)
 const SLEEP_IMPAIRED_QUALITY  = 3;    // < this → impaired (penalty applies)
@@ -92,6 +112,28 @@ const RECOVERY_PENALTY_PTS    = 10;   // points deducted from score when impaire
 export function toKg(weight: string, unit: 'kg' | 'lbs'): number {
   const raw = parseFloat(weight);
   return unit === 'lbs' ? raw * 0.453592 : raw;
+}
+
+// ─── GI severity classifier ───────────────────────────────────────────────────
+
+/**
+ * Classify GI symptom burden. Determines whether a step-down protein target
+ * is appropriate (moderate/severe) and informs clinical GI guidance.
+ *
+ * severe   — vomiting or gastroparesis present (highest burden)
+ * moderate — nausea AND reduced appetite together
+ * mild     — nausea OR reduced appetite OR bloating (single symptom)
+ * none     — no qualifying GI symptoms
+ */
+export function classifyGiSeverity(symptoms: string[]): GiSeverity {
+  if (symptoms.includes('Vomiting') || symptoms.includes('Gastroparesis')) return 'severe';
+  if (symptoms.includes('Nausea') && symptoms.includes('Reduced appetite'))  return 'moderate';
+  if (
+    symptoms.includes('Nausea') ||
+    symptoms.includes('Reduced appetite') ||
+    symptoms.includes('Bloating')
+  ) return 'mild';
+  return 'none';
 }
 
 // ─── Recovery modifier ────────────────────────────────────────────────────────
@@ -151,20 +193,33 @@ function computeRecoveryModifier(
  * reflects sleep status — callers do not need to adjust it separately.
  */
 function computeScore(
-  activityLevel:   AssessmentInput['activityLevel'],
-  symptoms:        string[],
-  medication:      AssessmentInput['medication'],
-  doseMg:          number,
-  weightKg:        number,
-  proteinStandard: number,
-  recovery:        RecoveryModifier,
+  activityLevel:          AssessmentInput['activityLevel'],
+  symptoms:               string[],
+  medication:             AssessmentInput['medication'],
+  doseMg:                 number,
+  weightKg:               number,
+  proteinStandard:        number,
+  recovery:               RecoveryModifier,
+  exerciseDaysWk?:        number,
+  stageMultiplierApplied?: number,
 ): number {
   let score = 100;
 
-  // Activity penalty
-  if      (activityLevel === 'sedentary') score -= 25;
-  else if (activityLevel === 'moderate')  score -= 10;
-  // active: no penalty
+  // Activity penalty — continuous when exerciseDaysWk provided, else 3-bucket fallback.
+  // Boundaries match the bucket thresholds: 0→−25, 3→−10, 5→0.
+  if (exerciseDaysWk !== undefined) {
+    if (exerciseDaysWk >= 5) {
+      // no penalty
+    } else if (exerciseDaysWk >= 3) {
+      score -= Math.round(10 * (5 - exerciseDaysWk) / 2);
+    } else {
+      score -= Math.round(10 + 15 * (3 - exerciseDaysWk) / 3);
+    }
+  } else {
+    if      (activityLevel === 'sedentary') score -= 25;
+    else if (activityLevel === 'moderate')  score -= 10;
+    // active: no penalty
+  }
 
   // Symptom penalties
   if (symptoms.includes('Muscle weakness')) score -= 20;
@@ -183,7 +238,12 @@ function computeScore(
   if      (proteinStandard < proteinTarget * 0.70) score -= 15;
   else if (proteinStandard < proteinTarget * 0.90) score -= 8;
 
-  // ── Recovery modifier (Mission 4) ─────────────────────────────────────────
+  // GLP-1 stage pressure — inverse proportional scaling.
+  if (stageMultiplierApplied !== undefined && stageMultiplierApplied > 1.0) {
+    score = Math.round(score / stageMultiplierApplied);
+  }
+
+  // ── Recovery modifier ─────────────────────────────────────────────────────
   // Applied last so it compounds with all other penalties.
   if (recovery.penaltyApplied) score -= RECOVERY_PENALTY_PTS;
 
@@ -198,11 +258,13 @@ function scoreToRiskBand(score: number): RiskBand {
 }
 
 function buildExplanation(
-  riskBand:      RiskBand,
-  medication:    AssessmentInput['medication'],
-  activityLevel: AssessmentInput['activityLevel'],
-  symptoms:      string[],
-  recovery:      RecoveryModifier,
+  riskBand:               RiskBand,
+  medication:             AssessmentInput['medication'],
+  activityLevel:          AssessmentInput['activityLevel'],
+  symptoms:               string[],
+  recovery:               RecoveryModifier,
+  giSeverity:             GiSeverity,
+  stageMultiplierApplied: number,
 ): string {
   const medName =
     medication === 'semaglutide' ? 'Semaglutide' : 'Tirzepatide';
@@ -245,7 +307,25 @@ function buildExplanation(
       'Critical risk profile. Urgent lifestyle intervention and physician review recommended before next dose escalation.',
   };
 
-  return `${bandNote[riskBand]} ${activityNote}${symptomNote}${recoveryNote}`;
+  let giNote = '';
+  if (giSeverity === 'severe') {
+    giNote =
+      ' Severe GI symptoms detected. A temporary step-down protein target is active. ' +
+      'Full protein floor resumes when your dose has been stable for ≥4 weeks.';
+  } else if (giSeverity === 'moderate') {
+    giNote =
+      ' Moderate GI symptoms are present. A temporary step-down protein target is available ' +
+      'to ease dietary tolerance. Aim to return to the full floor within 4 weeks of dose stability.';
+  }
+
+  let stageNote = '';
+  if (stageMultiplierApplied > 1.0) {
+    stageNote =
+      ` GLP-1 stage pressure (${stageMultiplierApplied.toFixed(2)}× multiplier) has been factored ` +
+      'into your score — this treatment stage carries elevated lean-mass risk.';
+  }
+
+  return `${bandNote[riskBand]} ${activityNote}${symptomNote}${recoveryNote}${giNote}${stageNote}`;
 }
 
 // ─── Main export ──────────────────────────────────────────────────────────────
@@ -259,6 +339,31 @@ export function calculateProtocol(input: AssessmentInput): ProtocolResult {
   const proteinAggressive = Math.round(weightKg * range.high * 10) / 10;
   const fiber             = input.symptoms.includes('Constipation') ? 35 : 25;
   const hydration         = Math.round((weightKg * 35) / 1000 * 10) / 10;
+
+  // GLP-1 stage multiplier (1.0 when stage not provided)
+  const stageMultiplierApplied = input.glp1Stage
+    ? (STAGE_MULTIPLIERS[input.glp1Stage] ?? 1.0)
+    : 1.0;
+
+  // GI severity — drives step target and explanation copy
+  const giSeverity = classifyGiSeverity(input.symptoms);
+
+  // Protein step target — temporary accommodation; Clinical Protein Floor never reduced
+  let proteinStepTargetG: number | null = null;
+  let stepRationale: string | null = null;
+  if (giSeverity === 'severe') {
+    proteinStepTargetG = Math.round(proteinStandard * 0.70);
+    stepRationale =
+      `Clinical protein floor is unchanged at ${proteinStandard}g/day. ` +
+      `A temporary step target of ${proteinStepTargetG}g/day accommodates severe GI symptoms. ` +
+      `Full floor resumes when dose has been stable for ≥4 weeks.`;
+  } else if (giSeverity === 'moderate') {
+    proteinStepTargetG = Math.round(proteinStandard * 0.85);
+    stepRationale =
+      `Clinical protein floor is unchanged at ${proteinStandard}g/day. ` +
+      `A temporary step target of ${proteinStepTargetG}g/day accommodates moderate GI symptoms. ` +
+      `Full floor resumes when dose has been stable for ≥4 weeks.`;
+  }
 
   // 1.4 g/kg protein target for recovery critical-override check
   const proteinTarget = weightKg * 1.4;
@@ -279,6 +384,8 @@ export function calculateProtocol(input: AssessmentInput): ProtocolResult {
     weightKg,
     proteinStandard,
     recovery,
+    input.exerciseDaysWk,
+    stageMultiplierApplied,
   );
 
   // Apply band override: if critical sleep+protein deficit, force CRITICAL
@@ -294,6 +401,8 @@ export function calculateProtocol(input: AssessmentInput): ProtocolResult {
     input.activityLevel,
     input.symptoms,
     recovery,
+    giSeverity,
+    stageMultiplierApplied,
   );
 
   return {
@@ -309,5 +418,9 @@ export function calculateProtocol(input: AssessmentInput): ProtocolResult {
     recoveryStatus:          recovery.status,
     recoveryModifierApplied: recovery.penaltyApplied,
     criticalOverrideApplied: recovery.criticalOverride,
+    giSeverity,
+    stageMultiplierApplied,
+    proteinStepTargetG,
+    stepRationale,
   };
 }

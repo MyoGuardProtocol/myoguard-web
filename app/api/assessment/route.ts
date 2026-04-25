@@ -211,6 +211,42 @@ export async function POST(req: NextRequest) {
   const input    = parsed.data;
   const protocol = calculateProtocol(input);
 
+  // ── Lean mass velocity — requires prior assessment; computed before transaction ─
+  const priorAssessment = await prisma.assessment.findFirst({
+    where:   { userId: user.id },
+    orderBy: { assessmentDate: 'desc' },
+    select:  {
+      assessmentDate: true,
+      muscleScore:    { select: { score: true, leanLossEstPct: true } },
+    },
+  });
+
+  let leanVelocityPct:  number | null = null;
+  let leanVelocityFlag: string        = 'insufficient_data';
+
+  if (priorAssessment?.muscleScore) {
+    const daysSince = (Date.now() - new Date(priorAssessment.assessmentDate).getTime())
+      / (1000 * 60 * 60 * 24);
+
+    if (daysSince >= 14) {
+      const isWorsening = protocol.myoguardScore < priorAssessment.muscleScore.score;
+      if (!isWorsening) {
+        leanVelocityFlag = 'stable';
+      } else {
+        const delta = protocol.leanLossEstPct - priorAssessment.muscleScore.leanLossEstPct;
+        if (delta >= 10) {
+          leanVelocityPct  = delta;
+          leanVelocityFlag = 'critical_review';
+        } else if (delta >= 5) {
+          leanVelocityPct  = delta;
+          leanVelocityFlag = 'concerning';
+        } else {
+          leanVelocityFlag = 'stable';
+        }
+      }
+    }
+  }
+
   // Map activityLevel string → Prisma enum
   const activityMap: Record<string, string> = {
     sedentary: 'SEDENTARY',
@@ -239,7 +275,9 @@ export async function POST(req: NextRequest) {
           userId:          user.id,
           weightKg:        protocol.weightKg,
           proteinGrams:    protocol.proteinStandard,
-          exerciseDaysWk:  input.activityLevel === 'active' ? 5 : input.activityLevel === 'moderate' ? 3 : 1,
+          // Use exact days when provided; fall back to bucket midpoints for legacy callers
+          exerciseDaysWk:  input.exerciseDaysWk
+            ?? (input.activityLevel === 'active' ? 5 : input.activityLevel === 'moderate' ? 3 : 1),
           hydrationLitres: protocol.hydration,
           symptoms:        input.symptoms,
           fatigue:         input.symptoms.includes('Fatigue')          ? 1 : 0,
@@ -247,10 +285,11 @@ export async function POST(req: NextRequest) {
           muscleWeakness:  input.symptoms.includes('Muscle weakness')  ? 1 : 0,
           score:           protocol.myoguardScore,
           riskBand:        riskBandMap[protocol.riskBand],
-          // ── Recovery & Sleep (nullable — only present when user filled section C)
           sleepHours:      input.sleepHours      ?? null,
           sleepQuality:    input.sleepQuality    ?? null,
           recoveryStatus:  protocol.recoveryStatus,
+          glp1Stage:       input.glp1Stage       ?? null,
+          gripStrengthKg:  input.gripStrengthKg  ?? null,
         },
       });
 
@@ -259,13 +298,20 @@ export async function POST(req: NextRequest) {
       const [muscleScore, protocolPlan] = await Promise.all([
         tx.muscleScore.create({
           data: {
-            userId:         user.id,
-            assessmentId:   assessment.id,
-            score:          protocol.myoguardScore,
-            riskBand:       riskBandMap[protocol.riskBand],
-            leanLossEstPct: protocol.leanLossEstPct,
-            proteinTargetG: protocol.proteinAggressive,
-            explanation:    protocol.explanation,
+            userId:                user.id,
+            assessmentId:          assessment.id,
+            score:                 protocol.myoguardScore,
+            riskBand:              riskBandMap[protocol.riskBand],
+            leanLossEstPct:        protocol.leanLossEstPct,
+            proteinTargetG:        protocol.proteinAggressive,
+            explanation:           protocol.explanation,
+            proteinStandardG:      protocol.proteinStandard,
+            proteinStepTargetG:    protocol.proteinStepTargetG   ?? null,
+            stepRationale:         protocol.stepRationale        ?? null,
+            giSeverity:            protocol.giSeverity,
+            leanVelocityPct:       leanVelocityPct               ?? null,
+            leanVelocityFlag:      leanVelocityFlag,
+            stageMultiplierApplied: protocol.stageMultiplierApplied,
           },
         }),
         // Upsert: safe to call on retry — conflict on assessmentId is a no-op
