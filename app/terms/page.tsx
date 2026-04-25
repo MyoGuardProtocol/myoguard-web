@@ -29,7 +29,7 @@ export default function TermsOfUse() {
           {/* Introduction */}
           <section>
             <p>
-              These Terms of Use (&quot;Terms&quot;) govern your access to and use of the MyoGuard Protocol platform, including the sarcopenia risk calculator, protocol reports, and all associated services (collectively, the &quot;Service&quot;), operated by MyoGuard Protocol, a division of Meridian Health Holding (&quot;we&quot;, &quot;us&quot;, &quot;our&quot;). By accessing or using the Service, you agree to be bound by these Terms. If you do not agree, you must not use the Service.
+              These Terms of Use (&quot;Terms&quot;) govern your access to and use of the MyoGuard Protocol platform, including the sarcopenia risk calculator, protocol reports, and all associated services (collectively, the &quot;Service&quot;), operated by MyoGuard Protocol, a brand of Meridian Wellness Systems LLC (&quot;we&quot;, &quot;us&quot;, &quot;our&quot;). By accessing or using the Service, you agree to be bound by these Terms. If you do not agree, you must not use the Service.
             </p>
           </section>
 
@@ -76,7 +76,7 @@ export default function TermsOfUse() {
           <section>
             <h2 className="text-base font-semibold text-slate-800 mb-3">4. Intellectual Property</h2>
             <p className="mb-3">
-              All content, software, design, text, scoring algorithms, and branding associated with MyoGuard Protocol — including the MyoGuard name, the MyoGuard Score methodology, the GLP-1 sarcopenia risk calculation model, protocol outputs, and all visual assets — are the exclusive intellectual property of Meridian Health Holding and are protected by applicable copyright, trademark, and trade secret laws.
+              All content, software, design, text, scoring algorithms, and branding associated with MyoGuard Protocol — including the MyoGuard name, the MyoGuard Score methodology, the GLP-1 sarcopenia risk calculation model, protocol outputs, and all visual assets — are the exclusive intellectual property of Meridian Wellness Systems LLC and are protected by applicable copyright, trademark, and trade secret laws.
             </p>
             <p className="mb-3">You may not:</p>
             <ul className="list-disc list-inside space-y-1.5 pl-2 mb-3">
@@ -126,7 +126,7 @@ export default function TermsOfUse() {
           <section>
             <h2 className="text-base font-semibold text-slate-800 mb-3">7. Limitation of Liability</h2>
             <p className="mb-3">
-              To the maximum extent permitted by applicable law, MyoGuard Protocol and Meridian Health Holding, including their officers, directors, employees, and agents, shall not be liable for any:
+              To the maximum extent permitted by applicable law, MyoGuard Protocol and Meridian Wellness Systems LLC, including their officers, directors, employees, and agents, shall not be liable for any:
             </p>
             <ul className="list-disc list-inside space-y-1.5 pl-2 mb-3">
               <li>Direct, indirect, incidental, special, consequential, or punitive damages.</li>
@@ -159,7 +159,7 @@ export default function TermsOfUse() {
             <div className="mt-3 bg-slate-50 rounded-lg border border-slate-200 px-4 py-3">
               <p className="font-medium text-slate-700">MyoGuard Protocol, Legal &amp; Compliance</p>
               <p className="mt-1">
-                <a href="mailto:docb@myoguard.health" className="text-teal-600 hover:underline">docb@myoguard.health</a>
+                <a href="mailto:legal@myoguard.health" className="text-teal-600 hover:underline">legal@myoguard.health</a>
               </p>
               <p className="mt-1 text-slate-500">Meridian Wellness Systems LLC · 30 N Gould St, STE R, Sheridan, WY 82801</p>
             </div>

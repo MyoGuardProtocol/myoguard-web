@@ -177,7 +177,7 @@ export async function GET(req: Request) {
 
       <tr><td style="padding:20px 0;text-align:center;">
         <p style="margin:0;font-size:11px;color:#94a3b8;">
-          Meridian Health Holding · HIPAA-aligned · myoguard.health
+          Meridian Wellness Systems LLC · HIPAA-aligned · myoguard.health
         </p>
       </td></tr>
 

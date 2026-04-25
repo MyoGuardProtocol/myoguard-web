@@ -832,7 +832,7 @@ export default function HomePage() {
       {/* Footer */}
       <footer className="border-t border-slate-100 py-8 px-6">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
-          <span>© 2026 MyoGuard Protocol · Meridian Health Holding</span>
+          <span>© 2026 Meridian Wellness Systems LLC · myoguard.health</span>
           <div className="flex gap-4">
             <a href="/privacy" className="hover:text-slate-600 transition-colors">Privacy Policy</a>
             <a href="/terms" className="hover:text-slate-600 transition-colors">Terms of Use</a>

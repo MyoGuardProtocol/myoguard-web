@@ -211,7 +211,7 @@ export async function POST(req: Request) {
       <!-- Footer -->
       <tr><td style="background:#f8fafc;padding:20px 32px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 12px 12px;">
         <p style="margin:0;font-size:11px;color:#94a3b8;text-align:center;">
-          Meridian Health Holding · HIPAA-aligned credential review · myoguard.health
+          Meridian Wellness Systems LLC · HIPAA-aligned credential review · myoguard.health
         </p>
       </td></tr>
 
@@ -262,7 +262,7 @@ export async function POST(req: Request) {
     </p>
   </div>
   <p style="text-align:center;font-size:11px;color:#94a3b8;margin-top:16px;">
-    © 2026 MyoGuard Protocol · Meridian Health Holding · myoguard.health
+    © 2026 Meridian Wellness Systems LLC · myoguard.health
   </p>
 </div>
         `,

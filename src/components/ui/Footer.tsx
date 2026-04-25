@@ -29,10 +29,7 @@ export default function Footer() {
 
         {/* Legal / attribution line */}
         <p className="text-xs text-slate-500 leading-relaxed">
-          © 2026 MyoGuard Protocol
-          <span className="mx-1.5 text-slate-300">·</span>
-          A member of{' '}
-          <span className="font-medium text-slate-600">Meridian Health Holding</span>
+          © 2026 Meridian Wellness Systems LLC
         </p>
 
         {/* Physician authority — full credentials in the footer, subtle and elegant */}

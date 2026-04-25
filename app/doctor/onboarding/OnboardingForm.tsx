@@ -367,7 +367,7 @@ export default function OnboardingForm() {
         </form>
 
         <p className="text-xs text-slate-400 text-center">
-          MyoGuard Clinical Oversight · © 2026 Meridian Health Holding
+          MyoGuard Clinical Oversight · © 2026 Meridian Wellness Systems LLC
         </p>
       </div>
     </div>

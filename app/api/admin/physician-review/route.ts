@@ -144,7 +144,7 @@ export async function POST(req: Request) {
     </p>
   </div>
   <p style="text-align: center; font-size: 11px; color: #94a3b8; margin-top: 16px;">
-    © 2026 MyoGuard Protocol · Meridian Health Holding · myoguard.health
+    © 2026 Meridian Wellness Systems LLC · myoguard.health
   </p>
 </div>
       `,
@@ -184,7 +184,7 @@ export async function POST(req: Request) {
     </p>
   </div>
   <p style="text-align: center; font-size: 11px; color: #94a3b8; margin-top: 16px;">
-    © 2026 MyoGuard Protocol · Meridian Health Holding
+    © 2026 Meridian Wellness Systems LLC · myoguard.health
   </p>
 </div>
       `,
