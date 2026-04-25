@@ -247,6 +247,34 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // ── Recent protein adherence — floor-based, for Level 3 tripwire ────────────
+  // Uses the most recent WeeklyCheckin for this user. We don't filter by date
+  // because the assessmentId isn't known until inside the transaction; "most
+  // recent" is the correct proxy given that check-ins are weekly and assessments
+  // typically follow a similar cadence. Date-specific filtering can be added once
+  // the assessment write path moves to a two-phase pattern.
+  const recentCheckin = await prisma.weeklyCheckin.findFirst({
+    where:   { userId: user.id },
+    orderBy: { weekStart: 'desc' },
+    select:  { avgProteinG: true },
+  });
+
+  // Primary denominator: proteinStandard (Clinical Protein Floor).
+  // Fallback: proteinAggressive if floor is somehow zero (defensive only — floor
+  // is always positive for any valid weight input).
+  // Null if no checkin exists or avgProteinG was not reported.
+  const adherenceDenominator =
+    protocol.proteinStandard > 0
+      ? protocol.proteinStandard
+      : protocol.proteinAggressive > 0
+      ? protocol.proteinAggressive
+      : null;
+
+  const recentProteinAdherencePct: number | null =
+    recentCheckin?.avgProteinG != null && adherenceDenominator != null
+      ? Math.round((recentCheckin.avgProteinG / adherenceDenominator) * 100 * 10) / 10
+      : null;
+
   // Map activityLevel string → Prisma enum
   const activityMap: Record<string, string> = {
     sedentary: 'SEDENTARY',
@@ -310,8 +338,9 @@ export async function POST(req: NextRequest) {
             stepRationale:         protocol.stepRationale        ?? null,
             giSeverity:            protocol.giSeverity,
             leanVelocityPct:       leanVelocityPct               ?? null,
-            leanVelocityFlag:      leanVelocityFlag,
-            stageMultiplierApplied: protocol.stageMultiplierApplied,
+            leanVelocityFlag:           leanVelocityFlag,
+            stageMultiplierApplied:     protocol.stageMultiplierApplied,
+            recentProteinAdherencePct:  recentProteinAdherencePct ?? null,
           },
         }),
         // Upsert: safe to call on retry — conflict on assessmentId is a no-op

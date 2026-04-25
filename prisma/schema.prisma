@@ -129,6 +129,9 @@ model MuscleScore {
   leanVelocityFlag       String?
   /// GLP-1 stage multiplier applied to score (1.0 = no stage pressure)
   stageMultiplierApplied Float?
+  /// Floor-based protein adherence at assessment time: (most recent WeeklyCheckin.avgProteinG / proteinStandardG) × 100
+  /// Uses Clinical Protein Floor as denominator — not the aggressive target — for accurate Level 3 tripwire evaluation.
+  recentProteinAdherencePct Float?
   assessment     Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
   user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

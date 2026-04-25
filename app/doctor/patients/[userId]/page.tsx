@@ -51,9 +51,10 @@ const PATIENT_SELECT = {
           proteinStandardG:       true,
           proteinStepTargetG:     true,
           giSeverity:             true,
-          leanVelocityFlag:       true,
-          leanVelocityPct:        true,
-          stageMultiplierApplied: true,
+          leanVelocityFlag:           true,
+          leanVelocityPct:            true,
+          stageMultiplierApplied:     true,
+          recentProteinAdherencePct:  true,
         },
       },
       physicianReview: {
