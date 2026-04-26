@@ -133,6 +133,27 @@ export default function HomePage() {
       return;
     }
 
+    const LIMITS = {
+      weight:  { min: 30,  max: 250 },
+      protein: { min: 0,   max: 350 },
+    };
+    const MAX_PROTEIN_PER_KG = 4.0;
+
+    if (w < LIMITS.weight.min || w > LIMITS.weight.max) {
+      setFormError(`Body weight must be between ${LIMITS.weight.min}kg and ${LIMITS.weight.max}kg.`);
+      return;
+    }
+    if (p < LIMITS.protein.min || p > LIMITS.protein.max) {
+      setFormError(`Daily protein intake must be between ${LIMITS.protein.min}g and ${LIMITS.protein.max}g.`);
+      return;
+    }
+    if (w > 0 && p / w > MAX_PROTEIN_PER_KG) {
+      setFormError(
+        `Protein intake of ${p}g/day appears unusually high for ${w}kg body weight (${(p / w).toFixed(1)}g/kg). Please verify your entries.`
+      );
+      return;
+    }
+
     const giPenalty = Math.min(
       SYMPTOM_OPTIONS
         .filter((s) => symptoms.includes(s.label))
@@ -317,7 +338,7 @@ export default function HomePage() {
               <label className="flex flex-col gap-1.5">
                 <span className="text-xs font-medium text-slate-600">Body weight (kg)</span>
                 <input
-                  type="number" min="30" max="300" placeholder="e.g. 85"
+                  type="number" min={30} max={250} step={0.1} placeholder="e.g. 85"
                   value={weight} onChange={(e) => setWeight(e.target.value)}
                   className="border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
@@ -325,12 +346,15 @@ export default function HomePage() {
 
               {/* Protein */}
               <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-medium text-slate-600">Daily protein intake (g)</span>
+                <span className="text-xs font-medium text-slate-600">Daily protein intake (current)</span>
                 <input
-                  type="number" min="0" max="400" placeholder="e.g. 80"
+                  type="number" min={0} max={350} step={1} placeholder="e.g. 80"
                   value={protein} onChange={(e) => setProtein(e.target.value)}
                   className="border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
+                <span className="text-xs text-slate-400 leading-relaxed">
+                  Enter your current average daily intake. Used to estimate adequacy against your clinical protein floor.
+                </span>
               </label>
 
               {/* GLP-1 therapy section */}

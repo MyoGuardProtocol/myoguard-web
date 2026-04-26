@@ -65,6 +65,13 @@ const FormSchema = z.object({
       v => { const n = parseFloat(v); return !isNaN(n) && n >= 30 && n <= 250; },
       'Please enter a weight between 30 and 250 kg',
     ),
+  proteinGrams: z
+    .string()
+    .min(1, 'Daily protein intake is required')
+    .refine(
+      v => { const n = parseFloat(v); return !isNaN(n) && n >= 0 && n <= 350; },
+      'Please enter a protein intake between 0 and 350 g',
+    ),
   drugLabel: z.string().min(1, 'Please select your GLP-1 medication and dose'),
   exerciseDaysWk: z
     .string()
@@ -84,6 +91,7 @@ const FormSchema = z.object({
 
 type FormData = {
   weightKg:        string;
+  proteinGrams:    string;
   drugLabel:       string;
   exerciseDaysWk:  string;
   hydrationLitres: string;
@@ -109,6 +117,7 @@ export default function AssessmentPage() {
 
   const [form, setFormState] = useState<FormData>({
     weightKg:        '',
+    proteinGrams:    '',
     drugLabel:       '',
     exerciseDaysWk:  '',
     hydrationLitres: '',
@@ -168,6 +177,38 @@ export default function AssessmentPage() {
     setFieldErrors(errs);
     if (Object.keys(errs).length > 0) return;
 
+    const parsedWeight  = parseFloat(String(form.weightKg));
+    const parsedProtein = parseFloat(String(form.proteinGrams));
+    const parsedSleep   = form.sleepHours
+      ? parseFloat(String(form.sleepHours))
+      : null;
+    const parsedGrip    = form.gripStrengthKg
+      ? parseFloat(String(form.gripStrengthKg))
+      : null;
+
+    if (parsedWeight < 30 || parsedWeight > 250) {
+      setServerError('Body weight must be between 30 kg and 250 kg.');
+      return;
+    }
+    if (parsedProtein < 0 || parsedProtein > 350) {
+      setServerError('Daily protein intake must be between 0 g and 350 g.');
+      return;
+    }
+    if (parsedWeight > 0 && parsedProtein / parsedWeight > 4.0) {
+      setServerError(
+        `Protein intake of ${parsedProtein}g/day appears unusually high for ${parsedWeight}kg body weight. Please verify your entries.`
+      );
+      return;
+    }
+    if (parsedSleep !== null && (parsedSleep < 3 || parsedSleep > 14)) {
+      setServerError('Sleep hours must be between 3 and 14.');
+      return;
+    }
+    if (parsedGrip !== null && (parsedGrip < 5 || parsedGrip > 80)) {
+      setServerError('Grip strength must be between 5 and 80 kg.');
+      return;
+    }
+
     setLoading(true);
     try {
       const days         = parseInt(form.exerciseDaysWk, 10);
@@ -183,6 +224,7 @@ export default function AssessmentPage() {
         activityLevel:  daysToActivity(days),
         symptoms:       form.symptoms,
         exerciseDaysWk: days,
+        proteinGrams:   parseFloat(form.proteinGrams),
         glp1Stage:      form.glp1Stage ?? undefined,
         gripStrengthKg: form.gripStrengthKg
           ? parseFloat(String(form.gripStrengthKg))
@@ -311,6 +353,7 @@ export default function AssessmentPage() {
               placeholder="e.g. 89"
               min={30}
               max={250}
+              step={0.1}
               value={form.weightKg}
               onChange={e => setField('weightKg', e.target.value)}
               className="myg-input"
@@ -322,6 +365,38 @@ export default function AssessmentPage() {
                 <span aria-hidden>⚠</span> {fieldErrors.weightKg}
               </p>
             )}
+          </div>
+
+          {/* ── Daily Protein Intake ── */}
+          <div>
+            <label htmlFor="proteinGrams" style={{
+              display: 'block', fontSize: '13px', fontWeight: '600',
+              color: '#F1F5F9', marginBottom: '6px',
+            }}>
+              Daily protein intake (current)
+            </label>
+            <input
+              id="proteinGrams"
+              type="number"
+              inputMode="decimal"
+              placeholder="e.g. 120"
+              min={0}
+              max={350}
+              step={1}
+              value={form.proteinGrams}
+              onChange={e => setField('proteinGrams', e.target.value)}
+              className="myg-input"
+              style={inputStyle(!!fieldErrors.proteinGrams)}
+            />
+            {fieldErrors.proteinGrams && (
+              <p style={{ marginTop: '6px', fontSize: '12px', color: '#FB7185',
+                display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span aria-hidden>⚠</span> {fieldErrors.proteinGrams}
+              </p>
+            )}
+            <p style={{ marginTop: '6px', fontSize: '12px', color: '#94A3B8' }}>
+              Used to assess adequacy against your clinical protein floor.
+            </p>
           </div>
 
           {/* ── GLP-1 Medication + Dose ── */}
@@ -554,7 +629,7 @@ export default function AssessmentPage() {
                   type="number"
                   inputMode="decimal"
                   placeholder="e.g. 7"
-                  min={0}
+                  min={3}
                   max={14}
                   step={0.5}
                   value={form.sleepHours ?? ''}
@@ -607,6 +682,33 @@ export default function AssessmentPage() {
               Sleep data activates the recovery modifier in your MyoGuard Score.
               Fewer than 6.5 hours or poor quality (≤ 2) reduces your score by 10 points.
             </p>
+            {form.sleepHours !== undefined && form.sleepQuality !== undefined && (() => {
+              const h = form.sleepHours!;
+              const q = form.sleepQuality!;
+              let warn = '';
+              if (h < 6.5 && q >= 4) {
+                warn = 'High sleep quality reported with less than 6.5 hours of sleep. Please verify your sleep duration and quality.';
+              } else if (h > 10) {
+                warn = 'Sleep duration above 10 hours may reflect illness, fatigue, or an abnormal recovery pattern. Please verify your entry.';
+              } else if (h >= 9.5 && q <= 2) {
+                warn = 'Long sleep duration with low reported quality may indicate disrupted or non-restorative sleep. Please verify your entries.';
+              }
+              if (!warn) return null;
+              return (
+                <div style={{
+                  marginTop: '8px',
+                  padding: '10px 14px',
+                  background: 'rgba(245,158,11,0.08)',
+                  border: '1px solid rgba(245,158,11,0.25)',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  color: '#D97706',
+                  lineHeight: '1.6',
+                }}>
+                  ⚠ {warn}
+                </div>
+              );
+            })()}
           </div>
 
           {/* ── Grip Strength ── */}
