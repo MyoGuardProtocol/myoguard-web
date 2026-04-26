@@ -90,9 +90,11 @@ type FormData = {
   symptoms:        string[];
   sleepHours?:     number;
   sleepQuality?:   number;
+  glp1Stage:       string | null;
+  gripStrengthKg:  number | null;
 };
 
-type FieldErrors = Partial<Record<keyof Omit<FormData, 'symptoms' | 'sleepHours' | 'sleepQuality'>, string>>;
+type FieldErrors = Partial<Record<keyof Omit<FormData, 'symptoms' | 'sleepHours' | 'sleepQuality' | 'glp1Stage' | 'gripStrengthKg'>, string>>;
 
 /** Map exercise days → activityLevel enum expected by AssessmentInputSchema */
 function daysToActivity(days: number): 'sedentary' | 'moderate' | 'active' {
@@ -113,6 +115,8 @@ export default function AssessmentPage() {
     symptoms:        [],
     sleepHours:      undefined,
     sleepQuality:    undefined,
+    glp1Stage:       null,
+    gripStrengthKg:  null,
   });
 
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -179,6 +183,10 @@ export default function AssessmentPage() {
         activityLevel:  daysToActivity(days),
         symptoms:       form.symptoms,
         exerciseDaysWk: days,
+        glp1Stage:      form.glp1Stage ?? undefined,
+        gripStrengthKg: form.gripStrengthKg
+          ? parseFloat(String(form.gripStrengthKg))
+          : undefined,
       };
       if (form.sleepHours   !== undefined) payload.sleepHours   = form.sleepHours;
       if (form.sleepQuality !== undefined) payload.sleepQuality = form.sleepQuality;
@@ -383,6 +391,46 @@ export default function AssessmentPage() {
             </p>
           </div>
 
+          {/* ── GLP-1 Treatment Stage ── */}
+          <div>
+            <div style={{ marginBottom: '10px' }}>
+              <span style={{ fontSize: '13px', fontWeight: '600', color: '#F1F5F9' }}>
+                Treatment Stage
+              </span>
+              <span style={{ fontSize: '12px', color: '#94A3B8', marginLeft: '8px', fontWeight: '400' }}>
+                Helps calibrate your muscle protection targets
+              </span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+              {([
+                { value: 'INITIATION',     label: 'Initiation',      sub: '0–3 months' },
+                { value: 'DOSE_ESCALATION', label: 'Dose Escalation', sub: '3–6 months' },
+                { value: 'MAINTENANCE',    label: 'Maintenance',     sub: '6+ months' },
+                { value: 'DISCONTINUATION', label: 'Discontinuing',  sub: 'Tapering off' },
+              ] as const).map(stage => (
+                <button
+                  key={stage.value}
+                  type="button"
+                  onClick={() => setFormState(prev => ({ ...prev, glp1Stage: stage.value }))}
+                  style={{
+                    borderRadius: '10px',
+                    border: form.glp1Stage === stage.value ? 'none' : '1px solid #1A2744',
+                    background: form.glp1Stage === stage.value ? '#2DD4BF' : '#0D1421',
+                    color: form.glp1Stage === stage.value ? '#080C14' : '#94A3B8',
+                    fontWeight: form.glp1Stage === stage.value ? 700 : 400,
+                    padding: '10px 12px',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  <div style={{ fontSize: '13px', fontWeight: 'inherit' }}>{stage.label}</div>
+                  <div style={{ fontSize: '11px', marginTop: '2px', opacity: 0.75 }}>{stage.sub}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* ── Exercise days + Hydration ── */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
 
@@ -559,6 +607,38 @@ export default function AssessmentPage() {
               Sleep data activates the recovery modifier in your MyoGuard Score.
               Fewer than 6.5 hours or poor quality (≤ 2) reduces your score by 10 points.
             </p>
+          </div>
+
+          {/* ── Grip Strength ── */}
+          <div>
+            <label htmlFor="gripStrengthKg" style={{
+              display: 'block', fontSize: '13px', fontWeight: '600',
+              color: '#F1F5F9', marginBottom: '4px',
+            }}>
+              Grip Strength (kg)
+            </label>
+            <p style={{ fontSize: '12px', color: '#94A3B8', marginBottom: '8px', lineHeight: '1.5' }}>
+              Optional — measured with hand dynamometer, dominant hand. Tracks functional muscle decline.
+            </p>
+            <input
+              id="gripStrengthKg"
+              type="number"
+              inputMode="decimal"
+              placeholder="e.g. 28"
+              min={5}
+              max={80}
+              step={0.5}
+              value={form.gripStrengthKg ?? ''}
+              onChange={e => {
+                const v = e.target.value;
+                setFormState(prev => ({
+                  ...prev,
+                  gripStrengthKg: v === '' ? null : parseFloat(v),
+                }));
+              }}
+              className="myg-input"
+              style={inputStyle(false)}
+            />
           </div>
 
           {/* ── Activity level hint ── */}
