@@ -2,7 +2,7 @@ import { SignUp } from "@clerk/nextjs";
 
 export default function SignUpPage() {
   return (
-    <div className="min-h-screen bg-[#080C14] flex flex-col items-center justify-center px-4 gap-6 relative">
+    <div style={{ background: "#080C14", minHeight: "100vh" }} className="flex flex-col items-center justify-center px-4 gap-6 relative">
 
       <a href="/" className="absolute top-4 left-4 min-h-[44px] flex items-center text-[13px] text-slate-400 hover:text-white transition-colors">
         ← Back to Home
