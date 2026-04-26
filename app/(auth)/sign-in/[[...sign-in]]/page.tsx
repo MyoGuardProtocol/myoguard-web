@@ -1,43 +1,71 @@
 import { SignIn } from '@clerk/nextjs';
-import Link from 'next/link';
 
 export default function SignInPage() {
   return (
-    <div className="w-full flex flex-col items-center gap-5">
+    <div style={{ background: "#080C14", minHeight: "100vh" }} className="flex flex-col items-center justify-center px-4 gap-6 relative">
 
-      {/* Context card */}
-      <div className="w-full max-w-sm bg-white rounded-2xl border border-slate-200 shadow-sm px-5 py-4 text-center">
-        <p className="text-sm font-bold text-slate-800 mb-1">
-          Welcome back to MyoGuard
+      <a href="/" className="absolute top-4 left-4 min-h-[44px] flex items-center text-[13px] text-slate-400 hover:text-white transition-colors">
+        ← Back to Home
+      </a>
+
+      <div className="text-center flex flex-col gap-2">
+        <a href="/" className="no-underline">
+          <div className="font-[Georgia,serif] text-[22px] font-black tracking-tight">
+            <span className="text-slate-100">Myo</span>
+            <span className="text-teal-400">Guard</span>
+          </div>
+        </a>
+        <p className="text-base font-semibold text-slate-100">
+          Welcome back to MyoGuard Protocol
         </p>
-        <p className="text-xs text-slate-500 leading-relaxed">
-          Sign in to access your saved protocols, weekly check-in history,
-          and progress tracking.
+        <p className="text-sm text-slate-400">
+          Secure access to your SRI dashboard and muscle protection pathway.
         </p>
-        <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-center gap-3">
-          <span className="text-xs text-slate-400">No account yet?</span>
-          <Link href="/sign-up" className="text-xs font-semibold text-teal-600 hover:underline">
-            Create free account →
-          </Link>
-        </div>
       </div>
 
-      {/* Clerk sign-in widget.
-          No routing/path/signUpUrl props — Clerk v6 App Router auto-detects
-          path routing from the [[...sign-in]] catch-all segment convention.
-          Explicit routing props conflict with Next.js 16 / React 19 concurrent
-          rendering and caused the sign-in ↔ sign-up visible loop.
-          signUpUrl and signInUrl are controlled via ClerkProvider in layout.tsx
-          and NEXT_PUBLIC_CLERK_SIGN_IN_URL / SIGN_UP_URL env vars. */}
-      <SignIn fallbackRedirectUrl="/dashboard" />
+      <div className="bg-[#0D1421] border border-[#1A2744] rounded-xl px-5 py-3 flex items-center justify-between gap-4 w-full max-w-sm">
+        <div>
+          <p className="text-xs font-medium text-slate-200">Clinician pathway</p>
+          <p className="text-xs text-slate-400">Physician registration includes credential review.</p>
+        </div>
+        <a
+          href="/sign-up/physician"
+          className="text-xs bg-teal-400 text-[#080C14] px-3 py-1.5 rounded-full font-semibold whitespace-nowrap"
+        >
+          Register your practice →
+        </a>
+      </div>
 
-      {/* Guest fallback */}
-      <Link
-        href="/"
-        className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
-      >
-        Continue as guest instead
-      </Link>
+      <SignIn
+        signUpUrl="/sign-up-new"
+        fallbackRedirectUrl="/dashboard"
+        appearance={{
+          variables: {
+            colorBackground: "#0D1421",
+            colorInputBackground: "#0D1421",
+            colorInputText: "#F1F5F9",
+            colorText: "#F1F5F9",
+            colorTextSecondary: "#94A3B8",
+            colorPrimary: "#2DD4BF",
+            borderRadius: "12px",
+          },
+          elements: {
+            card: {
+              background: "#0D1421",
+              border: "1px solid #1A2744",
+              boxShadow: "none",
+            },
+            formButtonPrimary: {
+              background: "#2DD4BF",
+              color: "#080C14",
+              fontWeight: "700",
+            },
+            footerActionLink: {
+              color: "#2DD4BF",
+            },
+          },
+        }}
+      />
     </div>
   );
 }
