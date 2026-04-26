@@ -223,7 +223,7 @@ export default function HomePage() {
           </h1>
           <p className="text-lg text-slate-500 leading-relaxed max-w-md">
             The clinical standard for muscle preservation during GLP-1 therapy.
-            Physician-designed protocols that calculate sarcopenia risk and deliver
+            Physician-designed protocols that generate a Sarcopenia Risk Index (SRI) and deliver
             actionable protection targets.
           </p>
           <div className="flex flex-col gap-3 pt-2">
@@ -283,7 +283,7 @@ export default function HomePage() {
         <div id="calculator" className="flex flex-col gap-4">
           <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 flex flex-col gap-5">
             <div>
-              <h2 className="text-base font-semibold text-slate-900">Sarcopenia Risk Calculator</h2>
+              <h2 className="text-base font-semibold text-slate-900">Sarcopenia Risk Index (SRI)</h2>
               <p className="text-xs text-slate-400 mt-0.5">No account required · Clinical parameters · Results in seconds</p>
 
               {/* Progress indicator */}
@@ -301,7 +301,7 @@ export default function HomePage() {
                 <span className="text-xs text-slate-400">
                   {fieldsComplete < totalFields
                     ? `${totalFields - fieldsComplete} field${totalFields - fieldsComplete > 1 ? "s" : ""} remaining`
-                    : "Ready to calculate"}
+                    : "Ready to generate SRI"}
                 </span>
               </div>
             </div>
@@ -496,7 +496,7 @@ export default function HomePage() {
                 </div>
                 <div className="flex flex-col gap-1">
                   <span className="text-xs font-bold text-amber-800">
-                    Required before calculating
+                    Required before generating SRI
                   </span>
                   <span className="text-xs text-amber-700 leading-relaxed">
                     I understand this tool provides educational nutritional
@@ -524,13 +524,13 @@ export default function HomePage() {
             >
               {canCalculate ? (
                 <>
-                  Calculate my risk score
+                  Generate SRI
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                   </svg>
                 </>
               ) : (
-                "Complete all fields to calculate"
+                "Complete all fields to generate SRI"
               )}
             </button>
 
