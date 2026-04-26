@@ -129,7 +129,7 @@ export default function HomePage() {
     const drug = GLP1_DRUGS.find((d) => d.label === selectedDrug);
 
     if (!w || !p || !drug || !activityLevel) {
-      setFormError("Please complete all fields before calculating.");
+      setFormError("Please complete all required fields before generating your SRI.");
       return;
     }
 
@@ -213,22 +213,14 @@ export default function HomePage() {
     <main className="min-h-screen bg-white text-slate-900">
 
       {/* Nav */}
-      <nav className="border-b border-slate-100 px-4 sm:px-6 py-4 flex items-center justify-between max-w-6xl mx-auto gap-2">
-        <div className="flex items-center gap-1 flex-shrink-0 min-w-0">
+      <nav className="border-b border-slate-100 max-w-6xl mx-auto flex justify-between items-center px-5 min-h-[56px]">
+        <div className="flex items-center gap-1">
           <span className="text-xl font-bold text-slate-900">Myo</span>
           <span className="text-xl font-bold text-teal-600">Guard</span>
         </div>
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          <a href="/doctor/sign-up" className="text-xs sm:text-sm text-slate-500 hover:text-teal-600 font-medium transition-colors flex-shrink-0 whitespace-nowrap">
-            Clinician? Register
-          </a>
-          <a href="/sign-in" className="text-xs sm:text-sm text-slate-600 hover:text-slate-900 px-3 sm:px-4 py-2 rounded-lg border border-slate-200 transition-colors flex-shrink-0 whitespace-nowrap">
-            Sign in
-          </a>
-          <a href="/sign-up" className="text-xs sm:text-sm bg-teal-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-teal-700 transition-colors flex-shrink-0 whitespace-nowrap">
-            Patient sign up
-          </a>
-        </div>
+        <a href="/sign-in" className="text-sm text-slate-600 hover:text-slate-900 transition-colors flex-shrink-0 whitespace-nowrap">
+          Sign in
+        </a>
       </nav>
 
       {/* Hero */}
@@ -262,7 +254,7 @@ export default function HomePage() {
               </div>
             ))}
           </div>
-          <div className="flex items-center gap-3 pt-2">
+          <div className="flex flex-col items-start gap-3 pt-2">
             <a
               href="#sri-form"
               onClick={(e) => {
@@ -273,8 +265,8 @@ export default function HomePage() {
             >
               Generate Preliminary SRI →
             </a>
-            <a href="/doctor/sign-up" className="text-sm text-slate-600 hover:text-teal-600 transition-colors underline underline-offset-2">
-              Are you a clinician?
+            <a href="/doctor/sign-up" className="text-sm text-slate-500 hover:text-teal-600 transition-colors">
+              Clinician? <span className="text-teal-600">Register your practice →</span>
             </a>
           </div>
 
