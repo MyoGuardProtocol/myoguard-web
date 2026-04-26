@@ -121,6 +121,7 @@ export default function HomePage() {
     setFormError("");
     if (!disclaimerChecked) {
       setFormError("Please confirm you understand this tool provides educational information only.");
+      document.getElementById('disclaimer-checkbox')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
     const w    = parseFloat(weight);
@@ -472,6 +473,17 @@ export default function HomePage() {
             </div>
 
             {/* Educational Disclaimer */}
+            <div
+              id="disclaimer-checkbox"
+              style={{
+                border: canCalculate && !disclaimerChecked
+                  ? "1px solid rgba(245,158,11,0.5)"
+                  : "1px solid transparent",
+                borderRadius: "8px",
+                padding: "8px",
+                transition: "border-color 0.2s ease",
+              }}
+            >
             <div className="bg-amber-50 border-2 border-amber-400 rounded-xl p-4 mt-2">
               <label className="flex items-start gap-3 cursor-pointer select-none">
                 <div className="relative flex-shrink-0 mt-0.5">
@@ -506,9 +518,21 @@ export default function HomePage() {
                 </div>
               </label>
             </div>
+            </div>
 
             {formError && (
-              <p className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{formError}</p>
+              <div style={{
+                background: "rgba(251,113,133,0.1)",
+                border: "1px solid rgba(251,113,133,0.3)",
+                borderRadius: "8px",
+                padding: "10px 14px",
+                marginBottom: "12px",
+                fontSize: "13px",
+                color: "#FB7185",
+                textAlign: "center",
+              }}>
+                {formError}
+              </div>
             )}
 
             {/* Premium calculate button */}
