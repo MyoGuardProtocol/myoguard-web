@@ -479,17 +479,18 @@ export default function HomePage() {
                 </div>
                 <input
                   type="range"
-                  min="4" max="9" step="0.5"
+                  min="3" max="14" step="0.5"
                   value={sleepHours}
                   onChange={(e) => setSleepHours(parseFloat(e.target.value))}
                   className="w-full h-2 rounded-full appearance-none cursor-pointer accent-teal-600 bg-slate-100"
                 />
                 <div className="flex justify-between text-xs text-slate-400">
-                  <span>4h</span>
+                  <span>3h</span>
                   <span>6h</span>
-                  <span>7.5h</span>
                   <span>9h</span>
+                  <span>14h</span>
                 </div>
+                <p className="text-xs text-slate-500">Typical adult range: 5–9 hours</p>
                 <p className="text-xs text-slate-400 leading-relaxed">
                   Sleep duration is displayed as a recovery context indicator. Nocturnal GH and IGF-1 secretion support muscle protein synthesis — adequate sleep optimises your protocol outcomes. This parameter is not incorporated into the sarcopenia risk score.
                 </p>
