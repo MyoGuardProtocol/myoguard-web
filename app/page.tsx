@@ -191,19 +191,19 @@ export default function HomePage() {
     <main className="min-h-screen bg-white text-slate-900">
 
       {/* Nav */}
-      <nav className="border-b border-slate-100 px-6 py-4 flex items-center justify-between max-w-6xl mx-auto">
-        <div className="flex items-center gap-1">
+      <nav className="border-b border-slate-100 px-4 sm:px-6 py-4 flex items-center justify-between max-w-6xl mx-auto gap-2">
+        <div className="flex items-center gap-1 flex-shrink-0 min-w-0">
           <span className="text-xl font-bold text-slate-900">Myo</span>
           <span className="text-xl font-bold text-teal-600">Guard</span>
         </div>
-        <div className="flex items-center gap-3">
-          <a href="/doctor/sign-up" className="text-sm text-teal-600 hover:text-teal-700 font-medium transition-colors">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <a href="/doctor/sign-up" className="text-xs sm:text-sm text-slate-500 hover:text-teal-600 font-medium transition-colors flex-shrink-0 whitespace-nowrap">
             Clinician? Register
           </a>
-          <a href="/sign-in" className="text-sm text-slate-600 hover:text-slate-900 px-4 py-2 rounded-lg border border-slate-200 transition-colors">
+          <a href="/sign-in" className="text-xs sm:text-sm text-slate-600 hover:text-slate-900 px-3 sm:px-4 py-2 rounded-lg border border-slate-200 transition-colors flex-shrink-0 whitespace-nowrap">
             Sign in
           </a>
-          <a href="/sign-up" className="text-sm bg-teal-600 text-white px-4 py-2 rounded-lg hover:bg-teal-700 transition-colors">
+          <a href="/sign-up" className="text-xs sm:text-sm bg-teal-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-teal-700 transition-colors flex-shrink-0 whitespace-nowrap">
             Patient sign up
           </a>
         </div>
@@ -218,8 +218,7 @@ export default function HomePage() {
             Physician-Formulated · Evidence-Based
           </div>
           <h1 className="text-4xl lg:text-5xl font-bold text-slate-900 leading-tight">
-            Protect Muscle.<br />
-            <span className="text-teal-600">Optimize GLP-1 Outcomes.</span>
+            The Clinical Standard for Muscle Protection during GLP-1 Therapy
           </h1>
           <p className="text-lg text-slate-500 leading-relaxed max-w-md">
             The clinical standard for muscle preservation during GLP-1 therapy.
@@ -243,14 +242,14 @@ export default function HomePage() {
           </div>
           <div className="flex items-center gap-3 pt-2">
             <a
-              href="#calculator"
+              href="#sri-form"
               onClick={(e) => {
                 e.preventDefault();
-                document.getElementById("calculator")?.scrollIntoView({ behavior: "smooth" });
+                document.getElementById("sri-form")?.scrollIntoView({ behavior: "smooth" });
               }}
               className="bg-teal-600 text-white px-6 py-3 rounded-xl text-sm font-medium hover:bg-teal-700 transition-colors cursor-pointer"
             >
-              Start free assessment
+              Generate Preliminary SRI →
             </a>
             <a href="/doctor/sign-up" className="text-sm text-slate-600 hover:text-teal-600 transition-colors underline underline-offset-2">
               Are you a clinician?
@@ -264,7 +263,7 @@ export default function HomePage() {
             </p>
             <div className="flex flex-col gap-2">
               {[
-                "Used by physicians across Caribbean and North America",
+                "A global clinical response to the GLP-1 muscle loss crisis",
                 "Grounded in NEJM, EWGSOP2, and 2026 clinical literature",
                 "GDPR and HIPAA-aligned data handling",
               ].map((t) => (
@@ -280,10 +279,10 @@ export default function HomePage() {
         </div>
 
         {/* RIGHT — Calculator */}
-        <div id="calculator" className="flex flex-col gap-4">
+        <div id="sri-form" className="flex flex-col gap-4">
           <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 flex flex-col gap-5">
             <div>
-              <h2 className="text-base font-semibold text-slate-900">Sarcopenia Risk Index (SRI)</h2>
+              <h2 className="text-base font-semibold text-slate-900">Preliminary Sarcopenia Risk Index (SRI)</h2>
               <p className="text-xs text-slate-400 mt-0.5">No account required · Clinical parameters · Results in seconds</p>
 
               {/* Progress indicator */}
@@ -524,13 +523,13 @@ export default function HomePage() {
             >
               {canCalculate ? (
                 <>
-                  Generate SRI
+                  Generate Preliminary SRI
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                   </svg>
                 </>
               ) : (
-                "Complete all fields to generate SRI"
+                "Complete all fields to generate Preliminary SRI"
               )}
             </button>
 
@@ -684,6 +683,42 @@ export default function HomePage() {
                   </p>
                 </div>
 
+                {/* Conversion bridge — unauthenticated only */}
+                {!isSignedIn && (
+                  <div style={{
+                    background: '#0D1421',
+                    border: '1px solid rgba(45,212,191,0.35)',
+                    borderRadius: '16px',
+                    padding: '20px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px',
+                  }}>
+                    <p style={{ fontSize: '14px', fontWeight: '700', color: '#F1F5F9' }}>
+                      This is your Preliminary SRI.
+                    </p>
+                    <p style={{ fontSize: '13px', color: '#94A3B8', lineHeight: '1.6' }}>
+                      Create your account to unlock your full Clinical SRI Analysis — including treatment stage calibration, functional muscle tracking, and weekly monitoring.
+                    </p>
+                    <a
+                      href="/sign-up"
+                      style={{
+                        display: 'block',
+                        background: '#2DD4BF',
+                        color: '#080C14',
+                        borderRadius: '12px',
+                        padding: '12px 16px',
+                        fontSize: '13px',
+                        fontWeight: '700',
+                        textAlign: 'center',
+                        textDecoration: 'none',
+                      }}
+                    >
+                      Activate Full Clinical Protocol →
+                    </a>
+                  </div>
+                )}
+
                 {/* Blurred protocol */}
                 <div className="relative rounded-xl border border-slate-200 overflow-hidden">
                   <div className="p-4 flex flex-col gap-2 select-none pointer-events-none">
@@ -831,12 +866,19 @@ export default function HomePage() {
 
       {/* Footer */}
       <footer className="border-t border-slate-100 py-8 px-6">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
-          <span>© 2026 Meridian Wellness Systems LLC · myoguard.health</span>
-          <div className="flex gap-4">
-            <a href="/privacy" className="hover:text-slate-600 transition-colors">Privacy Policy</a>
-            <a href="/terms" className="hover:text-slate-600 transition-colors">Terms of Use</a>
-            <span>myoguard.health</span>
+        <div className="max-w-6xl mx-auto flex flex-col items-center gap-2 text-center">
+          <p className="text-xs font-semibold text-slate-700">
+            MyoGuard Protocol · Physician-led Clinical Decision Support
+          </p>
+          <p className="text-xs text-slate-400">
+            © 2026 Meridian Wellness Systems LLC · myoguard.health
+          </p>
+          <p className="text-xs text-slate-400 italic">
+            Built for the global GLP-1 prescribing community
+          </p>
+          <div className="flex gap-4 pt-1">
+            <a href="/privacy" className="text-xs text-slate-400 hover:text-slate-600 transition-colors">Privacy Policy</a>
+            <a href="/terms" className="text-xs text-slate-400 hover:text-slate-600 transition-colors">Terms of Use</a>
           </div>
         </div>
       </footer>
