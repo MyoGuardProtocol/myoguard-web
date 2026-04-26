@@ -229,7 +229,7 @@ export default async function DoctorStartPage() {
             {[
               { n: '1', head: 'Share your link', body: `Send patients ${referralUrl ?? 'your personalised referral URL'} via email, WhatsApp, or your patient portal.` },
               { n: '2', head: 'Patients complete the assessment', body: 'They enter their GLP-1 medication, dose, weight, activity level, and current symptoms. No account required.' },
-              { n: '3', head: 'Protocol generated instantly', body: 'A personalised protein, fibre, and hydration protocol plus a MyoGuard Score are calculated and displayed in seconds.' },
+              { n: '3', head: 'Protocol generated instantly', body: 'A personalised protein, fibre, and hydration protocol plus a MyoGuard Score are generated and displayed in seconds.' },
             ].map(step => (
               <li key={step.n} style={{ display: 'flex', gap: '16px' }}>
                 <span style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#0d9488', color: '#ffffff', fontSize: '0.75rem', fontWeight: 700, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

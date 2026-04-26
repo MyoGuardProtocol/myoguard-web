@@ -140,7 +140,7 @@ export default function AssessmentForm({ onSubmit }: AssessmentFormProps) {
             </p>
             <p className="text-xs text-amber-800 leading-relaxed">
               Without targeted nutritional support, GLP-1 therapy accelerates the loss of
-              lean muscle alongside fat. This tool calculates the specific protein, fibre,
+              lean muscle alongside fat. This tool generates the specific protein, fibre,
               and hydration targets your body needs to minimise that risk.
             </p>
           </div>

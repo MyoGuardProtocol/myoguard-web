@@ -132,7 +132,7 @@ export default function ProtocolResults({
           onClick={onRecalculate}
           className="flex-1 border border-slate-300 text-slate-600 font-medium text-sm py-3 rounded-xl hover:bg-slate-50 transition-colors"
         >
-          ← Recalculate
+          ← Regenerate SRI
         </button>
         <button
           onClick={handleSavePdf}

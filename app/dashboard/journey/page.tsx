@@ -948,7 +948,7 @@ export default async function JourneyPage() {
 
         <p className="text-center text-[10px] text-slate-600 pt-1 leading-relaxed">
           Score history reflects completed assessments. Weekly check-ins track
-          adherence but do not recalculate your MyoGuard Score.
+          adherence but do not regenerate your SRI.
         </p>
 
       </div>
