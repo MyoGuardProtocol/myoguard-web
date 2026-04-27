@@ -32,12 +32,6 @@ export default function Footer() {
           © 2026 Meridian Wellness Systems LLC
         </p>
 
-        {/* Physician authority — full credentials in the footer, subtle and elegant */}
-        <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
-          Physician-guided by{' '}
-          <span className="font-medium text-slate-500">Onyeka Okpala, MD</span>
-        </p>
-
         {/* Utility links */}
         <div className="mt-4 flex items-center justify-center gap-5">
           <a

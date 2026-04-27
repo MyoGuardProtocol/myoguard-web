@@ -68,7 +68,7 @@ export async function sendWelcomeEmail({
           <p style="margin:0;font-size:11px;color:#94a3b8;text-align:center;line-height:1.6;">
             &#169; 2026 MyoGuard Protocol &nbsp;&middot;&nbsp;
             <a href="${APP_URL}" style="color:#0d9488;text-decoration:none;">myoguard.health</a>
-            &nbsp;&middot;&nbsp; Dr. Onyeka Okpala, MD &nbsp;&middot;&nbsp;
+            &nbsp;&middot;&nbsp; Meridian Wellness Systems LLC &nbsp;&middot;&nbsp;
             <a href="${APP_URL}/privacy" style="color:#0d9488;text-decoration:none;">Privacy Policy</a>
           </p>
         </td></tr>

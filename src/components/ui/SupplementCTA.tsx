@@ -1,21 +1,119 @@
-/**
- * Supplement affiliate CTA — verbatim from app/page.tsx lines 371–385.
- */
-export default function SupplementCTA() {
+const CATEGORIES = [
+  {
+    id:          'foundation',
+    label:       'Foundation',
+    rationale:   'Core micronutrient support for GLP-1 patients — addresses common deficiencies in vitamin D, magnesium, and B-complex during caloric restriction.',
+    formulation: 'High-bioavailability multivitamin with methylated B-complex, 1,000–2,000 IU vitamin D3, and omega-3 concentrate (EPA+DHA ≥ 1 g/day)',
+  },
+  {
+    id:          'muscle',
+    label:       'Muscle Support',
+    rationale:   'Leucine-rich protein and creatine to preserve and stimulate muscle protein synthesis during active weight loss.',
+    formulation: 'Whey or plant-based protein isolate with ≥ 2.5 g leucine per serving; creatine monohydrate 3–5 g/day',
+  },
+  {
+    id:          'recovery',
+    label:       'Recovery / Sleep',
+    rationale:   'Supports sleep architecture and cortisol regulation — particularly relevant during active weight-loss phases.',
+    formulation: 'Magnesium glycinate 200–400 mg before sleep; optional: ashwagandha (KSM-66) 300–600 mg',
+  },
+  {
+    id:          'gi',
+    label:       'GI Support (GLP-1 Specific)',
+    rationale:   'Targets delayed gastric emptying, nausea, and constipation associated with semaglutide and tirzepatide use.',
+    formulation: 'Psyllium husk 5–10 g/day; digestive enzymes with lipase; ginger extract 250–500 mg as needed',
+  },
+  {
+    id:          'adjuncts',
+    label:       'Optional Adjuncts',
+    rationale:   'Evidence-adjacent formulations for additional metabolic and anti-inflammatory support.',
+    formulation: 'Berberine 500 mg (metabolic support), alpha-lipoic acid 300–600 mg, or curcumin with piperine',
+  },
+];
+
+const AFFILIATE_LINK =
+  'https://api-comms.iherb.com/gateway/comms/ct?pl=qkZ8DA0slJ0u7dcv5Pi4oWEnPkGns9a_rhHjdya7gGbAWGlkC1br2hy8cjWKNlSikMBDaRoXdIWLfdOdacFttmU3QRqmpI3R7bzdW8z2uZIV-y1zfjUjmjTHbNHWiwlENV8XVAlnmf0fSTeQjbuXjyJjdwZkTdbJcwxXdLhA1VOQGZ4w2R8F58FMRi5InRtxMqkSwbYYvOM0Kp_OBD5aTyRivFcYbmZWa3RKbQe16BEbmyYv3yqzhFZKoXlJs1cScqVqv6VKTFer_6WTNZeujnX9SulVittb02xsbtBVEDbrBcL4LYT0YKQsjsaY3Q%3d%3d';
+
+export default function SupplementCTA({ dark = false }: { dark?: boolean }) {
+  if (dark) {
+    return (
+      <div className="rounded-2xl overflow-hidden" style={{ background: '#0D1421', border: '1px solid #1A2744' }}>
+        <div className="px-5 pt-4 pb-3" style={{ borderBottom: '1px solid #1A2744' }}>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-base">💊</span>
+            <p className="text-[10px] font-bold text-teal-400 uppercase tracking-[0.2em]">
+              Supplement Protocol
+            </p>
+          </div>
+          <p className="text-xs text-slate-400 leading-relaxed">
+            Clinically-informed formulation guidance for GLP-1 patients. Review all supplements with your prescribing physician before commencing.
+          </p>
+        </div>
+
+        <div>
+          {CATEGORIES.map((cat, i) => (
+            <div
+              key={cat.id}
+              className="px-5 py-4"
+              style={i > 0 ? { borderTop: '1px solid rgba(26,39,68,0.6)' } : undefined}
+            >
+              <p className="text-xs font-bold text-slate-200 mb-1">{cat.label}</p>
+              <p className="text-[11px] text-slate-500 leading-relaxed mb-2">{cat.rationale}</p>
+              <p className="text-xs text-slate-300 leading-relaxed mb-3">
+                <span className="font-medium text-slate-500">Recommended formulation: </span>
+                {cat.formulation}
+              </p>
+              <a
+                href={AFFILIATE_LINK}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs font-semibold hover:underline"
+                style={{ color: '#2DD4BF' }}
+              >
+                View clinically appropriate options →
+              </a>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Light variant — used in the anonymous assessment flow (white-themed page)
   return (
-    <div className="bg-teal-600 rounded-2xl p-5 text-white mb-6">
-      <p className="font-semibold text-sm mb-1">Recommended Supplements</p>
-      <p className="text-teal-100 text-xs leading-relaxed mb-3">
-        Professional-grade products curated using published clinical protocols for GLP-1 patients. Thorne and iHerb selections.
-      </p>
-      <a
-        href="https://api-comms.iherb.com/gateway/comms/ct?pl=qkZ8DA0slJ0u7dcv5Pi4oWEnPkGns9a_rhHjdya7gGbAWGlkC1br2hy8cjWKNlSikMBDaRoXdIWLfdOdacFttmU3QRqmpI3R7bzdW8z2uZIV-y1zfjUjmjTHbNHWiwlENV8XVAlnmf0fSTeQjbuXjyJjdwZkTdbJcwxXdLhA1VOQGZ4w2R8F58FMRi5InRtxMqkSwbYYvOM0Kp_OBD5aTyRivFcYbmZWa3RKbQe16BEbmyYv3yqzhFZKoXlJs1cScqVqv6VKTFer_6WTNZeujnX9SulVittb02xsbtBVEDbrBcL4LYT0YKQsjsaY3Q%3d%3d"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="bg-white text-teal-700 font-semibold text-sm px-4 py-2 rounded-lg hover:bg-teal-50 transition-colors inline-block"
-      >
-        View Supplement Stack →
-      </a>
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-6">
+      <div className="px-5 pt-3 pb-3 bg-teal-600">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-base">💊</span>
+          <p className="text-[10px] font-bold text-white uppercase tracking-[0.2em]">
+            Supplement Protocol
+          </p>
+        </div>
+        <p className="text-xs text-teal-100 leading-relaxed">
+          Clinically-informed formulation guidance for GLP-1 patients. Review with your prescribing physician before commencing.
+        </p>
+      </div>
+
+      <div className="divide-y divide-slate-100">
+        {CATEGORIES.map(cat => (
+          <div key={cat.id} className="px-5 py-4">
+            <p className="text-xs font-bold text-slate-700 mb-1">{cat.label}</p>
+            <p className="text-[11px] text-slate-500 leading-relaxed mb-2">{cat.rationale}</p>
+            <p className="text-xs text-slate-600 leading-relaxed mb-3">
+              <span className="font-medium text-slate-500">Recommended formulation: </span>
+              {cat.formulation}
+            </p>
+            <a
+              href={AFFILIATE_LINK}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-teal-600 hover:text-teal-700 hover:underline"
+            >
+              View clinically appropriate options →
+            </a>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

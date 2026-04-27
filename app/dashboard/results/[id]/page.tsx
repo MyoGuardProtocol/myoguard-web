@@ -6,6 +6,7 @@ import DashboardHeader from '@/src/components/ui/DashboardHeader';
 import ScoreGauge from '@/src/components/ui/ScoreGauge';
 import ClinicalAlert from '@/src/components/ui/ClinicalAlert';
 import RecoverySignalCard from '@/src/components/ui/RecoverySignalCard';
+import SupplementCTA from '@/src/components/ui/SupplementCTA';
 
 // ─── Band config ───────────────────────────────────────────────────────────────
 type Band = 'CRITICAL' | 'HIGH' | 'MODERATE' | 'LOW';
@@ -117,8 +118,6 @@ export default async function ResultsPage({
   if (!assessment || !assessment.muscleScore) notFound();
 
   // ── Fetch the immediately-preceding assessment for delta comparison ─────────
-  // Uses assessmentDate < current date (not just id != current) so the ordering
-  // is stable even if two assessments were saved on the same second.
   const previousAssessment = await prisma.assessment.findFirst({
     where: {
       userId:         user.id,
@@ -145,7 +144,6 @@ export default async function ResultsPage({
   const band        = ms.riskBand as Band;
   const meta        = BAND_META[band];
   const pointsToLow = score < 80 ? 80 - score : null;
-  // Skip honorifics so "Dr Onyeka Okpala" → "Onyeka", not "Dr"
   const HONORIFICS  = ['Dr', 'Dr.', 'Prof', 'Prof.', 'Mr', 'Mrs', 'Ms', 'Miss'];
   const nameParts   = (user.fullName ?? '').split(' ').filter(Boolean);
   const firstName   = nameParts.find(p => !HONORIFICS.includes(p)) ?? nameParts[0] ?? null;
@@ -158,7 +156,7 @@ export default async function ResultsPage({
   const bandImproved    = prev ? (score > Math.round(prev.score))                     : null;
 
   return (
-    <main className="min-h-screen bg-slate-900 font-sans">
+    <main className="min-h-screen font-sans" style={{ background: '#080C14' }}>
 
       {/* ── Sticky header ── */}
       <DashboardHeader />
@@ -168,12 +166,18 @@ export default async function ResultsPage({
         {/* ── Title ── */}
         <div>
           <p className="text-[10px] font-bold text-teal-400 uppercase tracking-[0.2em] mb-1">
-            Assessment Results
+            MyoGuard Protocol
           </p>
-          <h1 className="text-2xl font-extrabold text-white leading-tight">
-            {firstName ? `${firstName}'s Score` : 'Your Score'}
+          <h1
+            className="text-2xl font-extrabold text-white leading-tight"
+            style={{ fontFamily: 'Georgia, serif' }}
+          >
+            Clinical Decision Support Report
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
+          {firstName && (
+            <p className="text-xs text-slate-400 mt-1">Generated for: {firstName}</p>
+          )}
+          <p className="text-xs text-slate-500 mt-0.5">
             {new Date(assessment.assessmentDate).toLocaleString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
           </p>
         </div>
@@ -181,7 +185,7 @@ export default async function ResultsPage({
         {/* ══════════════════════════════════════════════════════════════════════ */}
         {/* ── SCORE HERO ── */}
         {/* ══════════════════════════════════════════════════════════════════════ */}
-        <div className="bg-slate-800 rounded-xl p-8 border border-slate-700">
+        <div className="rounded-xl p-8" style={{ background: '#0D1421', border: '1px solid #1A2744' }}>
 
           {/* Label + band badge */}
           <div className="flex items-center justify-between mb-5">
@@ -194,14 +198,14 @@ export default async function ResultsPage({
             </span>
           </div>
 
-          {/* Radial gauge — replaces the segmented horizontal track */}
+          {/* Radial gauge */}
           <div className="max-w-[220px] mx-auto mb-5">
             <ScoreGauge score={score} band={band} leanLossPct={ms.leanLossEstPct} />
           </div>
 
           {/* Distance to Low Risk / already there */}
           {pointsToLow !== null ? (
-            <div className="bg-slate-700/50 rounded-xl px-4 py-3">
+            <div className="rounded-xl px-4 py-3" style={{ background: 'rgba(26,39,68,0.5)' }}>
               <p className="text-sm text-slate-200 leading-snug">
                 <span className="font-mono font-bold text-white tabular-nums">{pointsToLow}</span>
                 {' '}
@@ -223,8 +227,11 @@ export default async function ResultsPage({
         {/* ── PREVIOUS vs CURRENT COMPARISON ── only when a prior result exists */}
         {/* ══════════════════════════════════════════════════════════════════════ */}
         {prev && previousAssessment && (
-          <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
-            <div className="px-5 pt-4 pb-3 border-b border-slate-700/70 flex items-center justify-between">
+          <div className="rounded-2xl overflow-hidden" style={{ background: '#0D1421', border: '1px solid #1A2744' }}>
+            <div
+              className="px-5 pt-4 pb-3 flex items-center justify-between"
+              style={{ borderBottom: '1px solid rgba(26,39,68,0.7)' }}
+            >
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em]">
                 Since Last Assessment
               </p>
@@ -233,10 +240,10 @@ export default async function ResultsPage({
               </span>
             </div>
 
-            <div className="grid grid-cols-3 gap-px bg-slate-700/30">
+            <div className="grid grid-cols-3 gap-px" style={{ background: 'rgba(26,39,68,0.3)' }}>
 
               {/* Score delta */}
-              <div className="bg-slate-800 px-4 py-4 flex flex-col gap-1">
+              <div className="px-4 py-4 flex flex-col gap-1" style={{ background: '#0D1421' }}>
                 <p className="text-[10px] font-medium text-slate-500">Score</p>
                 <p className="font-mono text-lg font-black text-white tabular-nums leading-none">
                   {score}
@@ -254,7 +261,7 @@ export default async function ResultsPage({
               </div>
 
               {/* Protein delta */}
-              <div className="bg-slate-800 px-4 py-4 flex flex-col gap-1">
+              <div className="px-4 py-4 flex flex-col gap-1" style={{ background: '#0D1421' }}>
                 <p className="text-[10px] font-medium text-slate-500">Protein Target</p>
                 <p className="font-mono text-lg font-black text-white tabular-nums leading-none">
                   {Math.round(ms.proteinTargetG)}
@@ -272,7 +279,7 @@ export default async function ResultsPage({
               </div>
 
               {/* Lean loss delta */}
-              <div className="bg-slate-800 px-4 py-4 flex flex-col gap-1">
+              <div className="px-4 py-4 flex flex-col gap-1" style={{ background: '#0D1421' }}>
                 <p className="text-[10px] font-medium text-slate-500">Lean Risk</p>
                 <p className="font-mono text-lg font-black text-white tabular-nums leading-none">
                   {ms.leanLossEstPct}
@@ -293,9 +300,12 @@ export default async function ResultsPage({
 
             {/* Band change row */}
             {prevBand && prevBand !== band && (
-              <div className={`px-5 py-3 border-t border-slate-700/40 flex items-center gap-2 ${
-                bandImproved ? 'bg-emerald-950/50' : 'bg-red-950/50'
-              }`}>
+              <div
+                className={`px-5 py-3 flex items-center gap-2 ${
+                  bandImproved ? 'bg-emerald-950/50' : 'bg-red-950/50'
+                }`}
+                style={{ borderTop: '1px solid rgba(26,39,68,0.4)' }}
+              >
                 <span className="text-sm">{bandImproved ? '✅' : '⚠️'}</span>
                 <p className="text-xs text-slate-300 leading-snug">
                   Risk band changed:{' '}
@@ -312,7 +322,7 @@ export default async function ResultsPage({
 
             {/* No band change — neutral acknowledgement */}
             {prevBand && prevBand === band && (
-              <div className="px-5 py-3 border-t border-slate-700/40">
+              <div className="px-5 py-3" style={{ borderTop: '1px solid rgba(26,39,68,0.4)' }}>
                 <p className="text-[11px] text-slate-500">
                   Risk band unchanged — {BAND_META[band].label}. Keep tracking weekly to move the needle.
                 </p>
@@ -324,8 +334,8 @@ export default async function ResultsPage({
         {/* ══════════════════════════════════════════════════════════════════════ */}
         {/* ── PROTEIN TARGET ── */}
         {/* ══════════════════════════════════════════════════════════════════════ */}
-        <div className="bg-slate-800 rounded-3xl border border-slate-700 overflow-hidden">
-          <div className="px-5 pt-5 pb-4 border-b border-slate-700/70">
+        <div className="rounded-3xl overflow-hidden" style={{ background: '#0D1421', border: '1px solid #1A2744' }}>
+          <div className="px-5 pt-5 pb-4" style={{ borderBottom: '1px solid rgba(26,39,68,0.7)' }}>
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] mb-1">
@@ -345,7 +355,7 @@ export default async function ResultsPage({
               </span>
               <span className="text-xl text-slate-500 font-light">g/day</span>
             </div>
-            <div className="h-2 rounded-full bg-slate-700 overflow-hidden mb-3">
+            <div className="h-2 rounded-full overflow-hidden mb-3" style={{ background: '#1A2744' }}>
               <div
                 className="myg-bar-grow h-full rounded-full bg-teal-500"
                 style={{ width: `${Math.min(100, (ms.proteinTargetG / 250) * 100)}%` }}
@@ -360,6 +370,11 @@ export default async function ResultsPage({
         </div>
 
         {/* ══════════════════════════════════════════════════════════════════════ */}
+        {/* ── SUPPLEMENT STACK — placed after protein target per clinical flow ── */}
+        {/* ══════════════════════════════════════════════════════════════════════ */}
+        <SupplementCTA dark />
+
+        {/* ══════════════════════════════════════════════════════════════════════ */}
         {/* ── LEAN MASS RISK ── */}
         {/* ══════════════════════════════════════════════════════════════════════ */}
         <ClinicalAlert
@@ -371,8 +386,8 @@ export default async function ResultsPage({
         {/* ══════════════════════════════════════════════════════════════════════ */}
         {/* ── CLINICAL EXPLANATION ── */}
         {/* ══════════════════════════════════════════════════════════════════════ */}
-        <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
-          <div className="px-5 pt-4 pb-3 border-b border-slate-700/70">
+        <div className="rounded-2xl overflow-hidden" style={{ background: '#0D1421', border: '1px solid #1A2744' }}>
+          <div className="px-5 pt-4 pb-3" style={{ borderBottom: '1px solid rgba(26,39,68,0.7)' }}>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em]">
               Clinical Summary
             </p>
@@ -397,15 +412,15 @@ export default async function ResultsPage({
         {/* ── PROTOCOL PLAN ── persisted from DB; null-safe fallback ── */}
         {/* ══════════════════════════════════════════════════════════════════════ */}
         {plan && (
-          <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
-            <div className="px-5 pt-4 pb-3 border-b border-slate-700/70">
+          <div className="rounded-2xl overflow-hidden" style={{ background: '#0D1421', border: '1px solid #1A2744' }}>
+            <div className="px-5 pt-4 pb-3" style={{ borderBottom: '1px solid rgba(26,39,68,0.7)' }}>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em]">
                 Your Protocol Plan
               </p>
             </div>
 
             {/* ── Supplementation ── */}
-            <div className="px-5 pt-5 pb-4 border-b border-slate-700/40">
+            <div className="px-5 pt-5 pb-4" style={{ borderBottom: '1px solid rgba(26,39,68,0.4)' }}>
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-base">💊</span>
                 <p className="text-xs font-bold text-slate-300 uppercase tracking-wide">
@@ -423,7 +438,7 @@ export default async function ResultsPage({
             </div>
 
             {/* ── Training plan ── */}
-            <div className="px-5 pt-4 pb-4 border-b border-slate-700/40">
+            <div className="px-5 pt-4 pb-4" style={{ borderBottom: '1px solid rgba(26,39,68,0.4)' }}>
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-base">🏋️</span>
                 <p className="text-xs font-bold text-slate-300 uppercase tracking-wide">
@@ -434,7 +449,7 @@ export default async function ResultsPage({
             </div>
 
             {/* ── Protein sources ── */}
-            <div className="px-5 pt-4 pb-4 border-b border-slate-700/40">
+            <div className="px-5 pt-4 pb-4" style={{ borderBottom: '1px solid rgba(26,39,68,0.4)' }}>
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-base">🥩</span>
                 <p className="text-xs font-bold text-slate-300 uppercase tracking-wide">
@@ -445,7 +460,8 @@ export default async function ResultsPage({
                 {plan.proteinSources.map((src, i) => (
                   <span
                     key={i}
-                    className="text-[11px] bg-slate-700/60 text-slate-300 border border-slate-600/50 rounded-lg px-2.5 py-1.5 leading-tight"
+                    className="text-[11px] text-slate-300 rounded-lg px-2.5 py-1.5 leading-tight"
+                    style={{ background: 'rgba(26,39,68,0.6)', border: '1px solid rgba(26,39,68,0.5)' }}
                   >
                     {src}
                   </span>
@@ -454,7 +470,7 @@ export default async function ResultsPage({
             </div>
 
             {/* ── Hydration + Electrolytes ── */}
-            <div className="px-5 pt-4 pb-4 border-b border-slate-700/40">
+            <div className="px-5 pt-4 pb-4" style={{ borderBottom: '1px solid rgba(26,39,68,0.4)' }}>
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <span className="text-base">💧</span>
@@ -477,7 +493,6 @@ export default async function ResultsPage({
                   GI Guidance
                 </p>
               </div>
-              {/* GI guidance may contain pipe-separated segments for multiple symptoms */}
               {plan.giGuidance.includes(' | ')
                 ? (
                     <ul className="space-y-2.5">
@@ -499,31 +514,35 @@ export default async function ResultsPage({
         {/* ══════════════════════════════════════════════════════════════════════ */}
         {/* ── ASSESSMENT INPUTS ── */}
         {/* ══════════════════════════════════════════════════════════════════════ */}
-        <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
-          <div className="px-5 pt-4 pb-3 border-b border-slate-700/70">
+        <div className="rounded-2xl overflow-hidden" style={{ background: '#0D1421', border: '1px solid #1A2744' }}>
+          <div className="px-5 pt-4 pb-3" style={{ borderBottom: '1px solid rgba(26,39,68,0.7)' }}>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em]">
               Assessment Inputs
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-px bg-slate-700/40">
+          <div className="grid grid-cols-2 gap-px" style={{ background: 'rgba(26,39,68,0.4)' }}>
             {[
-              { label: 'Body weight',    value: `${assessment.weightKg} kg`                          },
-              { label: 'Protein intake', value: `${Math.round(assessment.proteinGrams)} g/day`       },
-              { label: 'Training days',  value: `${assessment.exerciseDaysWk} days/wk`               },
-              { label: 'Hydration',      value: `${assessment.hydrationLitres} L/day`                },
+              { label: 'Body weight',    value: `${assessment.weightKg} kg`                    },
+              { label: 'Protein intake', value: `${Math.round(assessment.proteinGrams)} g/day` },
+              { label: 'Training days',  value: `${assessment.exerciseDaysWk} days/wk`         },
+              { label: 'Hydration',      value: `${assessment.hydrationLitres} L/day`          },
             ].map(({ label, value }) => (
-              <div key={label} className="bg-slate-800 px-4 py-3">
+              <div key={label} className="px-4 py-3" style={{ background: '#0D1421' }}>
                 <p className="text-[10px] font-medium text-slate-500 mb-0.5">{label}</p>
                 <p className="font-mono text-sm font-semibold text-white tabular-nums">{value}</p>
               </div>
             ))}
           </div>
           {assessment.symptoms.length > 0 && (
-            <div className="px-5 py-4 border-t border-slate-700/40">
+            <div className="px-5 py-4" style={{ borderTop: '1px solid rgba(26,39,68,0.4)' }}>
               <p className="text-[10px] font-medium text-slate-500 mb-2">Reported symptoms</p>
               <div className="flex flex-wrap gap-2">
                 {assessment.symptoms.map(s => (
-                  <span key={s} className="text-xs bg-slate-700/70 text-slate-300 border border-slate-600/50 rounded-full px-2.5 py-1">
+                  <span
+                    key={s}
+                    className="text-xs text-slate-300 rounded-full px-2.5 py-1"
+                    style={{ background: 'rgba(26,39,68,0.7)', border: '1px solid rgba(26,39,68,0.5)' }}
+                  >
                     {s}
                   </span>
                 ))}
@@ -550,13 +569,15 @@ export default async function ResultsPage({
           <div className="grid grid-cols-2 gap-3">
             <Link
               href="/checkin"
-              className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-semibold text-sm py-3.5 rounded-2xl text-center transition-colors"
+              className="border text-white font-semibold text-sm py-3.5 rounded-2xl text-center transition-colors"
+              style={{ background: '#0D1421', borderColor: '#1A2744' }}
             >
               Log this week →
             </Link>
             <Link
               href="/dashboard/assessment"
-              className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-semibold text-sm py-3.5 rounded-2xl text-center transition-colors"
+              className="border text-white font-semibold text-sm py-3.5 rounded-2xl text-center transition-colors"
+              style={{ background: '#0D1421', borderColor: '#1A2744' }}
             >
               New assessment
             </Link>
@@ -582,9 +603,8 @@ export default async function ResultsPage({
         </div>
 
         <p className="text-center text-[10px] text-slate-600 pt-1 leading-relaxed">
-          MyoGuard Protocol provides clinical decision support and educational guidance.
-          It does not replace the advice of your treating physician. Share these results
-          with your doctor at your next consultation.
+          MyoGuard Protocol · Clinical Decision Support System<br />
+          © 2026 Meridian Wellness Systems LLC
         </p>
 
       </div>

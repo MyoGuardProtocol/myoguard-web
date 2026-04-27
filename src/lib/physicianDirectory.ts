@@ -25,7 +25,7 @@ export type DirectoryEntry = {
 export const PHYSICIAN_DIRECTORY: Record<string, DirectoryEntry> = {
   'dr-b': {
     slug:        'dr-b',
-    displayName: 'Dr. Onyeka Okpala, MBBS',
+    displayName: 'MyoGuard Protocol · Clinical Decision Support System',
     clinicName:  null,
     specialty:   'GLP-1 & Metabolic Medicine',
   },

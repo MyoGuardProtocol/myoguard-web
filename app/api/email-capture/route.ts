@@ -359,7 +359,7 @@ function buildProtocolEmail({ protocolResult, formData }: TemplateData): string 
               <p style="margin:0;font-size:11px;color:#94a3b8;text-align:center;line-height:1.6;">
                 This protocol is an educational nutritional reference tool only. It does not constitute a physician–patient relationship or individualised medical advice.<br />
                 Review all recommendations with your prescribing physician before commencing supplementation.<br /><br />
-                © 2026 MyoGuard Protocol · <a href="${APP_URL}" style="color:#0d9488;text-decoration:none;">myoguard.health</a> · Dr. Onyeka Okpala, MD ·
+                © 2026 Meridian Wellness Systems LLC · <a href="${APP_URL}" style="color:#0d9488;text-decoration:none;">myoguard.health</a> ·
                 <a href="${APP_URL}/privacy" style="color:#0d9488;text-decoration:none;">Privacy Policy</a>
               </p>
             </td>
