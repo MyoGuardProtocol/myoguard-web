@@ -5,8 +5,9 @@ import QRCode from 'react-qr-code';
 import Link from 'next/link';
 
 interface Props {
-  doctorId:   string;
-  doctorName: string;
+  doctorId:     string;
+  doctorName:   string;
+  referralCode?: string | null;
 }
 
 // Use the canonical production URL for the QR value so the code
@@ -21,8 +22,10 @@ function looksLikePhone(v: string) {
   return /^\+?[\d\s\-().]{7,15}$/.test(v);
 }
 
-export default function PatientGrowthCard({ doctorId, doctorName }: Props) {
-  const inviteUrl = `${QR_BASE}/invite/${doctorId}`;
+export default function PatientGrowthCard({ doctorId, doctorName, referralCode }: Props) {
+  const inviteUrl = referralCode
+    ? `${QR_BASE}/join?ref=${referralCode}`
+    : `${QR_BASE}/invite/${doctorId}`;
 
   const [contact, setContact] = useState('');
   const [sending, setSending] = useState(false);

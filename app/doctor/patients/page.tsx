@@ -136,6 +136,16 @@ export default async function PatientsPage() {
   if (physician.role === 'PHYSICIAN_PENDING') redirect('/doctor/dashboard');
   if (physician.role !== 'PHYSICIAN')         redirect('/dashboard');
 
+  // Resolve canonical referral code for QR / invite links
+  let physicianReferralCode: string | null = null;
+  if (physician.referralSlug) {
+    const profile = await prisma.physicianProfile.findUnique({
+      where:  { slug: physician.referralSlug },
+      select: { referralCode: true },
+    }).catch(() => null);
+    physicianReferralCode = profile?.referralCode ?? null;
+  }
+
   // Build OR clause for patient lookup
   const orClauses: Record<string, unknown>[] = [{ physicianId: physician.id }];
 
@@ -269,6 +279,7 @@ export default async function PatientsPage() {
           <PatientGrowthCard
             doctorId={physician.id}
             doctorName={physician.fullName}
+            referralCode={physicianReferralCode}
           />
         </div>
       )}

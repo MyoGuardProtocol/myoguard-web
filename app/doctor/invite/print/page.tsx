@@ -13,7 +13,7 @@ const APP_URL =
  * Generates a clean, white PDF-style page containing:
  *  - MyoGuard logo
  *  - Doctor's name
- *  - High-contrast QR code linking to /invite/[doctorId]
+ *  - High-contrast QR code linking to /join?ref={referralCode}
  *  - URL fallback and disclaimer
  *
  * Auth: PHYSICIAN role only. PHYSICIAN_PENDING physicians are redirected
@@ -28,7 +28,7 @@ export default async function InvitePrintPage() {
     select: { id: true, role: true, fullName: true, referralSlug: true },
   }).catch(() => null);
 
-  if (!physician)                            redirect('/doctor/sign-in');
+  if (!physician)                             redirect('/doctor/sign-in');
   if (physician.role === 'PHYSICIAN_PENDING') redirect('/doctor/dashboard');
   if (physician.role !== 'PHYSICIAN')         redirect('/doctor/sign-in');
 
@@ -37,9 +37,21 @@ export default async function InvitePrintPage() {
     ? doctorName.replace(/^Dr\.?\s*/i, 'Dr. ')
     : `Dr. ${doctorName}`;
 
-  const inviteUrl = physician.referralSlug
-    ? `${APP_URL}/invite/${physician.referralSlug}`
-    : `${APP_URL}/invite/${physician.id}`;
+  // Resolve canonical activation URL via referralCode
+  let referralCode: string | null = null;
+  if (physician.referralSlug) {
+    const profile = await prisma.physicianProfile.findUnique({
+      where:  { slug: physician.referralSlug },
+      select: { referralCode: true },
+    }).catch(() => null);
+    referralCode = profile?.referralCode ?? null;
+  }
+
+  const inviteUrl = referralCode
+    ? `${APP_URL}/join?ref=${referralCode}`
+    : physician.referralSlug
+      ? `${APP_URL}/invite/${physician.referralSlug}`
+      : `${APP_URL}/invite/${physician.id}`;
 
   return (
     <PrintableHandout
