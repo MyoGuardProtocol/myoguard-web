@@ -326,6 +326,43 @@ function InterventionDropdown({ patientName }: { patientName: string }) {
   );
 }
 
+// ─── Decision Cue ────────────────────────────────────────────────────────────
+
+const BAND_META: Record<string, { label: string; color: string; bg: string }> = {
+  CRITICAL: { label: 'Critical', color: '#F43F5E', bg: 'rgba(244,63,94,0.12)'  },
+  HIGH:     { label: 'High',     color: '#FB923C', bg: 'rgba(251,146,60,0.12)' },
+  MODERATE: { label: 'Moderate', color: '#FCD34D', bg: 'rgba(252,211,77,0.10)' },
+  LOW:      { label: 'Low',      color: '#2DD4BF', bg: 'rgba(45,212,191,0.10)' },
+};
+
+const GI_DRIVER_TERMS = [
+  'nausea', 'vomiting', 'constipation', 'bloating',
+  'reduced appetite', 'gastroparesis',
+];
+
+function deriveDecisionCue(
+  latest: DrawerAssessment | null,
+  scores: number[],
+): { driver: string; action: string } {
+  if (!latest) return {
+    driver: 'General Monitoring',
+    action: 'Continue monitoring and reassess at next protocol check-in.',
+  };
+
+  const proteinTarget = latest.muscleScore?.proteinTargetG ?? latest.weightKg * 1.4;
+  const proteinPct    = proteinTarget > 0 ? latest.proteinGrams / proteinTarget : 1;
+  const hasGI         = latest.symptoms.some(s => GI_DRIVER_TERMS.includes(s.toLowerCase()));
+  const sleepLow      = latest.sleepHours != null && latest.sleepHours < 6.5;
+  const recoveryWeak  = latest.recoveryStatus === 'critical' || latest.recoveryStatus === 'impaired';
+  const sriDecline    = scores.length >= 2 && (scores[0] - scores[1]) < -5;
+
+  if (proteinPct < 0.85) return { driver: 'Protein Deficit',     action: 'Review protein intake and reinforce target pathway.' };
+  if (hasGI)             return { driver: 'GI Burden',            action: 'Assess GI tolerance and intake consistency.' };
+  if (sleepLow || recoveryWeak) return { driver: 'Recovery Impairment', action: 'Review sleep recovery and fatigue burden.' };
+  if (sriDecline)        return { driver: 'SRI Decline',          action: 'Review recent SRI trajectory and adherence pattern.' };
+  return                        { driver: 'General Monitoring',   action: 'Continue monitoring and reassess at next protocol check-in.' };
+}
+
 // ─── Drawer ───────────────────────────────────────────────────────────────────
 
 export default function PatientDrawer({
@@ -443,6 +480,8 @@ export default function PatientDrawer({
   const totalMonthSeconds = priorMonthSeconds + sessionSeconds;
   const totalMonthMinutes = Math.floor(totalMonthSeconds / 60);
   const cptEligible       = totalMonthMinutes >= 10;
+  const decisionCue       = deriveDecisionCue(latest, scores);
+  const decisionBandMeta  = BAND_META[patient?.band ?? 'LOW'] ?? BAND_META.LOW;
 
   return (
     <>
@@ -594,6 +633,39 @@ export default function PatientDrawer({
 
               {isVerified && !loading && !error && (
                 <>
+                  {/* ── Decision Strip ──────────────────────────────────── */}
+                  <div style={{
+                    background:   'rgba(45,212,191,0.08)',
+                    border:       '1px solid rgba(45,212,191,0.22)',
+                    borderRadius: 14,
+                    padding:      14,
+                    marginTop:    14,
+                    marginBottom: 14,
+                  }}>
+                    <p style={{ fontSize: 9, fontWeight: 800, color: 'rgba(45,212,191,0.7)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 8 }}>
+                      Clinical Decision Cue
+                    </p>
+                    <p style={{ fontSize: 12, fontWeight: 700, color: '#F8FAFC', marginBottom: 4, lineHeight: 1.4 }}>
+                      Primary driver: {decisionCue.driver}
+                    </p>
+                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', lineHeight: 1.5, marginBottom: 10 }}>
+                      Suggested next action: {decisionCue.action}
+                    </p>
+                    <span style={{
+                      display:      'inline-flex',
+                      alignItems:   'center',
+                      padding:      '2px 9px',
+                      borderRadius: 99,
+                      fontSize:     10,
+                      fontWeight:   700,
+                      background:   decisionBandMeta.bg,
+                      color:        decisionBandMeta.color,
+                      border:       `1px solid ${decisionBandMeta.color}40`,
+                    }}>
+                      {decisionBandMeta.label}
+                    </span>
+                  </div>
+
                   {/* Current score highlight */}
                   <div style={{
                     display:        'flex',
