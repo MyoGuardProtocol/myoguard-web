@@ -34,7 +34,42 @@ const CATEGORIES = [
 const AFFILIATE_LINK =
   'https://api-comms.iherb.com/gateway/comms/ct?pl=qkZ8DA0slJ0u7dcv5Pi4oWEnPkGns9a_rhHjdya7gGbAWGlkC1br2hy8cjWKNlSikMBDaRoXdIWLfdOdacFttmU3QRqmpI3R7bzdW8z2uZIV-y1zfjUjmjTHbNHWiwlENV8XVAlnmf0fSTeQjbuXjyJjdwZkTdbJcwxXdLhA1VOQGZ4w2R8F58FMRi5InRtxMqkSwbYYvOM0Kp_OBD5aTyRivFcYbmZWa3RKbQe16BEbmyYv3yqzhFZKoXlJs1cScqVqv6VKTFer_6WTNZeujnX9SulVittb02xsbtBVEDbrBcL4LYT0YKQsjsaY3Q%3d%3d';
 
-export default function SupplementCTA({ dark = false }: { dark?: boolean }) {
+const CONTEXT_NOTES: Record<string, string> = {
+  muscle:
+    'Your reported protein intake appears below your clinical target. Supplemental protein options may help support lean mass preservation during GLP-1 therapy.',
+  gi:
+    'GI symptoms may make consistent protein intake harder. GI-support options may help improve tolerability and nutritional consistency.',
+  recovery:
+    'Short sleep duration may reduce recovery quality and muscle adaptation. Recovery-support options may help reinforce your protocol.',
+};
+
+interface SupplementCTAProps {
+  dark?:          boolean;
+  lowProtein?:    boolean;
+  hasGISymptoms?: boolean;
+  lowRecovery?:   boolean;
+}
+
+export default function SupplementCTA({
+  dark          = false,
+  lowProtein    = false,
+  hasGISymptoms = false,
+  lowRecovery   = false,
+}: SupplementCTAProps) {
+  function isBadged(id: string): boolean {
+    if (id === 'muscle'   && lowProtein)    return true;
+    if (id === 'gi'       && hasGISymptoms) return true;
+    if (id === 'recovery' && lowRecovery)   return true;
+    return false;
+  }
+
+  function contextNote(id: string): string | null {
+    if (id === 'muscle'   && lowProtein)    return CONTEXT_NOTES.muscle;
+    if (id === 'gi'       && hasGISymptoms) return CONTEXT_NOTES.gi;
+    if (id === 'recovery' && lowRecovery)   return CONTEXT_NOTES.recovery;
+    return null;
+  }
+
   if (dark) {
     return (
       <div className="rounded-2xl overflow-hidden" style={{ background: '#0D1421', border: '1px solid #1A2744' }}>
@@ -51,35 +86,60 @@ export default function SupplementCTA({ dark = false }: { dark?: boolean }) {
         </div>
 
         <div>
-          {CATEGORIES.map((cat, i) => (
-            <div
-              key={cat.id}
-              className="px-5 py-4"
-              style={i > 0 ? { borderTop: '1px solid rgba(26,39,68,0.6)' } : undefined}
-            >
-              <p className="text-xs font-bold text-slate-200 mb-1">{cat.label}</p>
-              <p className="text-[11px] text-slate-500 leading-relaxed mb-2">{cat.rationale}</p>
-              <p className="text-xs text-slate-300 leading-relaxed mb-3">
-                <span className="font-medium text-slate-500">Recommended formulation: </span>
-                {cat.formulation}
-              </p>
-              <a
-                href={AFFILIATE_LINK}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-xs font-semibold hover:underline"
-                style={{ color: '#2DD4BF' }}
+          {CATEGORIES.map((cat, i) => {
+            const badged = isBadged(cat.id);
+            const note   = contextNote(cat.id);
+            return (
+              <div
+                key={cat.id}
+                className="px-5 py-4"
+                style={i > 0 ? { borderTop: '1px solid rgba(26,39,68,0.6)' } : undefined}
               >
-                View clinically appropriate options →
-              </a>
-            </div>
-          ))}
+                <div className="flex items-center flex-wrap gap-1 mb-1">
+                  <p className="text-xs font-bold text-slate-200">{cat.label}</p>
+                  {badged && (
+                    <span style={{
+                      fontSize:     '10px',
+                      fontWeight:   '700',
+                      color:        '#2DD4BF',
+                      background:   'rgba(45,212,191,0.1)',
+                      border:       '1px solid rgba(45,212,191,0.2)',
+                      borderRadius: '99px',
+                      padding:      '2px 8px',
+                      marginLeft:   '8px',
+                    }}>
+                      Relevant to your profile
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-500 leading-relaxed mb-2">{cat.rationale}</p>
+                {note && (
+                  <p style={{ fontSize: '12px', color: '#94A3B8', fontStyle: 'italic', marginTop: '8px', marginBottom: '8px', lineHeight: 1.5 }}>
+                    {note}
+                  </p>
+                )}
+                <p className="text-xs text-slate-300 leading-relaxed mb-3">
+                  <span className="font-medium text-slate-500">Recommended formulation: </span>
+                  {cat.formulation}
+                </p>
+                <a
+                  href={AFFILIATE_LINK}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs font-semibold hover:underline"
+                  style={{ color: '#2DD4BF' }}
+                >
+                  View clinically appropriate options →
+                </a>
+              </div>
+            );
+          })}
         </div>
       </div>
     );
   }
 
-  // Light variant — used in the anonymous assessment flow (white-themed page)
+  // Light variant — anonymous assessment flow
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-6">
       <div className="px-5 pt-3 pb-3 bg-teal-600">

@@ -155,6 +155,17 @@ export default async function ResultsPage({
   const prevBand        = prev ? (prev.riskBand as Band)                              : null;
   const bandImproved    = prev ? (score > Math.round(prev.score))                     : null;
 
+  const lowProtein    = assessment.proteinGrams && ms.proteinTargetG
+    ? assessment.proteinGrams < ms.proteinTargetG * 0.85
+    : false;
+  const hasGISymptoms = assessment.symptoms.some((s: string) =>
+    ['nausea', 'vomiting', 'constipation', 'gastroparesis', 'bloating', 'reduced appetite']
+      .includes(s.toLowerCase())
+  );
+  const lowRecovery   = assessment.sleepHours != null
+    ? assessment.sleepHours < 6.5
+    : false;
+
   return (
     <main className="min-h-screen font-sans" style={{ background: '#080C14' }}>
 
@@ -372,7 +383,12 @@ export default async function ResultsPage({
         {/* ══════════════════════════════════════════════════════════════════════ */}
         {/* ── SUPPLEMENT STACK — placed after protein target per clinical flow ── */}
         {/* ══════════════════════════════════════════════════════════════════════ */}
-        <SupplementCTA dark />
+        <SupplementCTA
+          dark
+          lowProtein={lowProtein}
+          hasGISymptoms={hasGISymptoms}
+          lowRecovery={lowRecovery}
+        />
 
         {/* ══════════════════════════════════════════════════════════════════════ */}
         {/* ── LEAN MASS RISK ── */}
