@@ -15,6 +15,7 @@ import {
 import ShareButton               from './ShareButton';
 import DownloadPDFButton         from './DownloadPDFButton';
 import PhysicianFeedback         from './PhysicianFeedback';
+import SupplementCTA             from '@/src/components/ui/SupplementCTA';
 
 const TREND_LABEL: Record<string, { text: string; colour: string; icon: string }> = {
   improving:    { text: 'Improving',         colour: '#2DD4BF', icon: '↑' },
@@ -136,9 +137,10 @@ export default async function ReportPage() {
     user = await prisma.user.findUnique({
       where:  { clerkId },
       select: {
-        id:       true,
-        fullName: true,
-        email:    true,
+        id:          true,
+        fullName:    true,
+        email:       true,
+        physicianId: true,
         profile:  {
           select: {
             age:           true,
@@ -255,6 +257,28 @@ export default async function ReportPage() {
   const digest   = await generateWeeklyDigest(user.id);
   const trendCfg = TREND_LABEL[digest?.trendStatus ?? 'insufficient'];
 
+  // ── Physician link — resolve display name if linked ──────────────────────────
+  let physicianName: string | null = null;
+  if (user.physicianId) {
+    const physician = await prisma.user.findUnique({
+      where:  { id: user.physicianId },
+      select: { fullName: true },
+    });
+    physicianName = physician?.fullName ?? null;
+  }
+
+  // ── Supplement relevance signals ─────────────────────────────────────────────
+  const lowProtein    = latestAssessment.proteinGrams && ms.proteinTargetG
+    ? latestAssessment.proteinGrams < ms.proteinTargetG * 0.85
+    : false;
+  const hasGISymptoms = latestAssessment.symptoms.some((s: string) =>
+    ['nausea', 'vomiting', 'constipation', 'gastroparesis', 'bloating', 'reduced appetite']
+      .includes(s.toLowerCase())
+  );
+  const lowRecovery   = latestAssessment.sleepHours != null
+    ? latestAssessment.sleepHours < 6.5
+    : false;
+
   const historyAsc  = [...user.assessments].reverse();
   const generatedAt = new Date();
 
@@ -361,7 +385,7 @@ export default async function ReportPage() {
             </p>
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
-            <ShareButton />
+            <ShareButton physicianLinked={!!user.physicianId} physicianName={physicianName} />
             <DownloadPDFButton filename={pdfFilename} />
           </div>
         </div>
@@ -681,6 +705,16 @@ export default async function ReportPage() {
               </div>
             </div>
           </div>
+
+          {/* ══════════════════════════════════════════════════════════════════ */}
+          {/* SUPPLEMENT PROTOCOL                                                */}
+          {/* ══════════════════════════════════════════════════════════════════ */}
+          <SupplementCTA
+            dark
+            lowProtein={lowProtein}
+            hasGISymptoms={hasGISymptoms}
+            lowRecovery={lowRecovery}
+          />
 
           {/* ══════════════════════════════════════════════════════════════════ */}
           {/* ESCALATION ALERT — hidden from patient view (Part B-1)            */}

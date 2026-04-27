@@ -13,8 +13,13 @@ const CONSENT_KEY = 'myoguard_share_consent';
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Stage = 'idle' | 'loading' | 'open' | 'error';
 
+interface ShareButtonProps {
+  physicianLinked?: boolean;
+  physicianName?: string | null;
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
-export default function ShareButton() {
+export default function ShareButton({ physicianLinked = false, physicianName = null }: ShareButtonProps) {
   const [stage, setStage]         = useState<Stage>('idle');
   const [shareUrl, setShareUrl]   = useState('');
   const [copied, setCopied]       = useState(false);
@@ -97,23 +102,34 @@ export default function ShareButton() {
   // ─── Trigger button ─────────────────────────────────────────────────────────
   return (
     <>
-      <div className="flex flex-col gap-1">
-        <button
-          type="button"
-          onClick={open}
-          disabled={stage === 'loading'}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-teal-400 bg-teal-600 hover:bg-teal-700 text-sm font-semibold text-white transition-colors shadow-sm disabled:opacity-60"
-        >
-          {/* Share icon */}
-          <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
-          </svg>
-          {stage === 'loading' ? 'Generating…' : 'Share With My Physician'}
-        </button>
-        {stage === 'error' && (
-          <p className="text-xs text-red-500">{errorMsg}</p>
-        )}
-      </div>
+      {physicianLinked ? (
+        <div>
+          <p style={{ fontSize: '14px', fontWeight: '600', color: '#2DD4BF' }}>
+            Shared with {physicianName ?? 'your physician'}
+          </p>
+          <p style={{ fontSize: '12px', color: '#64748B', marginTop: '2px' }}>
+            Your physician can view this report in the MyoGuard Command Center.
+          </p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-1">
+          <button
+            type="button"
+            onClick={open}
+            disabled={stage === 'loading'}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-teal-400 bg-teal-600 hover:bg-teal-700 text-sm font-semibold text-white transition-colors shadow-sm disabled:opacity-60"
+          >
+            {/* Share icon */}
+            <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
+            </svg>
+            {stage === 'loading' ? 'Generating…' : 'Share With My Physician'}
+          </button>
+          {stage === 'error' && (
+            <p className="text-xs text-red-500">{errorMsg}</p>
+          )}
+        </div>
+      )}
 
       {/* ════════════════════════════════════════════════════════════════════ */}
       {/* ── SHARE MODAL ── */}

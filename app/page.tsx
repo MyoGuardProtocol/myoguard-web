@@ -268,7 +268,7 @@ export default function HomePage() {
             <p className="text-[13px] text-slate-400 text-center mt-2">
               New to MyoGuard?{" "}
               <a href="/sign-up" className="text-teal-400 font-medium underline underline-offset-2">
-                Create your clinical account →
+                Create your free account →
               </a>
             </p>
             <a href="/doctor/sign-up" className="text-sm text-slate-500 hover:text-teal-600 transition-colors mt-1.5">
