@@ -34,6 +34,12 @@ const CATEGORIES = [
 const AFFILIATE_LINK =
   'https://api-comms.iherb.com/gateway/comms/ct?pl=qkZ8DA0slJ0u7dcv5Pi4oWEnPkGns9a_rhHjdya7gGbAWGlkC1br2hy8cjWKNlSikMBDaRoXdIWLfdOdacFttmU3QRqmpI3R7bzdW8z2uZIV-y1zfjUjmjTHbNHWiwlENV8XVAlnmf0fSTeQjbuXjyJjdwZkTdbJcwxXdLhA1VOQGZ4w2R8F58FMRi5InRtxMqkSwbYYvOM0Kp_OBD5aTyRivFcYbmZWa3RKbQe16BEbmyYv3yqzhFZKoXlJs1cScqVqv6VKTFer_6WTNZeujnX9SulVittb02xsbtBVEDbrBcL4LYT0YKQsjsaY3Q%3d%3d';
 
+const ACTION_CUES: Record<string, string> = {
+  muscle:   'Action cue: Consider adding structured protein support to help meet your daily target.',
+  gi:       'Action cue: GI support may help improve consistency with meals and protein intake.',
+  recovery: 'Action cue: Recovery support may help reinforce sleep and adaptation habits.',
+};
+
 const CONTEXT_NOTES: Record<string, string> = {
   muscle:
     'Your reported protein intake appears below your clinical target. Supplemental protein options may help support lean mass preservation during GLP-1 therapy.',
@@ -70,6 +76,13 @@ export default function SupplementCTA({
     return null;
   }
 
+  function actionCue(id: string): string | null {
+    if (id === 'muscle'   && lowProtein)    return ACTION_CUES.muscle;
+    if (id === 'gi'       && hasGISymptoms) return ACTION_CUES.gi;
+    if (id === 'recovery' && lowRecovery)   return ACTION_CUES.recovery;
+    return null;
+  }
+
   if (dark) {
     return (
       <div className="rounded-2xl overflow-hidden" style={{ background: '#0D1421', border: '1px solid #1A2744' }}>
@@ -80,8 +93,11 @@ export default function SupplementCTA({
               Supplement Protocol
             </p>
           </div>
+          <p className="text-sm font-semibold text-slate-100 leading-snug mb-1">
+            Support Your Muscle Protection Plan
+          </p>
           <p className="text-xs text-slate-400 leading-relaxed">
-            Clinically-informed formulation guidance for GLP-1 patients. Review all supplements with your prescribing physician before commencing.
+            These options are provided as educational support pathways to discuss with your clinician.
           </p>
         </div>
 
@@ -118,6 +134,11 @@ export default function SupplementCTA({
                     {note}
                   </p>
                 )}
+                {actionCue(cat.id) && (
+                  <p style={{ fontSize: '12px', color: '#94A3B8', fontWeight: 600, marginTop: '4px', marginBottom: '8px', lineHeight: 1.5 }}>
+                    {actionCue(cat.id)}
+                  </p>
+                )}
                 <p className="text-xs text-slate-300 leading-relaxed mb-3">
                   <span className="font-medium text-slate-500">Recommended formulation: </span>
                   {cat.formulation}
@@ -149,8 +170,11 @@ export default function SupplementCTA({
             Supplement Protocol
           </p>
         </div>
+        <p className="text-sm font-semibold text-white leading-snug mb-1">
+          Support Your Muscle Protection Plan
+        </p>
         <p className="text-xs text-teal-100 leading-relaxed">
-          Clinically-informed formulation guidance for GLP-1 patients. Review with your prescribing physician before commencing.
+          These options are provided as educational support pathways to discuss with your clinician.
         </p>
       </div>
 
