@@ -39,6 +39,26 @@ const CATEGORIES = [
 const AFFILIATE_LINK =
   'https://api-comms.iherb.com/gateway/comms/ct?pl=qkZ8DA0slJ0u7dcv5Pi4oWEnPkGns9a_rhHjdya7gGbAWGlkC1br2hy8cjWKNlSikMBDaRoXdIWLfdOdacFttmU3QRqmpI3R7bzdW8z2uZIV-y1zfjUjmjTHbNHWiwlENV8XVAlnmf0fSTeQjbuXjyJjdwZkTdbJcwxXdLhA1VOQGZ4w2R8F58FMRi5InRtxMqkSwbYYvOM0Kp_OBD5aTyRivFcYbmZWa3RKbQe16BEbmyYv3yqzhFZKoXlJs1cScqVqv6VKTFer_6WTNZeujnX9SulVittb02xsbtBVEDbrBcL4LYT0YKQsjsaY3Q%3d%3d';
 
+// TODO: Replace each value with a category-specific iHerb affiliate URL.
+// Must retain affiliate tracking parameters on all replacements.
+const AFFILIATE_LINKS: Record<string, string> = {
+  // TODO: Replace with category-specific iHerb affiliate URL
+  // Must retain affiliate tracking parameters
+  foundation: AFFILIATE_LINK,
+  // TODO: Replace with category-specific iHerb affiliate URL
+  // Must retain affiliate tracking parameters
+  muscle:     AFFILIATE_LINK,
+  // TODO: Replace with category-specific iHerb affiliate URL
+  // Must retain affiliate tracking parameters
+  recovery:   AFFILIATE_LINK,
+  // TODO: Replace with category-specific iHerb affiliate URL
+  // Must retain affiliate tracking parameters
+  gi:         AFFILIATE_LINK,
+  // TODO: Replace with category-specific iHerb affiliate URL
+  // Must retain affiliate tracking parameters
+  adjuncts:   AFFILIATE_LINK,
+};
+
 const ACTION_CUES: Record<string, string> = {
   muscle:   'Action cue: Consider adding structured protein support to help meet your daily target.',
   gi:       'Action cue: GI support may help improve consistency with meals and protein intake.',
@@ -149,11 +169,12 @@ export default function SupplementCTA({
                   {cat.formulation}
                 </p>
                 <a
-                  href={AFFILIATE_LINK}
+                  href={AFFILIATE_LINKS[cat.id]}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-xs font-semibold hover:underline"
                   style={{ color: '#2DD4BF' }}
+                  onClick={() => { console.log('Supplement click', cat.id); }}
                 >
                   {cat.linkText}
                 </a>
@@ -193,10 +214,11 @@ export default function SupplementCTA({
               {cat.formulation}
             </p>
             <a
-              href={AFFILIATE_LINK}
+              href={AFFILIATE_LINKS[cat.id]}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-xs font-semibold text-teal-600 hover:text-teal-700 hover:underline"
+              onClick={() => { console.log('Supplement click', cat.id); }}
             >
               {cat.linkText}
             </a>
