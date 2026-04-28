@@ -4,30 +4,35 @@ const CATEGORIES = [
     label:       'Foundation',
     rationale:   'Core micronutrient support for GLP-1 patients — addresses common deficiencies in vitamin D, magnesium, and B-complex during caloric restriction.',
     formulation: 'High-bioavailability multivitamin with methylated B-complex, 1,000–2,000 IU vitamin D3, and omega-3 concentrate (EPA+DHA ≥ 1 g/day)',
+    linkText:    'View foundational support options →',
   },
   {
     id:          'muscle',
     label:       'Muscle Support',
     rationale:   'Leucine-rich protein and creatine to preserve and stimulate muscle protein synthesis during active weight loss.',
     formulation: 'Whey or plant-based protein isolate with ≥ 2.5 g leucine per serving; creatine monohydrate 3–5 g/day',
+    linkText:    'View protein and creatine options →',
   },
   {
     id:          'recovery',
     label:       'Recovery / Sleep',
     rationale:   'Supports sleep architecture and cortisol regulation — particularly relevant during active weight-loss phases.',
     formulation: 'Magnesium glycinate 200–400 mg before sleep; optional: ashwagandha (KSM-66) 300–600 mg',
+    linkText:    'View recovery support options →',
   },
   {
     id:          'gi',
     label:       'GI Support (GLP-1 Specific)',
     rationale:   'Targets delayed gastric emptying, nausea, and constipation associated with semaglutide and tirzepatide use.',
     formulation: 'Psyllium husk 5–10 g/day; digestive enzymes with lipase; ginger extract 250–500 mg as needed',
+    linkText:    'View GI support options →',
   },
   {
     id:          'adjuncts',
     label:       'Optional Adjuncts',
     rationale:   'Evidence-adjacent formulations for additional metabolic and anti-inflammatory support.',
     formulation: 'Berberine 500 mg (metabolic support), alpha-lipoic acid 300–600 mg, or curcumin with piperine',
+    linkText:    'View optional adjunct options →',
   },
 ];
 
@@ -150,7 +155,7 @@ export default function SupplementCTA({
                   className="inline-flex items-center gap-1 text-xs font-semibold hover:underline"
                   style={{ color: '#2DD4BF' }}
                 >
-                  View clinically appropriate options →
+                  {cat.linkText}
                 </a>
               </div>
             );
@@ -193,7 +198,7 @@ export default function SupplementCTA({
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-xs font-semibold text-teal-600 hover:text-teal-700 hover:underline"
             >
-              View clinically appropriate options →
+              {cat.linkText}
             </a>
           </div>
         ))}

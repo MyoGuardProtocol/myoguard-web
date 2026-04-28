@@ -105,7 +105,9 @@ export default function ShareButton({ physicianLinked = false, physicianName = n
       {physicianLinked ? (
         <div>
           <p style={{ fontSize: '14px', fontWeight: '600', color: '#2DD4BF' }}>
-            Shared with {physicianName ?? 'your physician'}
+            Shared with {physicianName
+              ? `Dr. ${physicianName.replace(/^Dr\.?\s+/i, '')}`
+              : 'your physician'}
           </p>
           <p style={{ fontSize: '12px', color: '#64748B', marginTop: '2px' }}>
             Your physician can view this report in the MyoGuard Command Center.
