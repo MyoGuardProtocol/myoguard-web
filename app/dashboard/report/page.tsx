@@ -193,18 +193,17 @@ export default async function ReportPage() {
             width: '100%', textAlign: 'center' }}>
             <p style={{ fontSize: '16px', fontWeight: '600',
               color: '#F1F5F9', marginBottom: '8px' }}>
-              No protocol on file yet
+              Unable to load your report
             </p>
             <p style={{ fontSize: '13px', color: '#94A3B8',
               marginBottom: '20px', lineHeight: '1.6' }}>
-              Complete your first assessment to generate your personalised
-              MyoGuard Protocol report.
+              There was a problem fetching your protocol data. Please try again.
             </p>
-            <Link href="/dashboard/assessment" style={{
+            <Link href="/dashboard/report" style={{
               display: 'inline-block', background: '#2DD4BF',
               color: '#080C14', padding: '10px 24px', borderRadius: '99px',
               fontSize: '13px', fontWeight: '700', textDecoration: 'none' }}>
-              Take assessment →
+              Try again →
             </Link>
           </div>
         </div>
@@ -214,8 +213,13 @@ export default async function ReportPage() {
 
   if (!user) redirect('/dashboard');
 
-  const latestAssessment = user.assessments[0];
-  if (!latestAssessment?.muscleScore) {
+  // Walk assessments (already desc by date) to find the most recent one with a
+  // valid muscleScore. If the newest assessment is missing its score record (e.g.
+  // a partial write), this falls back to the last fully-scored assessment instead
+  // of showing a false empty state.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const latestAssessment = user.assessments.find((a: any) => a.muscleScore != null) ?? null;
+  if (!latestAssessment) {
     return (
       <main style={{ background: '#080C14', minHeight: '100vh',
         fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
