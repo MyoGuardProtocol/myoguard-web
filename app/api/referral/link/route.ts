@@ -51,6 +51,14 @@ export async function POST(req: NextRequest) {
     await prisma.user
       .update({ where: { id: patient.id }, data: { physicianId: doctor.id } })
       .catch((err) => console.error('[referral/link] DB update failed', err));
+
+    prisma.analyticsEvent.create({
+      data: {
+        userId:    patient.id,
+        eventType: 'PHYSICIAN_ATTRIBUTED',
+        metadata:  { physicianId: doctor.id },
+      },
+    }).catch((err) => console.error('[analytics] PHYSICIAN_ATTRIBUTED failed', err));
   }
 
   return clearCookie(NextResponse.json({ ok: true, linked: !patient.physicianId }));

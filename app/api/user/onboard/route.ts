@@ -147,6 +147,17 @@ export async function POST(req: NextRequest) {
       },
     })
 
+    // ── Physician attribution event (fire-and-forget) ────────────────────────
+    if (physicianId) {
+      prisma.analyticsEvent.create({
+        data: {
+          userId:    user.id,
+          eventType: 'PHYSICIAN_ATTRIBUTED',
+          metadata:  { physicianId },
+        },
+      }).catch((err) => console.error('[analytics] PHYSICIAN_ATTRIBUTED failed', err));
+    }
+
     // ── Welcome email (fire-and-forget — never blocks the response) ──────────
     sendWelcomeEmail({ email, firstName: body.fullName.split(" ")[0] }).catch(() => {})
 

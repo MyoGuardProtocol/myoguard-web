@@ -359,6 +359,15 @@ export async function POST(req: NextRequest) {
       return { assessment, muscleScore, protocolPlan };
     });
 
+    // Fire-and-forget — analytics failure must never block the assessment response
+    prisma.analyticsEvent.create({
+      data: {
+        userId:    user.id,
+        eventType: 'ASSESSMENT_COMPLETE',
+        metadata:  { score: protocol.myoguardScore, band: protocol.riskBand },
+      },
+    }).catch((err) => console.error('[analytics] ASSESSMENT_COMPLETE failed', err));
+
     return NextResponse.json({
       assessmentId: result.assessment.id,
       score:        protocol.myoguardScore,

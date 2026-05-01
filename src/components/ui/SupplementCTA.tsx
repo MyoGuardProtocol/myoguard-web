@@ -60,12 +60,14 @@ const SUPPLEMENT_PROVIDERS: Record<string, Record<string, string>> = {
 };
 
 function getProviderLink(category: string): string {
-  // TODO: Switch to Thorne when:
-  // - physician-linked user
-  // - Thorne URLs available
-  // - provider selection logic implemented
-  // Default to iHerb for now
-  return SUPPLEMENT_PROVIDERS.iherb[category] || '#';
+  const link = SUPPLEMENT_PROVIDERS.iherb[category];
+
+  if (!link) {
+    console.warn('Missing supplement link for category:', category);
+    return SUPPLEMENT_PROVIDERS.iherb.adjuncts;
+  }
+
+  return link;
 }
 
 const ACTION_CUES: Record<string, string> = {
@@ -183,7 +185,14 @@ export default function SupplementCTA({
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-xs font-semibold hover:underline"
                   style={{ color: '#2DD4BF' }}
-                  onClick={() => { console.log('Supplement click', cat.id); }}
+                  onClick={() => {
+                    console.log('Supplement click', cat.id);
+                    fetch('/api/analytics', {
+                      method:  'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body:    JSON.stringify({ eventType: 'SUPPLEMENT_CLICK', metadata: { category: cat.id } }),
+                    }).catch(() => {});
+                  }}
                 >
                   {cat.linkText}
                 </a>
@@ -227,7 +236,14 @@ export default function SupplementCTA({
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-xs font-semibold text-teal-600 hover:text-teal-700 hover:underline"
-              onClick={() => { console.log('Supplement click', cat.id); }}
+              onClick={() => {
+                console.log('Supplement click', cat.id);
+                fetch('/api/analytics', {
+                  method:  'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body:    JSON.stringify({ eventType: 'SUPPLEMENT_CLICK', metadata: { category: cat.id } }),
+                }).catch(() => {});
+              }}
             >
               {cat.linkText}
             </a>

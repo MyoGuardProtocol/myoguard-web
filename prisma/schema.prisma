@@ -311,6 +311,14 @@ model StartSheetProtocol {
   createdAt           DateTime @default(now())
 }
 
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  userId    String?
+  eventType String
+  metadata  Json?
+  createdAt DateTime @default(now())
+}
+
 enum Role {
   PATIENT
   PHYSICIAN
