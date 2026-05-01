@@ -41,13 +41,32 @@ const CATEGORIES = [
 const AFFILIATE_LINK =
   'https://api-comms.iherb.com/gateway/comms/ct?pl=qkZ8DA0slJ0u7dcv5Pi4oWEnPkGns9a_rhHjdya7gGbAWGlkC1br2hy8cjWKNlSikMBDaRoXdIWLfdOdacFttmU3QRqmpI3R7bzdW8z2uZIV-y1zfjUjmjTHbNHWiwlENV8XVAlnmf0fSTeQjbuXjyJjdwZkTdbJcwxXdLhA1VOQGZ4w2R8F58FMRi5InRtxMqkSwbYYvOM0Kp_OBD5aTyRivFcYbmZWa3RKbQe16BEbmyYv3yqzhFZKoXlJs1cScqVqv6VKTFer_6WTNZeujnX9SulVittb02xsbtBVEDbrBcL4LYT0YKQsjsaY3Q%3d%3d';
 
-const AFFILIATE_LINKS: Record<string, string> = {
-  foundation: 'https://www.iherb.com/search?kw=multivitamin&rcode=PNB3943',
-  muscle:     'https://www.iherb.com/search?kw=whey%20protein&rcode=PNB3943',
-  recovery:   'https://www.iherb.com/search?kw=magnesium%20glycinate&rcode=PNB3943',
-  gi:         'https://www.iherb.com/search?kw=probiotic&rcode=PNB3943',
-  adjuncts:   'https://www.iherb.com/?rcode=PNB3943',
+const SUPPLEMENT_PROVIDERS: Record<string, Record<string, string>> = {
+  iherb: {
+    foundation: 'https://www.iherb.com/search?kw=multivitamin&rcode=PNB3943',
+    muscle:     'https://www.iherb.com/search?kw=whey%20protein&rcode=PNB3943',
+    recovery:   'https://www.iherb.com/search?kw=magnesium%20glycinate&rcode=PNB3943',
+    gi:         'https://www.iherb.com/search?kw=probiotic&rcode=PNB3943',
+    adjuncts:   'https://www.iherb.com/?rcode=PNB3943',
+  },
+  // Placeholder for future provider
+  thorne: {
+    foundation: '',
+    muscle:     '',
+    recovery:   '',
+    gi:         '',
+    adjuncts:   '',
+  },
 };
+
+function getProviderLink(category: string): string {
+  // TODO: Switch to Thorne when:
+  // - physician-linked user
+  // - Thorne URLs available
+  // - provider selection logic implemented
+  // Default to iHerb for now
+  return SUPPLEMENT_PROVIDERS.iherb[category] || '#';
+}
 
 const ACTION_CUES: Record<string, string> = {
   muscle:   'Action cue: Consider adding structured protein support to help meet your daily target.',
@@ -159,7 +178,7 @@ export default function SupplementCTA({
                   {cat.formulation}
                 </p>
                 <a
-                  href={AFFILIATE_LINKS[cat.id]}
+                  href={getProviderLink(cat.id)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-xs font-semibold hover:underline"
@@ -204,7 +223,7 @@ export default function SupplementCTA({
               {cat.formulation}
             </p>
             <a
-              href={AFFILIATE_LINKS[cat.id]}
+              href={getProviderLink(cat.id)}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-xs font-semibold text-teal-600 hover:text-teal-700 hover:underline"
