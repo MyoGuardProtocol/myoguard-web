@@ -41,24 +41,12 @@ const CATEGORIES = [
 const AFFILIATE_LINK =
   'https://api-comms.iherb.com/gateway/comms/ct?pl=qkZ8DA0slJ0u7dcv5Pi4oWEnPkGns9a_rhHjdya7gGbAWGlkC1br2hy8cjWKNlSikMBDaRoXdIWLfdOdacFttmU3QRqmpI3R7bzdW8z2uZIV-y1zfjUjmjTHbNHWiwlENV8XVAlnmf0fSTeQjbuXjyJjdwZkTdbJcwxXdLhA1VOQGZ4w2R8F58FMRi5InRtxMqkSwbYYvOM0Kp_OBD5aTyRivFcYbmZWa3RKbQe16BEbmyYv3yqzhFZKoXlJs1cScqVqv6VKTFer_6WTNZeujnX9SulVittb02xsbtBVEDbrBcL4LYT0YKQsjsaY3Q%3d%3d';
 
-// TODO: Replace each value with a category-specific iHerb affiliate URL.
-// Must retain affiliate tracking parameters on all replacements.
 const AFFILIATE_LINKS: Record<string, string> = {
-  // TODO: Replace with category-specific iHerb affiliate URL
-  // Must retain affiliate tracking parameters
-  foundation: AFFILIATE_LINK,
-  // TODO: Replace with category-specific iHerb affiliate URL
-  // Must retain affiliate tracking parameters
-  muscle:     AFFILIATE_LINK,
-  // TODO: Replace with category-specific iHerb affiliate URL
-  // Must retain affiliate tracking parameters
-  recovery:   AFFILIATE_LINK,
-  // TODO: Replace with category-specific iHerb affiliate URL
-  // Must retain affiliate tracking parameters
-  gi:         AFFILIATE_LINK,
-  // TODO: Replace with category-specific iHerb affiliate URL
-  // Must retain affiliate tracking parameters
-  adjuncts:   AFFILIATE_LINK,
+  foundation: 'https://www.iherb.com/search?kw=multivitamin&rcode=PNB3943',
+  muscle:     'https://www.iherb.com/search?kw=whey%20protein&rcode=PNB3943',
+  recovery:   'https://www.iherb.com/search?kw=magnesium%20glycinate&rcode=PNB3943',
+  gi:         'https://www.iherb.com/search?kw=probiotic&rcode=PNB3943',
+  adjuncts:   'https://www.iherb.com/?rcode=PNB3943',
 };
 
 const ACTION_CUES: Record<string, string> = {
