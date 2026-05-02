@@ -255,7 +255,18 @@ export default function PatientCommandCenter({
           padding:      '18px 20px',
           marginBottom: 20,
         }}>
-          <p style={{ fontSize: 13, fontWeight: 700, color: '#F8FAFC', marginBottom: 3 }}>Practice Insights</p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: '#F8FAFC', margin: 0 }}>Practice Insights</p>
+            <span style={{
+              fontSize:     10,
+              color:        '#2DD4BF',
+              border:       '1px solid rgba(45,212,191,0.3)',
+              borderRadius: 999,
+              padding:      '2px 8px',
+            }}>
+              Advanced Monitoring Active
+            </span>
+          </div>
           <p style={{ fontSize: 11, color: 'rgba(148,163,184,0.7)', marginBottom: 16 }}>
             Overview of patient engagement and clinical activity
           </p>
@@ -283,6 +294,33 @@ export default function PatientCommandCenter({
           <p style={{ fontSize: 11, color: 'rgba(148,163,184,0.4)', fontStyle: 'italic', marginTop: 14 }}>
             Structured patient monitoring may support advanced clinical and reimbursable care pathways.
           </p>
+        </div>
+
+        {/* ── Coming Soon ──────────────────────────────────────────────────── */}
+        <div style={{
+          marginBottom: 20,
+          padding:      '14px 18px',
+          background:   'rgba(255,255,255,0.02)',
+          border:       '1px solid rgba(255,255,255,0.06)',
+          borderRadius: 12,
+        }}>
+          <p style={{ fontSize: 10, fontWeight: 700, color: 'rgba(148,163,184,0.5)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>
+            Coming Soon
+          </p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {['Longitudinal SRI Trends', 'Automated Patient Alerts', 'Expanded Monitoring Cohorts'].map(item => (
+              <span key={item} style={{
+                fontSize:     11,
+                color:        '#94A3B8',
+                background:   'rgba(148,163,184,0.06)',
+                border:       '1px solid rgba(148,163,184,0.12)',
+                borderRadius: 6,
+                padding:      '3px 10px',
+              }}>
+                {item}
+              </span>
+            ))}
+          </div>
         </div>
 
         {/* ── Attention banner ─────────────────────────────────────────────── */}
