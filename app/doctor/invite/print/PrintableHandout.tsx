@@ -25,10 +25,15 @@ export default function PrintableHandout({ inviteUrl, doctorName }: Props) {
       `}</style>
 
       {/* Print button */}
-      <div className="no-print flex justify-end mb-6" style={{ maxWidth: '720px', margin: '0 auto 24px' }}>
+      <div className="no-print" style={{ maxWidth: '720px', margin: '0 auto 24px', display: 'flex', justifyContent: 'flex-end' }}>
         <button
           onClick={() => window.print()}
-          className="bg-[#2DD4BF] text-[#080C14] px-6 py-2 rounded-full font-bold text-[13px]"
+          style={{
+            background: '#2DD4BF', color: '#080C14',
+            padding: '8px 24px', borderRadius: '999px',
+            fontSize: '13px', fontWeight: 700,
+            border: 'none', cursor: 'pointer',
+          }}
         >
           Print Document
         </button>
@@ -37,67 +42,178 @@ export default function PrintableHandout({ inviteUrl, doctorName }: Props) {
       {/* Paper */}
       <div
         className="paper bg-white mx-auto"
-        style={{ maxWidth: '720px', padding: '40px 32px' }}
+        style={{ maxWidth: '720px', padding: '40px 36px', background: '#ffffff' }}
       >
 
         {/* Header */}
-        <div className="flex justify-between items-start pb-5" style={{ borderBottom: '1px solid #E2E8F0' }}>
+        <div style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+          paddingBottom: '18px', borderBottom: '2px solid #2DD4BF', marginBottom: '28px',
+        }}>
           <div>
-            <p style={{ fontFamily: 'Georgia, serif', fontSize: '22px', fontWeight: 900, color: '#0f172a', margin: 0 }}>
+            <p style={{
+              fontFamily: 'Georgia, serif', fontSize: '22px',
+              fontWeight: 900, color: '#0D1421', margin: 0,
+            }}>
               Myo<span style={{ color: '#0d9488' }}>Guard</span> Protocol
             </p>
-            <p className="text-[11px] text-slate-500 mt-1">Clinical Decision Support System</p>
+            <p style={{ fontSize: '11px', color: '#64748B', marginTop: '4px' }}>
+              Clinical Decision Support System
+            </p>
           </div>
-          <div className="text-right">
-            <p className="text-[13px] font-semibold text-slate-700">Prescribed by: {doctorName}</p>
-            <p className="text-[11px] text-slate-500 mt-0.5">Date: {formattedDate}</p>
+          <div style={{ textAlign: 'right' }}>
+            <p style={{ fontSize: '13px', fontWeight: 600, color: '#0D1421', margin: 0 }}>
+              Prescribed by: {doctorName}
+            </p>
+            <p style={{ fontSize: '11px', color: '#64748B', marginTop: '3px' }}>
+              Date: {formattedDate}
+            </p>
           </div>
         </div>
 
-        {/* Title + body */}
-        <div className="mt-7">
-          <h2 style={{ fontFamily: 'Georgia, serif', fontSize: '22px', fontWeight: 700, color: '#0f172a', marginBottom: '14px', lineHeight: 1.3 }}>
-            Your Muscle Protection Protocol Has Been Activated
-          </h2>
-          <p className="text-[14px] leading-6 text-slate-700 mb-3">
-            You have been enrolled in a physician-guided muscle protection protocol as part of
-            your GLP-1 treatment.
+        {/* Document title */}
+        <div style={{ marginBottom: '22px' }}>
+          <h1 style={{
+            fontFamily: 'Georgia, serif', fontSize: '26px',
+            fontWeight: 700, color: '#0D1421', margin: 0, lineHeight: 1.2,
+          }}>
+            Patient Activation Sheet
+          </h1>
+          <p style={{ fontSize: '14px', color: '#2DD4BF', fontWeight: 600, marginTop: '6px' }}>
+            GLP-1 Muscle Protection Program
           </p>
-          <p className="text-[14px] leading-6 text-slate-700">
-            This protocol is designed to preserve lean muscle mass, optimize protein intake,
-            and monitor your progress throughout therapy.
-          </p>
+        </div>
 
-          <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mt-5 mb-2">
-            Your Protocol Includes:
+        {/* Patient Protocol Snapshot */}
+        <div style={{
+          background: '#F8FAFC',
+          border: '1px solid #E2E8F0',
+          borderLeft: '3px solid #2DD4BF',
+          borderRadius: '8px',
+          padding: '16px 20px',
+          marginBottom: '24px',
+        }}>
+          <p style={{
+            fontSize: '10px', fontWeight: 700, color: '#64748B',
+            textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px',
+          }}>
+            Patient Protocol Snapshot
           </p>
-          <ul className="text-[14px] text-slate-700 list-none p-0 m-0" style={{ lineHeight: 1 }}>
-            <li style={{ padding: '5px 0' }}>• Sarcopenia Risk Index (SRI) Assessment</li>
-            <li style={{ padding: '5px 0' }}>• Daily Protein &amp; Hydration Targets</li>
-            <li style={{ padding: '5px 0' }}>• Evidence-Based Supplement Strategy</li>
-            <li style={{ padding: '5px 0' }}>• Weekly Clinical Check-ins</li>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 32px' }}>
+            {([
+              { label: 'Patient',           value: 'Assigned Patient' },
+              { label: 'Clinical Focus',    value: 'Muscle preservation during GLP-1 therapy' },
+              { label: 'Activation Pathway', value: 'Sarcopenia Risk Index (SRI) + weekly monitoring' },
+              { label: 'Physician',         value: doctorName },
+            ] as const).map(({ label, value }) => (
+              <div key={label}>
+                <p style={{
+                  fontSize: '9px', fontWeight: 700, color: '#94A3B8',
+                  textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '2px',
+                }}>
+                  {label}
+                </p>
+                <p style={{ fontSize: '12px', color: '#0D1421', fontWeight: 500, margin: 0 }}>
+                  {value}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Body copy */}
+        <div style={{ marginBottom: '22px' }}>
+          <p style={{ fontSize: '14px', lineHeight: 1.75, color: '#334155', marginBottom: '10px' }}>
+            This physician-guided protocol supports muscle preservation during GLP-1 therapy by activating
+            structured SRI monitoring, protein target guidance, and weekly clinical check-ins.
+          </p>
+          <p style={{ fontSize: '14px', lineHeight: 1.75, color: '#334155', margin: 0 }}>
+            Activation takes less than 2 minutes and links your progress with your treating physician.
+          </p>
+        </div>
+
+        {/* Your Plan Includes */}
+        <div style={{ marginBottom: '28px' }}>
+          <p style={{
+            fontSize: '11px', fontWeight: 700, textTransform: 'uppercase',
+            letterSpacing: '0.08em', color: '#64748B', marginBottom: '12px',
+          }}>
+            Your Plan Includes
+          </p>
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+            {[
+              'Personalised Sarcopenia Risk Index (SRI)',
+              'Daily protein and hydration targets',
+              'Muscle-preserving support strategy',
+              'Weekly progress monitoring',
+            ].map((item, i, arr) => (
+              <li key={item} style={{
+                display: 'flex', alignItems: 'center', gap: '10px',
+                padding: '7px 0',
+                borderBottom: i < arr.length - 1 ? '1px solid #F1F5F9' : 'none',
+                fontSize: '14px', color: '#334155',
+              }}>
+                <span style={{
+                  width: '7px', height: '7px', borderRadius: '50%',
+                  background: '#2DD4BF', flexShrink: 0,
+                }} />
+                {item}
+              </li>
+            ))}
           </ul>
         </div>
 
         {/* QR section */}
-        <div className="mt-8 text-center">
-          <p className="text-[12px] font-semibold text-slate-600 mb-4">
-            Scan to activate your clinical protocol
+        <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+          <p style={{
+            fontFamily: 'Georgia, serif', fontSize: '16px',
+            fontWeight: 700, color: '#0D1421', marginBottom: '16px',
+          }}>
+            Activate Your Protocol
           </p>
-          <div className="inline-block p-4 rounded-xl" style={{ border: '2px solid #2DD4BF' }}>
+          <div style={{ display: 'inline-block', padding: '16px', border: '2px solid #2DD4BF', borderRadius: '14px' }}>
             <QRCodeSVG value={inviteUrl} size={220} level="H" />
           </div>
-          <p className="text-[12px] text-slate-500 mt-3">This will take less than 2 minutes</p>
-          <p className="text-[10px] text-slate-400 font-mono mt-2">{inviteUrl}</p>
+          <p style={{ fontSize: '13px', fontWeight: 600, color: '#334155', marginTop: '14px' }}>
+            Scan with your phone to begin
+          </p>
+          <p style={{ fontSize: '11px', color: '#64748B', marginTop: '4px' }}>
+            Estimated time: less than 2 minutes
+          </p>
+          <div style={{ marginTop: '14px' }}>
+            <p style={{
+              fontSize: '10px', color: '#94A3B8',
+              textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px',
+            }}>
+              Secure activation link
+            </p>
+            <p style={{ fontSize: '10px', fontFamily: 'monospace', color: '#475569', wordBreak: 'break-all', margin: 0 }}>
+              {inviteUrl}
+            </p>
+          </div>
+        </div>
+
+        {/* Clinical trust disclaimer */}
+        <div style={{
+          background: '#F8FAFC', border: '1px solid #E2E8F0',
+          borderRadius: '8px', padding: '14px 18px', marginBottom: '24px',
+        }}>
+          <p style={{ fontSize: '11px', lineHeight: 1.65, color: '#64748B', margin: 0 }}>
+            This is a physician-guided clinical decision support pathway. It does not replace clinical
+            judgment. Follow all recommendations under the direction of your treating physician.
+          </p>
         </div>
 
         {/* Footer */}
-        <div className="mt-8 text-center" style={{ borderTop: '1px solid #E2E8F0', paddingTop: '16px' }}>
-          <p className="text-[9px] text-slate-400 leading-5">
+        <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: '16px', textAlign: 'center' }}>
+          <p style={{ fontSize: '9px', color: '#94A3B8', lineHeight: 1.8, margin: 0 }}>
             MyoGuard Protocol · Clinical Decision Support System
           </p>
-          <p className="text-[9px] text-slate-400 leading-5">
+          <p style={{ fontSize: '9px', color: '#94A3B8', lineHeight: 1.8, margin: 0 }}>
             © 2026 Meridian Wellness Systems LLC
+          </p>
+          <p style={{ fontSize: '9px', color: '#94A3B8', lineHeight: 1.8, margin: 0 }}>
+            myoguard.health
           </p>
         </div>
 
