@@ -1,4 +1,5 @@
 import { prisma } from '@/src/lib/prisma';
+import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import JoinButton from './JoinButton';
 
@@ -19,9 +20,18 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://myoguard.health';
 export default async function JoinPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ref?: string }>;
+  searchParams: Promise<{ ref?: string; preload?: string }>;
 }) {
-  const { ref: rawCode } = await searchParams;
+  const { ref: rawCode, preload } = await searchParams;
+
+  // If a preload ID is present, bounce through the accept route which sets
+  // the mgPreloadId cookie (cookies() cannot be set during Server Component
+  // rendering) then redirects back here without the preload param.
+  if (preload) {
+    const refPart = rawCode ? `&ref=${encodeURIComponent(rawCode)}` : '';
+    redirect(`/api/preload/accept?id=${encodeURIComponent(preload)}${refPart}`);
+  }
+
   const code = (rawCode ?? '').trim().toUpperCase();
   const isReferral = !!rawCode;
 

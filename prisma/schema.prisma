@@ -319,6 +319,17 @@ model AnalyticsEvent {
   createdAt DateTime @default(now())
 }
 
+model PreloadedAssessment {
+  id          String   @id @default(cuid())
+  physicianId String
+  patientName  String?
+  patientEmail String?
+  payload     Json
+  used        Boolean  @default(false)
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+}
+
 enum Role {
   PATIENT
   PHYSICIAN

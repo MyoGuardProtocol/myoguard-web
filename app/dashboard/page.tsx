@@ -2,6 +2,8 @@ import { auth }        from '@clerk/nextjs/server';
 import { redirect }    from 'next/navigation';
 import { prisma }      from '@/src/lib/prisma';
 import SanctuaryScoreOrb from '@/src/components/ui/SanctuaryScoreOrb';
+import ReferralSync  from '@/src/components/ui/ReferralSync';
+import PreloadSync   from '@/src/components/ui/PreloadSync';
 
 function longDate(d: Date): string {
   return d.toLocaleDateString('en-GB', {
@@ -70,6 +72,8 @@ export default async function PatientDashboardPage() {
   return (
     <main style={{ background: "#080C14", minHeight: "100vh",
       fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+      <ReferralSync />
+      <PreloadSync />
 
       {/* NAV BAR */}
       <nav style={{

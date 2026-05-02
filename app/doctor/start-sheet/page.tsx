@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { QRCodeSVG } from "qrcode.react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type RiskLevel = "Low" | "Moderate" | "High";
@@ -224,6 +225,13 @@ export default function StartSheetPage() {
   const [resistNum, ...resistRest] = resistanceFreq.split(" ");
   const resistLabel = resistRest.join(" ");
 
+  const [activation, setActivation] = useState<{
+    preloadId:     string;
+    activationUrl: string;
+    patientName:   string | null;
+    startSheetId:  string | null;
+  } | null>(null);
+
   function toggleSymptom(s: string) {
     setSymptoms(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
   }
@@ -247,7 +255,8 @@ export default function StartSheetPage() {
 
     setLoading(true);
     try {
-      const res = await fetch("/api/doctor/start-sheet/save", {
+      // Step 1 — save start sheet record (unchanged)
+      const saveRes = await fetch("/api/doctor/start-sheet/save", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -265,17 +274,137 @@ export default function StartSheetPage() {
           physicianNotes:      notes,
         }),
       });
-      const json = await res.json() as { ok: boolean; id?: string; error?: string };
-      if (!res.ok || !json.ok) {
-        setError(json.error ?? "Failed to save protocol. Please try again.");
+      const saveJson = await saveRes.json() as { ok: boolean; id?: string; error?: string };
+      if (!saveRes.ok || !saveJson.ok) {
+        setError(saveJson.error ?? "Failed to save protocol. Please try again.");
         return;
       }
-      router.push(`/doctor/start-sheet/${json.id}`);
+
+      // Step 2 — generate personalised activation preload
+      const drug       = GLP1_DRUGS.find(d => d.label === selectedDrug);
+      const medication = selectedDrug.toLowerCase().startsWith("tirzepatide")
+        ? "tirzepatide" as const
+        : "semaglutide" as const;
+      const assessmentPayload = {
+        weight:        String(parsedWeight),
+        unit:          "kg" as const,
+        medication,
+        doseMg:        drug?.value ?? 1,
+        activityLevel: activityLevel.toLowerCase() as "sedentary" | "moderate" | "active",
+        symptoms,
+      };
+
+      const preloadRes = await fetch("/api/preload/create", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          patientName:  patientName.trim() || undefined,
+          patientEmail: patientEmail.trim().toLowerCase() || undefined,
+          payload:      assessmentPayload,
+        }),
+      });
+
+      if (preloadRes.ok) {
+        const preloadJson = await preloadRes.json() as {
+          preloadId?:    string;
+          activationUrl?: string;
+        };
+        if (preloadJson.preloadId && preloadJson.activationUrl) {
+          setActivation({
+            preloadId:     preloadJson.preloadId,
+            activationUrl: preloadJson.activationUrl,
+            patientName:   patientName.trim() || null,
+            startSheetId:  saveJson.id ?? null,
+          });
+          return; // Show QR card — do not redirect
+        }
+      }
+
+      // Fallback: redirect to the saved start sheet if preload generation fails
+      router.push(`/doctor/start-sheet/${saveJson.id}`);
     } catch (e: unknown) {
       setError(`Network error: ${String(e)}`);
     } finally {
       setLoading(false);
     }
+  }
+
+  // ── Activation card (shown after successful preload generation) ────────────
+  if (activation) {
+    return (
+      <div style={{ background: "#0A0A0A", minHeight: "100vh" }}>
+        <div className="max-w-lg mx-auto px-4 py-12 flex flex-col items-center gap-6">
+          <Link href="/doctor/dashboard" className="text-xs text-slate-500 hover:text-slate-300 self-start">
+            ← Dashboard
+          </Link>
+
+          <div className="w-full bg-slate-900 border border-slate-800 rounded-2xl p-8 flex flex-col items-center gap-6">
+            <div className="text-center">
+              <p className="text-xs font-semibold text-emerald-400 uppercase tracking-widest mb-1">
+                Activation Sheet Ready
+              </p>
+              <h1 className="text-xl font-bold text-white" style={{ fontFamily: "Georgia, serif" }}>
+                {activation.patientName ? `${activation.patientName}'s Protocol` : "Patient Protocol"}
+              </h1>
+              <p className="text-sm text-slate-400 mt-1">
+                Ask your patient to scan the QR code below to activate their personalised protocol.
+              </p>
+            </div>
+
+            {/* QR code */}
+            <div style={{ background: "#ffffff", padding: 16, borderRadius: 12 }}>
+              <QRCodeSVG
+                value={activation.activationUrl}
+                size={200}
+                level="H"
+                includeMargin={false}
+              />
+            </div>
+
+            <p className="text-sm font-semibold text-slate-300 text-center">
+              Scan to activate your protocol
+            </p>
+
+            {/* Fallback link */}
+            <div className="w-full bg-slate-800 rounded-xl px-4 py-3 text-center">
+              <p className="text-xs text-slate-500 mb-1 uppercase tracking-widest">Activation link</p>
+              <a
+                href={activation.activationUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-emerald-400 break-all hover:underline font-mono"
+              >
+                {activation.activationUrl}
+              </a>
+            </div>
+
+            {/* Actions */}
+            <div className="w-full flex flex-col gap-3">
+              <button
+                onClick={() => window.print()}
+                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl text-sm font-semibold transition-colors"
+              >
+                Print Activation Sheet
+              </button>
+              {activation.startSheetId && (
+                <Link
+                  href={`/doctor/start-sheet/${activation.startSheetId}`}
+                  className="w-full text-center bg-slate-800 hover:bg-slate-700 text-slate-300 py-3 rounded-xl text-sm font-semibold transition-colors"
+                >
+                  View Full Protocol PDF →
+                </Link>
+              )}
+              <button
+                onClick={() => setActivation(null)}
+                className="text-xs text-slate-500 hover:text-slate-400 transition-colors mt-1"
+              >
+                Create another start sheet
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -651,9 +780,12 @@ export default function StartSheetPage() {
                       Generating...
                     </span>
                   ) : (
-                    "Generate Protocol"
+                    "Generate Patient Activation Sheet"
                   )}
                 </button>
+                <p className="text-xs text-slate-500 text-center mt-2">
+                  Generates a personalised protocol QR that activates automatically when your patient signs up.
+                </p>
 
               </div>
 
@@ -756,8 +888,11 @@ export default function StartSheetPage() {
 
                   {/* Supplement stack */}
                   <div className="mb-6">
-                    <p className="text-xs text-slate-400 uppercase tracking-widest mb-3">
-                      Supplement Stack
+                    <p className="text-xs text-slate-400 uppercase tracking-widest mb-1">
+                      Suggested support preview
+                    </p>
+                    <p className="text-xs text-slate-600 italic mb-3">
+                      Final recommendations are confirmed after activation and SRI generation.
                     </p>
                     <div key={riskLevel ?? "none"} className="flex flex-wrap gap-2">
                       {supplements.map((s, i) => (
