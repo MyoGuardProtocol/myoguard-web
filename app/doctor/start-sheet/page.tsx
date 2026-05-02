@@ -344,10 +344,13 @@ export default function StartSheetPage() {
                 Activation Sheet Ready
               </p>
               <h1 className="text-xl font-bold text-white" style={{ fontFamily: "Georgia, serif" }}>
-                {activation.patientName ? `${activation.patientName}'s Protocol` : "Patient Protocol"}
+                Patient Activation Sheet
               </h1>
+              <p className="text-sm text-emerald-400 font-medium mt-0.5">
+                GLP-1 Muscle Protection Program
+              </p>
               <p className="text-sm text-slate-400 mt-1">
-                Ask your patient to scan the QR code below to activate their personalised protocol.
+                Scan to activate your personalised protocol.
               </p>
             </div>
 
@@ -362,7 +365,10 @@ export default function StartSheetPage() {
             </div>
 
             <p className="text-sm font-semibold text-slate-300 text-center">
-              Scan to activate your protocol
+              Scan with your phone to begin
+            </p>
+            <p className="text-xs text-slate-500 text-center -mt-3">
+              Estimated time: less than 2 minutes
             </p>
 
             {/* Fallback link */}
