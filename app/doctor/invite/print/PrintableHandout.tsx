@@ -185,7 +185,7 @@ export default function PrintableHandout({ inviteUrl, doctorName }: Props) {
               fontSize: '10px', color: '#94A3B8',
               textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px',
             }}>
-              Secure activation link
+              Secure Activation Link
             </p>
             <p style={{ fontSize: '10px', fontFamily: 'monospace', color: '#475569', wordBreak: 'break-all', margin: 0 }}>
               {inviteUrl}
