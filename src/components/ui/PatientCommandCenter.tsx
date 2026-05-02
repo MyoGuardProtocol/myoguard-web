@@ -194,6 +194,12 @@ export default function PatientCommandCenter({
 
   const criticalPlusHigh = (bandCounts.CRITICAL ?? 0) + (bandCounts.HIGH ?? 0);
 
+  const sevenDaysAgo  = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const insightRecent = patients.filter(p => {
+    if (!p.lastAssessmentDate) return false;
+    try { return new Date(p.lastAssessmentDate) >= sevenDaysAgo; } catch { return false; }
+  }).length;
+
   // Filter
   const filtered = patients.filter(p => {
     const matchSearch = !search ||
@@ -240,6 +246,44 @@ export default function PatientCommandCenter({
       />
 
       <div style={{ maxWidth: '64rem', margin: '0 auto', padding: '28px 20px' }}>
+
+        {/* ── Practice Insights ────────────────────────────────────────────── */}
+        <div style={{
+          background:   '#0D1421',
+          border:       '1px solid #1A2744',
+          borderRadius: 16,
+          padding:      '18px 20px',
+          marginBottom: 20,
+        }}>
+          <p style={{ fontSize: 13, fontWeight: 700, color: '#F8FAFC', marginBottom: 3 }}>Practice Insights</p>
+          <p style={{ fontSize: 11, color: 'rgba(148,163,184,0.7)', marginBottom: 16 }}>
+            Overview of patient engagement and clinical activity
+          </p>
+          <div className="insights-grid">
+            {([
+              { label: 'Active Patients',           value: patients.length   },
+              { label: 'Requiring Attention',        value: criticalPlusHigh  },
+              { label: 'Assessments (Last 7 Days)',  value: insightRecent     },
+            ] as { label: string; value: number }[]).map(stat => (
+              <div key={stat.label} style={{
+                background:   'rgba(255,255,255,0.03)',
+                border:       '1px solid rgba(26,39,68,0.8)',
+                borderRadius: 10,
+                padding:      '12px 16px',
+              }}>
+                <p style={{ fontFamily: 'monospace', fontSize: 28, fontWeight: 900, color: '#2DD4BF', lineHeight: 1, marginBottom: 5 }}>
+                  {stat.value}
+                </p>
+                <p style={{ fontSize: 10, fontWeight: 600, color: 'rgba(148,163,184,0.6)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                  {stat.label}
+                </p>
+              </div>
+            ))}
+          </div>
+          <p style={{ fontSize: 11, color: 'rgba(148,163,184,0.4)', fontStyle: 'italic', marginTop: 14 }}>
+            Structured patient monitoring may support advanced clinical and reimbursable care pathways.
+          </p>
+        </div>
 
         {/* ── Attention banner ─────────────────────────────────────────────── */}
         {criticalPlusHigh > 0 && (
@@ -503,6 +547,8 @@ export default function PatientCommandCenter({
           @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
           input::placeholder { color: rgba(255,255,255,0.25); }
           input:focus { border-color: rgba(45,212,191,0.4) !important; box-shadow: 0 0 0 3px rgba(45,212,191,0.08); }
+          .insights-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+          @media (max-width: 480px) { .insights-grid { grid-template-columns: 1fr; } }
         `}</style>
       </div>
     </>
