@@ -166,10 +166,7 @@ export default async function DoctorDashboardPage() {
                   border: '1px solid #1A2744',
                   borderRadius: '20px',
                   padding: '24px',
-                  transition: 'border-color 0.15s',
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#2DD4BF')}
-                onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#1A2744')}
               >
                 <p style={{
                   fontSize: '15px', fontWeight: '600',
