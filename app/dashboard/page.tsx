@@ -4,6 +4,7 @@ import { prisma }      from '@/src/lib/prisma';
 import SanctuaryScoreOrb from '@/src/components/ui/SanctuaryScoreOrb';
 import ReferralSync  from '@/src/components/ui/ReferralSync';
 import PreloadSync   from '@/src/components/ui/PreloadSync';
+import PatientAvatar from '@/src/components/ui/PatientAvatar';
 
 function longDate(d: Date): string {
   return d.toLocaleDateString('en-GB', {
@@ -89,15 +90,7 @@ export default async function PatientDashboardPage() {
             letterSpacing: "-0.03em", color: "#F8FAFC" }}>
             Myo<span style={{ color: "#2DD4BF" }}>Guard</span>
           </span>
-          <a href="/sign-out" title="Sign out" style={{
-            width: "34px", height: "34px", borderRadius: "50%",
-            background: "#1A2744", border: "1px solid #2DD4BF",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: "12px", fontWeight: "700", color: "#2DD4BF",
-            textDecoration: "none", cursor: "pointer"
-          }}>
-            {initials}
-          </a>
+          <PatientAvatar initials={initials} />
         </div>
       </nav>
 

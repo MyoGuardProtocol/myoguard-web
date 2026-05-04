@@ -38,7 +38,7 @@ function fetchByClerkId(clerkId: string) {
 
 export default async function DoctorDashboardPage() {
   const { userId } = await auth();
-  if (!userId) redirect('/sign-in');
+  if (!userId) redirect('/doctor/sign-in');
 
   // ── Phase 1: fast path — look up by clerkId ──────────────────────────────
   let user: PhysicianRow | null = await fetchByClerkId(userId);
@@ -47,7 +47,7 @@ export default async function DoctorDashboardPage() {
   //    recreation (same email, new Clerk userId) ─────────────────────────────
   if (!user) {
     const clerkUser = await currentUser();
-    if (!clerkUser) redirect('/sign-in');
+    if (!clerkUser) redirect('/doctor/sign-in');
 
     const email = clerkUser.emailAddresses[0]?.emailAddress ?? '';
 
@@ -76,25 +76,47 @@ export default async function DoctorDashboardPage() {
   if (user.role === 'PATIENT') redirect('/dashboard');
   // PHYSICIAN and PHYSICIAN_PENDING both fall through to JSX below
   return (
-    <main className="min-h-screen bg-slate-50 font-sans">
+    <main style={{ background: '#080C14', minHeight: '100vh',
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
 
       {/* Header */}
-      <header className="bg-white border-b border-slate-100 px-6 py-4">
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <Link href="/" className="flex items-baseline gap-1">
-            <span className="text-xl font-black text-slate-900 tracking-tight">
-              Myo<span className="text-teal-600">Guard</span>
+      <header style={{
+        background: '#060D1E',
+        borderBottom: '1px solid rgba(255,255,255,0.07)',
+        position: 'sticky', top: 0, zIndex: 50,
+        padding: '0 24px',
+      }}>
+        <div style={{ maxWidth: '720px', margin: '0 auto',
+          display: 'flex', alignItems: 'center',
+          justifyContent: 'space-between', height: '60px' }}>
+          <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'baseline', gap: '2px' }}>
+            <span style={{ fontSize: '20px', fontWeight: '900',
+              letterSpacing: '-0.03em', color: '#F8FAFC' }}>
+              Myo<span style={{ color: '#2DD4BF' }}>Guard</span>
             </span>
-            <span className="text-slate-400 font-light text-sm ml-0.5">Protocol</span>
+            <span style={{ color: '#475569', fontWeight: '300',
+              fontSize: '13px', marginLeft: '2px' }}>Protocol</span>
           </Link>
-          <div className="flex items-center gap-3">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             {user.role === 'PHYSICIAN_PENDING' && (
-              <span className="text-xs bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-3 py-1 font-semibold">
+              <span style={{
+                fontSize: '11px', fontWeight: '600',
+                background: 'rgba(245,158,11,0.12)',
+                color: '#F59E0B',
+                border: '1px solid rgba(245,158,11,0.3)',
+                borderRadius: '99px', padding: '3px 12px',
+              }}>
                 Pending Verification
               </span>
             )}
             {user.role === 'PHYSICIAN' && (
-              <span className="text-xs bg-teal-50 text-teal-700 border border-teal-200 rounded-full px-3 py-1 font-semibold">
+              <span style={{
+                fontSize: '11px', fontWeight: '600',
+                background: 'rgba(45,212,191,0.1)',
+                color: '#2DD4BF',
+                border: '1px solid rgba(45,212,191,0.25)',
+                borderRadius: '99px', padding: '3px 12px',
+              }}>
                 Verified Physician
               </span>
             )}
@@ -108,126 +130,168 @@ export default async function DoctorDashboardPage() {
       </header>
 
       {user.role === 'PHYSICIAN' && (
-        <div className="max-w-2xl mx-auto px-6 py-12 text-center">
-          <h1 className="text-2xl font-bold text-slate-900 mb-2">
-            Welcome to your Clinical Command Center
-          </h1>
-          <p className="text-slate-500 text-sm mb-8">
-            Your physician account is verified and active.
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <a href="/doctor/patients"
-              className="bg-white border border-slate-200 rounded-2xl p-6 hover:border-teal-300 transition-colors text-left">
-              <p className="text-sm font-semibold text-slate-900">My Patients</p>
-              <p className="text-xs text-slate-400 mt-1">View and manage your patient panel</p>
-            </a>
-            <a href="/doctor/start-sheet"
-              className="bg-white border border-slate-200 rounded-2xl p-6 hover:border-teal-300 transition-colors text-left">
-              <p className="text-sm font-semibold text-slate-900">Start Sheet</p>
-              <p className="text-xs text-slate-400 mt-1">Generate a muscle protection protocol</p>
-            </a>
-            <a href="/doctor/start"
-              className="bg-white border border-slate-200 rounded-2xl p-6 hover:border-teal-300 transition-colors text-left">
-              <p className="text-sm font-semibold text-slate-900">Invite Patients</p>
-              <p className="text-xs text-slate-400 mt-1">Share your referral link or QR code</p>
-            </a>
-            <a href="/doctor/invite/print"
-              className="bg-white border border-slate-200 rounded-2xl p-6 hover:border-teal-300 transition-colors text-left">
-              <p className="text-sm font-semibold text-slate-900">Print Handout</p>
-              <p className="text-xs text-slate-400 mt-1">Clinical prescription with QR code &amp; sign-off</p>
-            </a>
+        <div style={{ maxWidth: '720px', margin: '0 auto', padding: '48px 24px' }}>
+          <div style={{ marginBottom: '40px' }}>
+            <h1 style={{
+              fontFamily: 'Georgia, serif',
+              fontSize: '28px', fontWeight: '400',
+              color: '#F1F5F9', marginBottom: '8px',
+              letterSpacing: '-0.01em',
+            }}>
+              Clinical Command Center
+            </h1>
+            <p style={{ fontSize: '14px', color: '#64748B' }}>
+              Your physician account is verified and active.
+            </p>
+          </div>
+
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(2, 1fr)',
+            gap: '16px',
+          }}>
+            {[
+              { href: '/doctor/patients',    label: 'My Patients',    sub: 'View and manage your patient panel' },
+              { href: '/doctor/start-sheet', label: 'Start Sheet',    sub: 'Create a patient activation sheet' },
+              { href: '/doctor/start',       label: 'Invite Patients', sub: 'Share referral link or QR code' },
+              { href: '/doctor/invite/print',label: 'Print Handout',  sub: 'Generate patient activation handout' },
+            ].map((card) => (
+              <a
+                key={card.href}
+                href={card.href}
+                style={{
+                  display: 'block',
+                  textDecoration: 'none',
+                  background: '#0D1421',
+                  border: '1px solid #1A2744',
+                  borderRadius: '20px',
+                  padding: '24px',
+                  transition: 'border-color 0.15s',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#2DD4BF')}
+                onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#1A2744')}
+              >
+                <p style={{
+                  fontSize: '15px', fontWeight: '600',
+                  color: '#F1F5F9', marginBottom: '6px',
+                  fontFamily: 'Georgia, serif',
+                }}>
+                  {card.label}
+                </p>
+                <p style={{ fontSize: '12px', color: '#64748B' }}>
+                  {card.sub}
+                </p>
+              </a>
+            ))}
           </div>
         </div>
       )}
 
       {user.role === 'PHYSICIAN_PENDING' && (
-      <div className="max-w-2xl mx-auto px-6 py-12 space-y-5">
+      <div style={{ maxWidth: '720px', margin: '0 auto', padding: '48px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-        {/* ── Status card ── */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 text-center space-y-5">
-
-          <div className="w-16 h-16 rounded-full bg-amber-50 border border-amber-100 flex items-center justify-center mx-auto">
-            <svg className="w-8 h-8 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        {/* Status card */}
+        <div style={{
+          background: '#0D1421', border: '1px solid #1A2744',
+          borderRadius: '20px', padding: '40px 32px',
+          textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '24px',
+        }}>
+          <div style={{
+            width: '64px', height: '64px', borderRadius: '50%',
+            background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto',
+          }}>
+            <svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="#F59E0B" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
 
           <div>
-            <h1 className="text-xl font-bold text-slate-900">Account under review</h1>
-            <p className="text-slate-500 text-sm mt-2 leading-relaxed">
-              {user.fullName ? `Thank you, ${user.fullName}.` : 'Thank you.'} Your physician account
-              has been submitted and is under review. We verify all accounts within{' '}
-              <strong className="text-slate-700">24 hours</strong>.
+            <h1 style={{ fontFamily: 'Georgia, serif', fontSize: '22px', fontWeight: '400', color: '#F1F5F9', marginBottom: '8px' }}>
+              Account under review
+            </h1>
+            <p style={{ fontSize: '14px', color: '#64748B', lineHeight: '1.6' }}>
+              {user.fullName ? `Thank you, ${user.fullName}.` : 'Thank you.'}{' '}
+              Your physician account has been submitted and is under review.
+              We verify all accounts within <strong style={{ color: '#94A3B8' }}>24 hours</strong>.
             </p>
           </div>
 
-          <div className="bg-slate-50 rounded-xl p-4 text-left space-y-2.5">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">What happens next</p>
+          <div style={{
+            background: '#060D1E', border: '1px solid #1A2744',
+            borderRadius: '12px', padding: '16px', textAlign: 'left',
+            display: 'flex', flexDirection: 'column', gap: '12px',
+          }}>
+            <p style={{ fontSize: '11px', fontWeight: '600', color: '#475569',
+              textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              What happens next
+            </p>
             {[
               'Our team will verify your credentials',
               'You\'ll receive a confirmation email once approved',
               'Full patient dashboard access will be unlocked',
             ].map((item, i) => (
-              <div key={i} className="flex items-start gap-2.5">
-                <span className="w-5 h-5 rounded-full bg-teal-600 text-white text-[10px] font-bold flex-shrink-0 flex items-center justify-center mt-0.5">
+              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                <span style={{
+                  width: '20px', height: '20px', borderRadius: '50%',
+                  background: 'rgba(45,212,191,0.15)', border: '1px solid rgba(45,212,191,0.3)',
+                  color: '#2DD4BF', fontSize: '10px', fontWeight: '700',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  flexShrink: 0, marginTop: '1px',
+                }}>
                   {i + 1}
                 </span>
-                <p className="text-sm text-slate-600">{item}</p>
+                <p style={{ fontSize: '13px', color: '#94A3B8', lineHeight: '1.5' }}>{item}</p>
               </div>
             ))}
           </div>
 
           <a
             href="mailto:hello@myoguard.health?subject=Physician%20Account%20Verification"
-            className="inline-flex items-center gap-2 text-sm text-teal-600 font-medium hover:underline"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px',
+              fontSize: '13px', color: '#2DD4BF', textDecoration: 'none',
+              justifyContent: 'center' }}
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
             </svg>
             Contact us to expedite verification
           </a>
         </div>
 
-        {/* ── Submitted profile summary ── */}
+        {/* Submitted profile summary */}
         {user.physicianOnboarding && (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+          <div style={{
+            background: '#0D1421', border: '1px solid #1A2744',
+            borderRadius: '20px', padding: '24px',
+          }}>
+            <p style={{ fontSize: '11px', fontWeight: '600', color: '#475569',
+              textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '16px' }}>
               Submitted Profile
             </p>
-            <dl className="space-y-2 text-sm">
-              <div className="flex gap-3">
-                <dt className="text-slate-400 w-28 flex-shrink-0">Name</dt>
-                <dd className="text-slate-800 font-medium">{user.fullName}</dd>
-              </div>
-              <div className="flex gap-3">
-                <dt className="text-slate-400 w-28 flex-shrink-0">Email</dt>
-                <dd className="text-slate-700 break-all">{user.email}</dd>
-              </div>
-              <div className="flex gap-3">
-                <dt className="text-slate-400 w-28 flex-shrink-0">Country</dt>
-                <dd className="text-slate-700">{user.physicianOnboarding.country}</dd>
-              </div>
-              {user.physicianOnboarding.specialty && (
-                <div className="flex gap-3">
-                  <dt className="text-slate-400 w-28 flex-shrink-0">Specialty</dt>
-                  <dd className="text-slate-700">{user.physicianOnboarding.specialty}</dd>
+            <dl style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {[
+                ['Name', user.fullName],
+                ['Email', user.email],
+                ['Country', user.physicianOnboarding.country],
+                ...(user.physicianOnboarding.specialty ? [['Specialty', user.physicianOnboarding.specialty]] : []),
+                ['Submitted', user.physicianOnboarding.submittedAt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })],
+              ].map(([label, value]) => (
+                <div key={label} style={{ display: 'flex', gap: '12px', fontSize: '13px' }}>
+                  <dt style={{ color: '#475569', width: '100px', flexShrink: 0 }}>{label}</dt>
+                  <dd style={{ color: '#94A3B8', wordBreak: 'break-all' }}>{value}</dd>
                 </div>
-              )}
-              <div className="flex gap-3">
-                <dt className="text-slate-400 w-28 flex-shrink-0">Submitted</dt>
-                <dd className="text-slate-500 text-xs mt-0.5">
-                  {user.physicianOnboarding.submittedAt.toLocaleDateString('en-GB', {
-                    day: 'numeric', month: 'short', year: 'numeric',
-                  })}
-                </dd>
-              </div>
+              ))}
             </dl>
           </div>
         )}
 
-        <div className="text-center">
+        <div style={{ textAlign: 'center' }}>
           <SignOutButton redirectUrl="/">
-            <button className="text-sm text-slate-400 hover:text-slate-600 transition-colors">
+            <button style={{
+              fontSize: '13px', color: '#475569', background: 'transparent',
+              border: 'none', cursor: 'pointer',
+            }}>
               Sign out
             </button>
           </SignOutButton>
