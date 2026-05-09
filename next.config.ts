@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  experimental: {
+    turbopackUseSystemTlsCerts: true,
+  },
   images: {
     /**
      * Allow next/image to optimise avatars from Clerk's CDN and the

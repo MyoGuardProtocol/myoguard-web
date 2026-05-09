@@ -15,9 +15,64 @@ subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-title: "MyoGuard Protocol - GLP-1 Muscle Protection",
-description:
-"Physician-formulated GLP-1 muscle preservation protocol. Calculate personalised protein, fibre, and hydration targets to maintain muscle during therapy.",
+  metadataBase: new URL("https://myoguard.health"),
+  title: {
+    default:
+      "MyoGuard Protocol — Physician-Led Muscle Protection During GLP-1 Therapy",
+    template: "%s | MyoGuard Protocol",
+  },
+  description:
+    "Physician-led Clinical Decision Support for muscle preservation during GLP-1 therapy. The Sarcopenia Risk Index (SRI) guides protein optimisation, GI tolerance monitoring, and anabolic resistance assessment under physician oversight.",
+  keywords: [
+    "GLP-1 muscle preservation",
+    "sarcopenia risk index",
+    "SRI",
+    "physician-led clinical decision support",
+    "semaglutide muscle loss",
+    "tirzepatide protein protocol",
+    "GLP-1 therapy muscle",
+    "muscle preservation protocol",
+    "clinical decision support GLP-1",
+    "MyoGuard Protocol",
+    "GLP-1 sarcopenia",
+  ],
+  authors: [{ name: "Meridian Wellness Systems LLC" }],
+  creator: "Meridian Wellness Systems LLC",
+  publisher: "Meridian Wellness Systems LLC",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://myoguard.health",
+    siteName: "MyoGuard Protocol",
+    title:
+      "MyoGuard Protocol — Physician-Led Muscle Protection During GLP-1 Therapy",
+    description:
+      "Physician-led Clinical Decision Support for muscle preservation during GLP-1 therapy. The Sarcopenia Risk Index (SRI) guides protein optimisation, GI tolerance monitoring, and anabolic resistance assessment.",
+    // OG image is auto-injected from app/opengraph-image.tsx via Next.js file convention
+  },
+  twitter: {
+    card: "summary_large_image",
+    title:
+      "MyoGuard Protocol — Physician-Led Muscle Protection During GLP-1 Therapy",
+    description:
+      "Physician-led Clinical Decision Support for muscle preservation during GLP-1 therapy. The Sarcopenia Risk Index (SRI) guides protein optimisation and anabolic resistance monitoring.",
+    // Twitter image falls back to app/opengraph-image.tsx; add creator handle once X account is verified
+  },
+  alternates: {
+    canonical: "https://myoguard.health",
+  },
+  // Icons are auto-detected: app/favicon.ico, app/icon.svg, app/apple-icon.tsx
 };
 
 export default function RootLayout({

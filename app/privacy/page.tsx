@@ -1,4 +1,13 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Privacy Policy",
+  description:
+    "MyoGuard Protocol privacy policy. Learn how Meridian Wellness Systems LLC collects, uses, and protects your health data in accordance with Wyoming law.",
+  alternates: { canonical: "/privacy" },
+};
+
 export default function PrivacyPolicy() {
   return (
     <main className="min-h-screen bg-slate-50 font-sans">

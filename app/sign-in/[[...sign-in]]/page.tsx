@@ -1,4 +1,12 @@
+import type { Metadata } from "next";
 import { SignIn } from "@clerk/nextjs";
+
+export const metadata: Metadata = {
+  title: "Sign In",
+  description:
+    "Sign in to your MyoGuard Protocol account to access your Sarcopenia Risk Index (SRI) dashboard and physician-supervised muscle protection plan.",
+  robots: { index: false, follow: true },
+};
 
 export default function SignInPage() {
   return (

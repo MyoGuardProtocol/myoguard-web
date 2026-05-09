@@ -1,4 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Terms of Use",
+  description:
+    "MyoGuard Protocol terms of use. Understand the conditions governing access to our physician-led Clinical Decision Support platform for GLP-1 therapy management.",
+  alternates: { canonical: "/terms" },
+};
 
 export default function TermsOfUse() {
   return (

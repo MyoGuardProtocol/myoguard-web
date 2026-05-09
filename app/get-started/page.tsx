@@ -1,11 +1,13 @@
+import type { Metadata } from "next";
 import Link from 'next/link';
 
-/**
- * /get-started — auth entry page.
- * Replaces the bare Clerk sign-in screen as the destination for the
- * "Sign In" header link. Presents three clear options so users understand
- * exactly what they're choosing and why.
- */
+export const metadata: Metadata = {
+  title: "Get Started",
+  description:
+    "Access your MyoGuard Protocol account. Physician-supervised muscle preservation support for patients on GLP-1 therapy — sign in or create your account.",
+  alternates: { canonical: "/get-started" },
+};
+
 export default function GetStartedPage() {
   return (
     <main className="min-h-screen bg-slate-50 font-sans">

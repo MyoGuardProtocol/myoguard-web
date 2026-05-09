@@ -1,4 +1,12 @@
+import type { Metadata } from "next";
 import { SignUp } from "@clerk/nextjs";
+
+export const metadata: Metadata = {
+  title: "Create Account",
+  description:
+    "Create your MyoGuard Protocol account for physician-supervised muscle preservation support during GLP-1 therapy.",
+  robots: { index: false, follow: true },
+};
 
 export default function SignUpPage() {
   return (
