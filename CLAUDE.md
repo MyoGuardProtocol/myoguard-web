@@ -1,104 +1,121 @@
-# MyoGuard Protocol — Claude Code Guardrails
+# MyoGuard Protocol — Claude Code Operating Instructions
 
 ## Entity
+
 Meridian Wellness Systems LLC
-Wyoming, USA
+Wyoming-based clinical technology firm
+Trading name: MyoGuard Protocol
 
-## Product
-MyoGuard Protocol
+## Platform Classification
 
-Physician-led Clinical Decision Support (CDS) platform for patients using GLP-1 therapies, focused on:
-- Sarcopenia Risk Index (SRI)
-- muscle preservation
-- protein optimization
-- GI tolerance considerations
-- age-adjusted anabolic resistance
-- physician oversight workflows
+Physician-led Clinical Decision Support (CDS)
+Core instrument: Sarcopenia Risk Index (SRI)
+Domain: myoguard.health
 
-## Non-Negotiable Terminology
-Never use:
-- calculator
-- score
+## Terminology Rules (Non-Negotiable)
 
-Use only:
-- Sarcopenia Risk Index (SRI)
-- SRI
-- Clinical Decision Support
-- physician-led monitoring
+* ALWAYS: "Sarcopenia Risk Index (SRI)"
+* ALWAYS: "Clinical Decision Support (CDS)"
+* ALWAYS: "generate" not "calculate"
+* NEVER: "calculator"
+* NEVER: "score" in UI context
+* NEVER: "Meridian Health Holding"
+* NEVER: "Meridian Health" alone — use full entity name
+
+## Design System — Midnight Silk
+
+* Background: #080C14
+* Card surface: #0D1421
+* Border: #1A2744
+* Primary accent: #2DD4BF
+* Text primary: #F1F5F9
+* Text secondary: #94A3B8
+* Headings: Georgia serif
+* Body: system sans-serif
+* No white backgrounds on authenticated pages
+
+## Tech Stack
+
+* Framework: Next.js 16 App Router
+* Language: TypeScript
+* Auth: Clerk (OTP for physicians, standard for patients)
+* Database: Prisma + Supabase PostgreSQL
+* Email: Resend
+* Payments: Lemon Squeezy (active), Stripe (pending)
+* Hosting: Vercel
+* QR: qrcode.react
+
+## Protected Files — Never Modify Without Explicit Approval
+
+* src/lib/protocolEngine.ts
+* middleware.ts
+* prisma/schema.prisma (destructive changes only)
+* Any Clerk configuration
+* Any Stripe/Lemon Squeezy billing logic
+
+## Architecture Rules
+
+* Always read files before editing
+* Always run npm run build before committing
+* Never bypass /api/assessment
+* Never commit without build confirmation
+* Never add new PrismaClient() — use singleton at src/lib/prisma.ts
+* Never expose DATABASE_URL in client code
+* Add fields to schema with npx prisma db push (not migrate dev — broken history)
+
+## Route Structure
+
+* Patient routes: /dashboard/*
+* Physician routes: /doctor/*
+* Admin routes: /admin/*
+* Public: /, /sign-in-new, /sign-up-new, /join, /invite/*
+
+## Active Clerk Routes
+
+* Sign in: /sign-in-new (NEXT_PUBLIC_CLERK_SIGN_IN_URL)
+* Sign up: /sign-up-new (NEXT_PUBLIC_CLERK_SIGN_UP_URL)
+
+## Physician Roles
+
+* PHYSICIAN_PENDING: awaiting admin approval
+* PHYSICIAN: approved, full access
+* PATIENT: patient dashboard access
+* ADMIN: admin panel access
 
 ## Clinical Positioning
-MyoGuard is not a consumer wellness gimmick or fitness tracker.
 
-It is:
-- physician-led
-- CDS-oriented
-- clinically structured
-- supervised by physicians
+* All outputs are CDS — not medical advice
+* Physician oversight is mandatory
+* SRI is expert-consensus framework — not validated instrument (yet)
+* Provisional patent pending before pharma outreach
 
-Final clinical authority:
-Dr. Onyekachukwu Okpala
+## Security Rules
 
-## Design Philosophy
-“Midnight Silk”
+* Never expose API secrets in client code
+* Never expose Supabase service role key
+* Never expose Clerk secret keys
+* Never log PHI to analytics providers
+* Never place patient-identifiable data in URLs
+* Never disable authentication checks for convenience
 
-Visual identity:
-- premium clinical sanctuary
-- dark navy / charcoal backgrounds
-- Georgia serif typography
-- teal accent: #2DD4BF
-- calm, low-cortisol clinical feel
-- no loud startup styling
+## SEO + Metadata Rules
 
-## Current Stack
-- Next.js App Router
-- TypeScript
-- TailwindCSS
-- Prisma
-- Supabase PostgreSQL
-- Clerk
-- Stripe
-- Resend
-- Vercel
+* Preserve canonical URLs
+* Preserve robots and sitemap routes
+* Preserve structured data JSON-LD
+* Never introduce broken OG image references
+* Maintain Midnight Silk social preview consistency
 
-## Role Discipline
-Claude Code handles execution only.
+## Footer Standard (All Pages)
 
-Do not invent product strategy.
-Do not redesign core UX unless specifically instructed.
-Do not alter clinical logic unless explicitly asked.
+Line 1: "MyoGuard Protocol · Physician-led Clinical Decision Support"
+Line 2: "© 2026 Meridian Wellness Systems LLC · myoguard.health"
+Line 3: "Built for the global GLP-1 prescribing community"
 
-## Protected Areas
-Do not modify unless specifically instructed:
-- `protocolEngine.ts`
-- assessment logic
-- Prisma schema
-- auth / middleware / Clerk flows
-- Stripe / billing logic
-- referral / preload logic
+## Deployment Philosophy
 
-## Coding Standards
-- Inspect existing architecture before editing.
-- Use Next.js App Router conventions.
-- Prefer Metadata API for SEO.
-- Keep components modular.
-- Avoid destructive edits.
-- Preserve Midnight Silk branding.
-- Explain all file changes clearly.
-- Run build/type check after changes where appropriate.
-
-## Current Priorities
-1. SEO metadata audit and implementation
-2. Production cleanup
-3. Route consistency
-4. Public route hardening
-5. Physician onboarding polish
-6. Mobile optimization
-7. Stripe production readiness
-
-## Output Requirement
-After each task, report:
-1. Files created
-2. Files modified
-3. What changed
-4. What was not touched
-5. Build result
+* One targeted prompt per deployment
+* Diagnose before writing code
+* Build must be clean before commit
+* No destructive changes without explicit approval
+* Test on mobile (iPhone) after every deploy
