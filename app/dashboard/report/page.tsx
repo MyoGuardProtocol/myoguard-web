@@ -3,6 +3,8 @@ import { redirect }              from 'next/navigation';
 import Link                      from 'next/link';
 import { prisma }                from '@/src/lib/prisma';
 import { generateWeeklyDigest }  from '@/src/lib/weeklyDigest';
+import AnalyticsMount            from '@/src/components/analytics/AnalyticsMount';
+import { AnalyticsEvents }       from '@/src/lib/posthog';
 import {
   buildInterpretation,
   buildSuggestedActions,
@@ -372,6 +374,7 @@ export default async function ReportPage() {
       fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
       color: '#F1F5F9' }}>
 
+      <AnalyticsMount event={AnalyticsEvents.REPORT_VIEWED} />
       {/* NAV */}
       <DarkNav />
 

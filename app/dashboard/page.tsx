@@ -5,6 +5,8 @@ import SanctuaryScoreOrb from '@/src/components/ui/SanctuaryScoreOrb';
 import ReferralSync  from '@/src/components/ui/ReferralSync';
 import PreloadSync   from '@/src/components/ui/PreloadSync';
 import PatientAvatar from '@/src/components/ui/PatientAvatar';
+import AnalyticsMount from '@/src/components/analytics/AnalyticsMount';
+import { AnalyticsEvents } from '@/src/lib/posthog';
 
 function longDate(d: Date): string {
   return d.toLocaleDateString('en-GB', {
@@ -75,6 +77,7 @@ export default async function PatientDashboardPage() {
       fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
       <ReferralSync />
       <PreloadSync />
+      <AnalyticsMount event={AnalyticsEvents.DASHBOARD_OPENED} />
 
       {/* NAV BAR */}
       <nav style={{

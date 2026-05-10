@@ -1,6 +1,8 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
+import posthog from "posthog-js";
+import { isAnalyticsEnabled, AnalyticsEvents } from "@/src/lib/posthog";
 
 const GLP1_DRUGS = [
   { label: "Semaglutide 0.25 mg/wk — initiation (Ozempic)", value: 0.25, max: 2.4 },
@@ -117,6 +119,10 @@ export default function HomePage() {
   const [submitted, setSubmitted] = useState(false);
   const [formError, setFormError] = useState("");
 
+  useEffect(() => {
+    if (isAnalyticsEnabled) posthog.capture(AnalyticsEvents.LANDING_PAGE_VIEWED);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   function handleCalculate() {
     setFormError("");
     if (!disclaimerChecked) {
@@ -164,7 +170,11 @@ export default function HomePage() {
     const leanScore  = computeLeanMassScore(w, p, drug.value, drug.max, giPenalty, actBonus);
     const recoveryScore = computeRecoveryScore(sleepHours);
     const composite  = leanScore;
-    setResult({ leanScore, recoveryScore, composite, risk: getRisk(composite) });
+    const risk = getRisk(composite);
+    setResult({ leanScore, recoveryScore, composite, risk });
+    if (isAnalyticsEnabled) {
+      posthog.capture(AnalyticsEvents.SRI_GENERATED, { risk_band: risk });
+    }
   }
 
   async function handleEmailSubmit() {
@@ -267,7 +277,11 @@ export default function HomePage() {
             </a>
             <p className="text-[13px] text-slate-400 text-center mt-2">
               New to MyoGuard?{" "}
-              <a href="/sign-up" className="text-teal-400 font-medium underline underline-offset-2">
+              <a
+                href="/sign-up"
+                className="text-teal-400 font-medium underline underline-offset-2"
+                onClick={() => { if (isAnalyticsEnabled) posthog.capture(AnalyticsEvents.GET_STARTED_CLICKED, { location: "hero" }); }}
+              >
                 Create your free account →
               </a>
             </p>
@@ -749,6 +763,7 @@ export default function HomePage() {
                     </p>
                     <a
                       href="/sign-up"
+                      onClick={() => { if (isAnalyticsEnabled) posthog.capture(AnalyticsEvents.GET_STARTED_CLICKED, { location: "results_cta" }); }}
                       style={{
                         display: 'block',
                         background: '#2DD4BF',
@@ -854,7 +869,11 @@ export default function HomePage() {
                       </svg>
                     </button>
                     <div className="flex items-center justify-center gap-4">
-                      <a href="/sign-up" className="text-xs text-teal-400 hover:underline">
+                      <a
+                        href="/sign-up"
+                        className="text-xs text-teal-400 hover:underline"
+                        onClick={() => { if (isAnalyticsEnabled) posthog.capture(AnalyticsEvents.GET_STARTED_CLICKED, { location: "email_gate" }); }}
+                      >
                         Create free account instead →
                       </a>
                       <span className="text-slate-600 text-xs">·</span>

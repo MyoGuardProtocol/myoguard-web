@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/src/lib/prisma';
+import { POSTHOG_KEY, POSTHOG_HOST, AnalyticsEvents } from '@/src/lib/posthog';
 
 const APP_URL =
   (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '') ||
@@ -36,6 +37,22 @@ export async function GET(
   if (!doctor) {
     // Unknown or invalid doctor — send to root rather than 404ing
     return NextResponse.redirect(new URL('/', APP_URL));
+  }
+
+  // Fire analytics event (fire-and-forget — does not block the redirect).
+  if (POSTHOG_KEY) {
+    const via = _req.nextUrl.searchParams.get('via');
+    const event = via === 'qr' ? AnalyticsEvents.QR_REFERRAL_OPENED : AnalyticsEvents.REFERRAL_LINK_OPENED;
+    void fetch(`${POSTHOG_HOST}/capture/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        api_key:     POSTHOG_KEY,
+        event,
+        distinct_id: 'anonymous',
+        properties:  { doctor_id: doctor.id },
+      }),
+    }).catch(() => {});
   }
 
   // Always store the canonical User.id in the cookie, regardless of

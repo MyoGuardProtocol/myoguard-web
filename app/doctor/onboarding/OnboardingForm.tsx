@@ -2,6 +2,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
+import posthog from "posthog-js";
+import { isAnalyticsEnabled, AnalyticsEvents } from "@/src/lib/posthog";
 
 const SPECIALTY_SUGGESTIONS = [
   "Internal Medicine",
@@ -127,6 +129,10 @@ export default function OnboardingForm() {
     };
   }, [form.npi, internationalProvider]);
 
+  useEffect(() => {
+    if (isAnalyticsEnabled) posthog.capture(AnalyticsEvents.PHYSICIAN_APPLICATION_STARTED);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   function handleChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) {
@@ -163,6 +169,7 @@ export default function OnboardingForm() {
         }),
       });
       if (!res.ok) throw new Error("Submission failed");
+      if (isAnalyticsEnabled) posthog.capture(AnalyticsEvents.PHYSICIAN_APPLICATION_SUBMITTED);
       router.push("/doctor/onboarding/pending");
     } catch {
       setError("Something went wrong. Please try again.");

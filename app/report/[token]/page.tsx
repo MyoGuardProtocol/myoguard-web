@@ -20,6 +20,8 @@ import { notFound }             from 'next/navigation';
 import Link                     from 'next/link';
 import { prisma }               from '@/src/lib/prisma';
 import { generateWeeklyDigest } from '@/src/lib/weeklyDigest';
+import AnalyticsMount           from '@/src/components/analytics/AnalyticsMount';
+import { AnalyticsEvents }      from '@/src/lib/posthog';
 import {
   BAND_LIGHT,
   buildInterpretation,
@@ -185,6 +187,7 @@ export default async function PublicReportPage({
 
   return (
     <main className="min-h-screen bg-slate-100 font-sans">
+      <AnalyticsMount event={AnalyticsEvents.REPORT_VIEWED} properties={{ context: "shared_token" }} />
 
       {/* ── Attribution banner (screen only) ── */}
       <div className="print:hidden bg-teal-700 text-white px-5 py-3">
