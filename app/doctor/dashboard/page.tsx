@@ -143,6 +143,9 @@ export default async function DoctorDashboardPage() {
             <p style={{ fontSize: '14px', color: '#64748B' }}>
               Your physician account is verified and active.
             </p>
+            <p style={{ fontSize: '12px', color: '#334155', marginTop: '4px' }}>
+              Physician-led Clinical Decision Support · All clinical decisions remain with the treating physician.
+            </p>
           </div>
 
           <div style={{
@@ -209,8 +212,7 @@ export default async function DoctorDashboardPage() {
             </h1>
             <p style={{ fontSize: '14px', color: '#64748B', lineHeight: '1.6' }}>
               {user.fullName ? `Thank you, ${user.fullName}.` : 'Thank you.'}{' '}
-              Your physician account has been submitted and is under review.
-              We verify all accounts within <strong style={{ color: '#94A3B8' }}>24 hours</strong>.
+              Your physician application has been submitted and is currently under review by our clinical team. Applications are typically approved within <strong style={{ color: '#94A3B8' }}>24 hours</strong>.
             </p>
           </div>
 
@@ -224,7 +226,7 @@ export default async function DoctorDashboardPage() {
               What happens next
             </p>
             {[
-              'Our team will verify your credentials',
+              'Our clinical team will review and verify your credentials',
               'You\'ll receive a confirmation email once approved',
               'Full patient dashboard access will be unlocked',
             ].map((item, i) => (
@@ -244,7 +246,7 @@ export default async function DoctorDashboardPage() {
           </div>
 
           <a
-            href="mailto:hello@myoguard.health?subject=Physician%20Account%20Verification"
+            href="mailto:support@myoguard.health?subject=Physician%20Account%20Verification"
             style={{ display: 'inline-flex', alignItems: 'center', gap: '6px',
               fontSize: '13px', color: '#2DD4BF', textDecoration: 'none',
               justifyContent: 'center' }}
@@ -252,8 +254,11 @@ export default async function DoctorDashboardPage() {
             <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
             </svg>
-            Contact us to expedite verification
+            Questions? Contact us at support@myoguard.health
           </a>
+          <p style={{ fontSize: '11px', color: '#334155', marginTop: '4px' }}>
+            MyoGuard Protocol is a Physician-led Clinical Decision Support (CDS) platform. All clinical decisions remain with the treating physician.
+          </p>
         </div>
 
         {/* Submitted profile summary */}

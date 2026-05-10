@@ -1,56 +1,113 @@
 export default function PhysicianPendingPage() {
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center px-4">
-      <div className="max-w-md w-full flex flex-col gap-5 text-center">
+    <div
+      className="min-h-screen flex items-center justify-center px-4 py-12"
+      style={{ background: '#080C14', fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}
+    >
+      <div className="w-full max-w-md">
 
         {/* Logo */}
-        <div className="flex items-center justify-center gap-1">
-          <span className="text-xl font-bold text-slate-900">Myo</span>
-          <span className="text-xl font-bold text-teal-600">Guard</span>
+        <div className="flex items-center justify-center mb-8">
+          <span style={{
+            fontSize: '20px', fontWeight: '900',
+            letterSpacing: '-0.03em', color: '#F8FAFC',
+          }}>
+            Myo<span style={{ color: '#2DD4BF' }}>Guard</span>
+          </span>
+          <span style={{ color: '#475569', fontWeight: '300', fontSize: '13px', marginLeft: '4px' }}>
+            Protocol
+          </span>
         </div>
 
-        {/* Icon */}
-        <div className="w-14 h-14 rounded-full bg-teal-50 border border-teal-100 flex items-center justify-center mx-auto">
-          <svg className="w-7 h-7 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
-          </svg>
-        </div>
-
-        {/* Heading */}
-        <div className="flex flex-col gap-1">
-          <h1 className="text-xl font-semibold text-slate-900">Application under review</h1>
-          <p className="text-sm text-slate-500 leading-relaxed">
-            Our clinical team reviews all credentials within{" "}
-            <strong className="text-slate-700">6–24 hours</strong>. You will receive an
-            activation email once approved.
-          </p>
-        </div>
-
-        {/* Amber info box */}
-        <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 text-left">
-          <p className="text-xs font-semibold text-amber-700 mb-1">While you wait</p>
-          <p className="text-xs text-amber-600 leading-relaxed">
-            You can explore the MyoGuard assessment as a patient to see what your future
-            patients will experience.
-          </p>
-        </div>
-
-        {/* CTA */}
-        <a
-          href="/"
-          className="w-full bg-teal-600 text-white py-3 rounded-xl text-sm font-medium hover:bg-teal-700 transition-colors text-center"
+        {/* Card */}
+        <div
+          className="flex flex-col gap-6 text-center p-6 sm:p-10"
+          style={{ background: '#0D1421', border: '1px solid #1A2744', borderRadius: '20px' }}
         >
-          Try the assessment
-        </a>
 
-        {/* Contact */}
-        <p className="text-xs text-slate-400">
-          Questions?{" "}
-          <a href="mailto:docb@myoguard.health" className="text-teal-600 hover:underline">
-            docb@myoguard.health
+          {/* Clock icon */}
+          <div
+            className="w-14 h-14 rounded-full flex items-center justify-center mx-auto flex-shrink-0"
+            style={{
+              background: 'rgba(45,212,191,0.08)',
+              border: '1px solid rgba(45,212,191,0.2)',
+            }}
+          >
+            <svg
+              className="w-7 h-7"
+              style={{ color: '#2DD4BF' }}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={1.5}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
+            </svg>
+          </div>
+
+          {/* Heading + body */}
+          <div className="flex flex-col gap-2">
+            <h1 style={{
+              fontFamily: 'Georgia, serif',
+              fontSize: '22px', fontWeight: '400',
+              color: '#F1F5F9', lineHeight: '1.3',
+            }}>
+              Application under review
+            </h1>
+            <p style={{ fontSize: '14px', color: '#94A3B8', lineHeight: '1.7' }}>
+              Applications are typically reviewed within{' '}
+              <strong style={{ color: '#F1F5F9', fontWeight: '600' }}>24 hours</strong>.
+              {' '}Your credentials are reviewed by our clinical team. You will receive an
+              activation email once your account is approved.
+            </p>
+          </div>
+
+          {/* Info box — dark surface, consistent with dashboard pattern */}
+          <div
+            className="text-left"
+            style={{
+              background: '#060D1E',
+              border: '1px solid #1A2744',
+              borderRadius: '12px',
+              padding: '16px',
+            }}
+          >
+            <p style={{
+              fontSize: '11px', fontWeight: '600',
+              color: '#475569', textTransform: 'uppercase',
+              letterSpacing: '0.08em', marginBottom: '8px',
+            }}>
+              While you wait
+            </p>
+            <p style={{ fontSize: '13px', color: '#64748B', lineHeight: '1.6' }}>
+              You can explore the Sarcopenia Risk Index (SRI) assessment as a patient to see
+              what your future patients will experience. MyoGuard Protocol is a Physician-led
+              Clinical Decision Support (CDS) platform — all clinical decisions remain with
+              the treating physician.
+            </p>
+          </div>
+
+          {/* CTA */}
+          <a
+            href="/"
+            className="w-full bg-teal-500 hover:bg-teal-400 text-white py-3 rounded-xl text-sm font-semibold transition-colors text-center block"
+          >
+            Try the assessment
           </a>
-        </p>
 
+          {/* Support contact */}
+          <p style={{ fontSize: '12px', color: '#64748B' }}>
+            Questions? Contact us at{' '}
+            <a
+              href="mailto:support@myoguard.health"
+              className="hover:underline"
+              style={{ color: '#2DD4BF' }}
+            >
+              support@myoguard.health
+            </a>
+          </p>
+
+        </div>
       </div>
     </div>
   );

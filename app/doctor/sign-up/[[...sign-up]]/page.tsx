@@ -228,6 +228,7 @@ export default function PhysicianSignUpPage() {
           <span className="inline-flex items-center gap-1.5 bg-slate-800 border border-slate-700 text-teal-400 text-xs font-medium px-3 py-1.5 rounded-full">
             Physician Registration
           </span>
+          <span className="text-xs text-slate-500">Physician-led Clinical Decision Support</span>
         </div>
 
         {/* Card */}
@@ -235,10 +236,13 @@ export default function PhysicianSignUpPage() {
 
           <div className="mb-6">
             <h1 className="text-xl font-semibold text-white mb-1">
-              Clinical Command Center Access
+              Physician Credential Registration
             </h1>
             <p className="text-sm text-slate-400 leading-relaxed">
-              Complete your registration. Your credentials will be reviewed within 6–24 hours.
+              Complete your registration to access the MyoGuard Protocol platform. Your credentials will be reviewed within 24 hours.
+            </p>
+            <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+              MyoGuard Protocol is a Clinical Decision Support (CDS) platform. All clinical decisions remain with the treating physician.
             </p>
           </div>
 
@@ -492,6 +496,12 @@ export default function PhysicianSignUpPage() {
             <Link href="/" className="text-sm text-slate-500 hover:text-slate-300 transition-colors">
               Patient? Start your free assessment →
             </Link>
+            <p className="text-xs text-slate-600 mt-1">
+              Questions?{" "}
+              <a href="mailto:support@myoguard.health" className="text-teal-400 hover:underline">
+                support@myoguard.health
+              </a>
+            </p>
           </div>
 
         </div>
