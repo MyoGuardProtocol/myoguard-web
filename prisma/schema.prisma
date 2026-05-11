@@ -378,3 +378,270 @@ enum NotificationType {
   PAYMENT_CONFIRMED
   WELCOME
 }
+
+// ─── Observational Study Infrastructure ────────────────────────────────────
+// Phase: Research-Ready Architecture
+// All models below are additive — no existing tables or enums are modified.
+//
+// Relation strategy: references to existing models (User, Assessment) use plain
+// scalar String fields with no @relation directive. This preserves zero-touch on
+// existing clinical models and passes prisma validate without back-relations.
+// Application code must verify existence of referenced IDs before writes.
+//
+// Terminology rules (non-negotiable, CLAUDE.md):
+//   "Sarcopenia Risk Index (SRI)" — never "calculator", never bare "score"
+//   "generate" / "generated" — never "calculate" / "calculated"
+//   sriScore — internal research field; never exposed in UI; never sent to PostHog
+//   Export column label: "sri_value_internal" in CSV / statistical output files
+// ───────────────────────────────────────────────────────────────────────────
+
+/// Lifecycle state of a named observational study.
+enum StudyStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+  ARCHIVED
+}
+
+/// Lifecycle state of a patient's enrollment in a specific study.
+enum EnrollmentStatus {
+  ACTIVE
+  WITHDRAWN
+  COMPLETED
+}
+
+/// Structured event types for the research audit trail.
+/// AuditLog (existing) handles system/compliance events.
+/// StudyEventLog handles research workflow milestones.
+enum StudyEventType {
+  ENROLLMENT
+  REASSESSMENT
+  PROTOCOL_MODIFICATION
+  PHYSICIAN_REVIEW
+  ADHERENCE_CHECKPOINT
+  WITHDRAWAL
+}
+
+/// A named physician-led observational study.
+/// Anchors cohort grouping, enrollment management, and research event logging.
+model Study {
+  id          String      @id @default(cuid())
+  title       String
+  /// URL-safe unique identifier — e.g., "glp1-sarcopenia-2026".
+  slug        String      @unique
+  description String?
+  status      StudyStatus @default(DRAFT)
+
+  /// User.id of the creating physician.
+  /// Plain scalar — no @relation (zero-touch on existing User model).
+  /// Always User.id — never clerkId, referralSlug, referralCode, or physicianClerkId.
+  /// Application must verify: (a) User exists, (b) User.role = PHYSICIAN.
+  createdById String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  enrollments StudyEnrollment[]
+  eventLog    StudyEventLog[]
+
+  @@index([createdById])
+  @@index([status])
+}
+
+/// Links a patient to a named observational study under a specific physician.
+/// researchParticipantId is the sole export-safe patient identifier.
+/// patientId is internal — excluded from all research exports and publication.
+model StudyEnrollment {
+  id      String @id @default(cuid())
+  studyId String
+  study   Study  @relation(fields: [studyId], references: [id])
+
+  /// User.id of the enrolled patient.
+  /// Plain scalar — no @relation (zero-touch on existing User model).
+  /// NEVER included in research exports or publication datasets.
+  /// Application must verify User exists and User.researchConsent = true.
+  patientId String
+
+  /// User.id of the responsible physician.
+  /// Plain scalar — no @relation (zero-touch on existing User model).
+  /// Always User.id — never clerkId, referralSlug, referralCode, or physicianClerkId.
+  /// Application must verify User exists and User.role = PHYSICIAN.
+  physicianId String
+
+  enrolledAt     DateTime         @default(now())
+  /// Stamped when the patient's StudyConsent record is first created.
+  consentedAt    DateTime?
+  status         EnrollmentStatus @default(ACTIVE)
+  /// Set when status transitions to WITHDRAWN. Previously collected snapshots are preserved.
+  withdrawalDate DateTime?
+
+  /// Optional free-form cohort segmentation label within a study.
+  /// Examples: "GLP-1 Initiation", "Dose Escalation Q3-2026"
+  cohortLabel String?
+
+  /// UUID v4 — the sole patient identifier in all research exports and publications.
+  /// Generated at enrollment; never updated. Non-sequential; non-reversible to patientId.
+  /// Compatible with R, SPSS, Python, and CSV statistical workflows.
+  researchParticipantId String @unique @default(uuid())
+
+  consents  StudyConsent[]
+  snapshots AssessmentSnapshot[]
+  eventLog  StudyEventLog[]
+
+  /// Prevents double-enrollment of the same patient in the same study.
+  @@unique([studyId, patientId])
+  @@index([patientId])
+  @@index([physicianId])
+  @@index([studyId, status])
+}
+
+/// Records a patient's data-use consent for a specific study enrollment.
+/// Multiple records per enrollment are allowed — operative consent is the latest signedAt.
+/// Does not replace User.researchConsent (general data-use prerequisite).
+///
+/// Required UI positioning: "MyoGuard Protocol is a physician-led Clinical Decision
+/// Support (CDS) platform. Participation in observational data collection is voluntary
+/// and does not affect your clinical care."
+model StudyConsent {
+  id           String          @id @default(cuid())
+  enrollmentId String
+  enrollment   StudyEnrollment @relation(fields: [enrollmentId], references: [id])
+
+  /// Semantic version of the consent text at signing time — e.g., "1.0", "1.1".
+  /// Application gate compares against minimum required version.
+  /// Null User.consentVersion is treated as "0.0" in application gate logic only.
+  consentVersion String
+
+  /// Full verbatim text of the consent document at signing time.
+  /// Immutable after creation — legal record of what the patient agreed to.
+  consentTextSnapshot String
+
+  /// Optional IP address for consent provenance. Excluded from all research exports.
+  ipAddress String?
+
+  signedAt DateTime @default(now())
+
+  @@index([enrollmentId])
+}
+
+/// Immutable research-safe snapshot of a clinical assessment at point-in-time capture.
+/// Created non-blocking (fire-and-forget) after Assessment creation when the patient
+/// has an ACTIVE StudyEnrollment with a valid operative StudyConsent.
+/// Assessment creation always succeeds even if snapshot creation fails.
+///
+/// Immutability contract: records are NEVER updated after creation.
+/// Corrections require a new Assessment (new snapshot) with a PROTOCOL_MODIFICATION
+/// entry in StudyEventLog documenting the reason.
+///
+/// sriScore: internal research value only.
+///   1. Never surfaced in patient-facing or physician-facing UI.
+///   2. Never transmitted to PostHog or any external analytics provider.
+///   3. Export column header must be "sri_value_internal".
+model AssessmentSnapshot {
+  id String @id @default(cuid())
+
+  /// Assessment.id of the source clinical record.
+  /// Plain scalar — no @relation (zero-touch on existing Assessment model).
+  /// Application must verify Assessment exists before snapshot creation.
+  assessmentId String
+
+  /// Required: every snapshot belongs to an active StudyEnrollment.
+  /// Non-nullable — no orphan/context-free snapshots in this phase.
+  enrollmentId String
+  enrollment   StudyEnrollment @relation(fields: [enrollmentId], references: [id])
+
+  /// SRI risk band at snapshot time.
+  sriBand RiskBand
+
+  /// SRI numeric output (0–100) at snapshot time. Internal research value only.
+  /// Used for regression, trajectory, cohort means, and SD in statistical analysis.
+  /// See immutability contract above for exposure rules.
+  sriScore Float
+
+  /// Prescribed protein target (g/day) from MuscleScore at snapshot time.
+  proteinTargetG Float
+
+  /// Prescribed hydration target (litres/day) from ProtocolPlan at snapshot time.
+  hydrationTargetL Float
+
+  /// Patient activity status at assessment time. Stored as String to preserve
+  /// historical value if ActivityLevel enum changes in future.
+  activityStatus String
+
+  /// Symptom array at snapshot time. Structured codes only — no free-text PHI.
+  symptoms Json
+
+  /// GI tolerance from MuscleScore.giSeverity: none | mild | moderate | severe
+  giTolerance String?
+
+  /// Self-reported sleep quality (1 = Very poor, 5 = Excellent).
+  sleepQuality Int?
+
+  /// Hand-grip dynamometer reading (kg). Sparse — not required at assessment time.
+  gripStrengthKg Float?
+
+  /// GLP-1 treatment stage at assessment time. Stored as String to preserve
+  /// historical value if Glp1Stage enum changes in future.
+  glp1Stage String?
+
+  /// Patient weight (kg) at assessment time.
+  /// Quasi-identifier: export layer must bucket (e.g., 5 kg bands) in publication
+  /// datasets when combined with age and sex to reduce re-identification risk.
+  weightKg Float
+
+  /// Timestamp of snapshot creation. May differ from Assessment.assessmentDate
+  /// if snapshot creation is delayed in a fire-and-forget retry scenario.
+  snapshotDate DateTime @default(now())
+
+  /// One snapshot per (assessment, enrollment) pair. Both fields non-nullable:
+  /// constraint is unambiguous with no NULL edge cases.
+  @@unique([assessmentId, enrollmentId])
+  @@index([enrollmentId])
+  @@index([assessmentId])
+}
+
+/// Structured research audit trail for observational study milestones.
+/// Distinct from AuditLog (system/compliance events).
+/// Append-only by convention: no updates, no deletes.
+///
+/// eventData Json key naming (non-negotiable):
+///   "sri_band" not "score" | "sri_value_internal" not "sriScore" in event payloads
+///   "generated" not "calculated" | no PHI values (no names, emails, direct IDs)
+model StudyEventLog {
+  id      String @id @default(cuid())
+  studyId String
+  study   Study  @relation(fields: [studyId], references: [id])
+
+  /// Nullable: supports study-level events (e.g., study status change) without
+  /// a specific enrollment context.
+  enrollmentId String?
+  enrollment   StudyEnrollment? @relation(fields: [enrollmentId], references: [id])
+
+  /// Internal patient identifier for physician-facing audit queries.
+  /// Plain scalar — no @relation (zero-touch on existing User model).
+  /// NEVER included in research exports or publication datasets.
+  patientId String?
+
+  eventType StudyEventType
+
+  /// Structured event payload — no PHI. Per-eventType key conventions:
+  ///   ENROLLMENT            → { cohort_label, consent_version }
+  ///   REASSESSMENT          → { sri_band, sri_value_internal, interval_days }
+  ///   PROTOCOL_MODIFICATION → { field_modified, reason }
+  ///   PHYSICIAN_REVIEW      → { overall_impression, follow_up_days }
+  ///   ADHERENCE_CHECKPOINT  → { protein_adherence, exercise_adherence, recovery_status }
+  ///   WITHDRAWAL            → { reason, initiated_by }
+  eventData Json?
+
+  recordedAt DateTime @default(now())
+
+  /// User.id of the recording actor (physician or system).
+  /// Plain scalar — no @relation (zero-touch on existing User model).
+  /// Always User.id — never clerkId.
+  recordedBy String
+
+  @@index([studyId])
+  @@index([enrollmentId])
+  @@index([studyId, eventType])
+  @@index([recordedAt])
+}
