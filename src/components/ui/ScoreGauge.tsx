@@ -42,7 +42,7 @@ const BAND_CONFIG: Record<string, {
     trackFill:   'rgba(251,146,60,0.12)',
     glowClass:   'gauge-glow-high',
     labelColour: '#FDBA74',
-    label:       'High Risk',
+    label:       'Elevated SRI Risk',
   },
   CRITICAL: {
     stroke:      '#F43F5E',               // rose-500

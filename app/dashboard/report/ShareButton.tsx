@@ -3,9 +3,16 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import QRCode from 'react-qr-code';
 
-// ─── Prefilled message sent to the physician ─────────────────────────────────
-const PREFILL =
-  'My MyoGuard muscle preservation report. Please review before my next GLP-1 dose.';
+// ─── Share message templates ──────────────────────────────────────────────────
+const WHATSAPP_MSG =
+  "Hi Doctor, I've generated my MyoGuard SRI summary and wanted to share it with you for review.";
+
+const EMAIL_SUBJECT = 'My MyoGuard Protocol Summary — for clinical review';
+
+const EMAIL_BODY =
+  "I'm sharing my MyoGuard Protocol summary with you as my treating physician.\n\n" +
+  'MyoGuard is a physician-led Clinical Decision Support (CDS) platform designed to support muscle-preservation awareness during GLP-1 therapy.\n\n' +
+  'This summary is intended for your clinical review.';
 
 // ─── sessionStorage key for consent (persists within the browser tab session) ─
 const CONSENT_KEY = 'myoguard_share_consent';
@@ -88,14 +95,14 @@ export default function ShareButton({ physicianLinked = false, physicianName = n
 
   const shareWhatsApp = () => {
     if (!consented) return;
-    const text = encodeURIComponent(`${PREFILL}\n\n${shareUrl}`);
+    const text = encodeURIComponent(`${WHATSAPP_MSG}\n\n${shareUrl}`);
     window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener,noreferrer');
   };
 
   const shareEmail = () => {
     if (!consented) return;
-    const subject = encodeURIComponent('MyoGuard Physician Report');
-    const body    = encodeURIComponent(`${PREFILL}\n\n${shareUrl}`);
+    const subject = encodeURIComponent(EMAIL_SUBJECT);
+    const body    = encodeURIComponent(`${EMAIL_BODY}\n\n${shareUrl}`);
     window.location.href = `mailto:?subject=${subject}&body=${body}`;
   };
 
@@ -213,9 +220,14 @@ export default function ShareButton({ physicianLinked = false, physicianName = n
                   Message included
                 </p>
                 <p className="text-xs text-slate-700 italic leading-relaxed">
-                  &ldquo;{PREFILL}&rdquo;
+                  &ldquo;{WHATSAPP_MSG}&rdquo;
                 </p>
               </div>
+
+              {/* ── Share authorisation notice ── */}
+              <p className="text-[11px] text-slate-500 leading-relaxed border border-slate-200 rounded-lg px-3 py-2.5 bg-slate-50">
+                By sharing, you authorise MyoGuard to generate a physician-formatted summary of your SRI data for clinical review.
+              </p>
 
               {/* ── Consent checkbox ── */}
               {/*

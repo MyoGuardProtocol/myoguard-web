@@ -190,16 +190,17 @@ export default async function PublicReportPage({
       <AnalyticsMount event={AnalyticsEvents.REPORT_VIEWED} properties={{ context: "shared_token" }} />
 
       {/* ── Attribution banner (screen only) ── */}
-      <div className="print:hidden bg-teal-700 text-white px-5 py-3">
+      <div className="print:hidden px-5 py-3" style={{ background: '#0D1421', borderBottom: '1px solid #1A2744' }}>
         <div className="max-w-3xl mx-auto flex items-center justify-between gap-4">
-          <p className="text-xs leading-snug">
+          <p className="text-xs leading-snug" style={{ color: '#94A3B8' }}>
             <span className="font-semibold">MyoGuard Physician Report</span>
             {' '}— shared by {user.fullName} on {shortDate(card.createdAt)}.
             This link always reflects their most recent assessment data.
           </p>
           <Link
             href="/"
-            className="flex-shrink-0 text-xs font-semibold text-teal-200 hover:text-white transition-colors underline"
+            className="flex-shrink-0 text-xs font-semibold transition-colors"
+            style={{ color: '#94A3B8' }}
           >
             myoguard.health
           </Link>
@@ -263,6 +264,9 @@ export default async function PublicReportPage({
                     <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />
                     {meta.label}
                   </span>
+                  {band === 'HIGH' && (
+                    <span className="text-[11px] font-medium text-orange-600">Physician review recommended</span>
+                  )}
                   <span className="text-xs font-semibold text-slate-600 tabular-nums">
                     {ms.leanLossEstPct}% estimated lean mass loss risk
                   </span>
@@ -345,10 +349,10 @@ export default async function PublicReportPage({
             </section>
           )}
 
-          {/* ── Clinical Interpretation ── */}
+          {/* ── Clinical Support Summary ── */}
           <section>
             <h2 className="text-[10px] font-bold text-teal-700 uppercase tracking-[0.18em] mb-3">
-              Clinical Interpretation
+              Clinical Support Summary
             </h2>
             <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100">
 
@@ -370,9 +374,9 @@ export default async function PublicReportPage({
                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2.5">
                     30-Day Lean Mass Projection
                   </p>
-                  <p className={`text-2xl font-black tabular-nums leading-tight mb-1 ${meta.colour}`}>
+                  <p className="text-base font-medium tabular-nums leading-tight mb-1" style={{ color: '#94A3B8' }}>
                     {ms.leanLossEstPct}%
-                    <span className="text-sm font-normal text-slate-500 ml-1">lean loss risk</span>
+                    <span className="text-sm font-normal ml-1">lean loss risk</span>
                   </p>
                   <p className="text-xs text-slate-600 leading-relaxed">
                     {interp.leanMassProjection.split('. ').slice(1).join('. ')}

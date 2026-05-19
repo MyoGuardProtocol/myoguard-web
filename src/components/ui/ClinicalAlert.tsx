@@ -17,9 +17,10 @@
 type Band = 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL';
 
 type Props = {
-  band:        Band;
-  leanLossPct: number;
-  message:     string;
+  band:          Band;
+  leanLossPct:   number;
+  message:       string;
+  patientFacing?: boolean;
 };
 
 // ─── Band config ──────────────────────────────────────────────────────────────
@@ -52,7 +53,7 @@ const BAND_CFG: Record<Band, {
     severityBar:  '#FB923C',
     severityPct:  75,
     headerLabel:  'Medical Action Required',
-    badgeText:    'HIGH RISK',
+    badgeText:    'ELEVATED SRI RISK',
     icon: 'M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z',
   },
   MODERATE: {
@@ -79,8 +80,11 @@ const BAND_CFG: Record<Band, {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function ClinicalAlert({ band, leanLossPct, message }: Props) {
+export default function ClinicalAlert({ band, leanLossPct, message, patientFacing }: Props) {
   const cfg = BAND_CFG[band];
+  const headerLabel = patientFacing && band === 'HIGH'
+    ? 'Physician Review Recommended'
+    : cfg.headerLabel;
 
   return (
     <div className={`rounded-2xl overflow-hidden ${cfg.alertClass}`}>
@@ -117,7 +121,7 @@ export default function ClinicalAlert({ band, leanLossPct, message }: Props) {
             {/* Severity indicator dot — pulses on CRITICAL */}
             {(band === 'CRITICAL' || band === 'HIGH') && (
               <span
-                className={`inline-block w-1.5 h-1.5 rounded-full ${band === 'CRITICAL' ? 'animate-pulse' : ''}`}
+                className={`inline-block w-1.5 h-1.5 rounded-full ${band === 'CRITICAL' && !patientFacing ? 'animate-pulse' : ''}`}
                 style={{ background: cfg.accentColour }}
               />
             )}
@@ -126,7 +130,7 @@ export default function ClinicalAlert({ band, leanLossPct, message }: Props) {
             className="text-sm font-semibold leading-snug"
             style={{ color: cfg.headerColour }}
           >
-            {cfg.headerLabel}
+            {headerLabel}
           </p>
         </div>
       </div>

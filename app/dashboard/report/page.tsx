@@ -86,10 +86,10 @@ const STAGE_LABEL: Record<string, string> = {
 // □ Report status strip shows correct live state for all three indicators on first load
 
 // ─── Dark band display helper ─────────────────────────────────────────────────
-function darkBand(b: string): { label: string; color: string; bg: string; border: string } {
-  if (b === 'LOW')      return { label: 'Low Risk',      color: '#2DD4BF', bg: 'rgba(45,212,191,0.1)',   border: 'rgba(45,212,191,0.3)'   };
-  if (b === 'MODERATE') return { label: 'Moderate Risk', color: '#F59E0B', bg: 'rgba(245,158,11,0.1)',  border: 'rgba(245,158,11,0.3)'  };
-  return                       { label: 'High Risk',     color: '#FB7185', bg: 'rgba(248,113,113,0.1)', border: 'rgba(248,113,113,0.3)' };
+function darkBand(b: string): { label: string; subtitle: string | null; color: string; bg: string; border: string } {
+  if (b === 'LOW')      return { label: 'Low Risk',          subtitle: null,                           color: '#2DD4BF', bg: 'rgba(45,212,191,0.1)',   border: 'rgba(45,212,191,0.3)'   };
+  if (b === 'MODERATE') return { label: 'Moderate Risk',     subtitle: null,                           color: '#F59E0B', bg: 'rgba(245,158,11,0.1)',  border: 'rgba(245,158,11,0.3)'  };
+  return                       { label: 'Elevated SRI Risk', subtitle: 'Physician review recommended', color: '#FB7185', bg: 'rgba(248,113,113,0.1)', border: 'rgba(248,113,113,0.3)' };
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -535,6 +535,11 @@ export default async function ReportPage() {
                       borderRadius: '50%', background: db.color }} />
                     {db.label}
                   </span>
+                  {db.subtitle && (
+                    <span style={{ fontSize: '11px', fontWeight: '500', color: '#94A3B8' }}>
+                      {db.subtitle}
+                    </span>
+                  )}
                   {false && (
                   <span style={{ fontSize: '12px', fontWeight: '600', color: '#94A3B8' }}>
                     {ms.leanLossEstPct}% estimated lean mass loss risk
@@ -615,7 +620,7 @@ export default async function ReportPage() {
                 ? 'Your muscle protection is on track. Keep hitting your protein target and maintaining your activity — your body is responding well.'
                 : ms.score >= 50
                 ? 'Your muscle protection needs some attention. Focus on your daily protein target — this is the most important action you can take right now.'
-                : 'Your muscle protection needs immediate attention. Speak with your physician about adjusting your protocol.'
+                : 'Your current SRI pattern suggests elevated muscle-preservation risk. Discussion with your physician is recommended.'
               }
             </p>
             <div style={{
@@ -743,10 +748,10 @@ export default async function ReportPage() {
           )}
 
           {/* ══════════════════════════════════════════════════════════════════ */}
-          {/* CLINICAL INTERPRETATION                                            */}
+          {/* CLINICAL SUPPORT SUMMARY                                           */}
           {/* ══════════════════════════════════════════════════════════════════ */}
           <section>
-            <h2 style={sectionHeading}>Clinical Interpretation</h2>
+            <h2 style={sectionHeading}>Clinical Support Summary</h2>
 
             <div style={{ background: '#0D1421', border: '1px solid #1A2744',
               borderRadius: '16px', overflow: 'hidden' }}>
@@ -1136,9 +1141,6 @@ export default async function ReportPage() {
                 borderRadius: '16px', padding: '16px 20px',
                 display: 'flex', alignItems: 'flex-start', gap: '12px',
               }}>
-                <span style={{ fontSize: '18px', flexShrink: 0 }}>
-                  {digest.nextActionType === 'urgent' ? '⚠️' : digest.nextActionType === 'recommended' ? '💡' : '✅'}
-                </span>
                 <p style={{
                   fontSize: '13px', fontWeight: '600', lineHeight: '1.5',
                   color: digest.nextActionType === 'urgent' ? '#FB7185'

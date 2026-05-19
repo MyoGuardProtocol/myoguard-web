@@ -27,9 +27,9 @@ const BAND_META: Record<Band, {
     trackCls: 'bg-red-900/40',
   },
   HIGH: {
-    label: 'High Risk',      colour: 'text-orange-400',
-    dot: 'bg-orange-500',    ring: 'ring-orange-500',
-    bg: 'bg-orange-950',     border: 'border-orange-800',
+    label: 'Elevated SRI Risk', colour: 'text-orange-400',
+    dot: 'bg-orange-500',       ring: 'ring-orange-500',
+    bg: 'bg-orange-950',        border: 'border-orange-800',
     trackCls: 'bg-orange-900/40',
   },
   MODERATE: {
@@ -50,7 +50,7 @@ const BAND_META: Record<Band, {
 const LEAN_LOSS_MSG: Record<Band, string> = {
   LOW:      'Minimal lean mass risk at your current inputs. Maintaining this level of protein and activity keeps you well-protected.',
   MODERATE: 'Moderate lean mass risk. Improving protein adherence and adding resistance training sessions are the two fastest ways to shift this.',
-  HIGH:     'Elevated lean mass risk. GLP-1 drugs accelerate muscle catabolism — your protocol targets are set to counteract this directly.',
+  HIGH:     'Elevated lean mass risk. GLP-1 drugs accelerate muscle protein breakdown — your protocol targets are set to counteract this directly.',
   CRITICAL: 'High lean mass risk. Immediate protocol adherence is essential. Every gram of protein and every resistance session counts at this stage.',
 };
 
@@ -203,10 +203,15 @@ export default async function ResultsPage({
             <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
               MyoGuard Score
             </p>
-            <span className={`myg-badge-in inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border ${meta.bg} ${meta.border} ${meta.colour}`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />
-              {meta.label}
-            </span>
+            <div className="flex flex-col items-end gap-0.5">
+              <span className={`myg-badge-in inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border ${meta.bg} ${meta.border} ${meta.colour}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />
+                {meta.label}
+              </span>
+              {band === 'HIGH' && (
+                <p className="text-[10px] font-medium text-slate-400">Physician review recommended</p>
+              )}
+            </div>
           </div>
 
           {/* Radial gauge */}
@@ -317,7 +322,6 @@ export default async function ResultsPage({
                 }`}
                 style={{ borderTop: '1px solid rgba(26,39,68,0.4)' }}
               >
-                <span className="text-sm">{bandImproved ? '✅' : '⚠️'}</span>
                 <p className="text-xs text-slate-300 leading-snug">
                   Risk band changed:{' '}
                   <span className={`font-semibold ${BAND_META[prevBand].colour}`}>
@@ -397,6 +401,7 @@ export default async function ResultsPage({
           band={band}
           leanLossPct={ms.leanLossEstPct}
           message={LEAN_LOSS_MSG[band]}
+          patientFacing
         />
 
         {/* ══════════════════════════════════════════════════════════════════════ */}
@@ -598,24 +603,6 @@ export default async function ResultsPage({
               New assessment
             </Link>
           </div>
-        </div>
-
-        {/* ══════════════════════════════════════════════════════════════════════ */}
-        {/* ── BOTTOM CTAs ── */}
-        {/* ══════════════════════════════════════════════════════════════════════ */}
-        <div className="space-y-3 pt-2">
-          <Link
-            href="/dashboard/assessment"
-            className="block w-full bg-green-600 hover:bg-green-700 text-white font-semibold text-sm py-3.5 rounded-xl text-center transition-colors"
-          >
-            New Assessment →
-          </Link>
-          <Link
-            href="/dashboard"
-            className="block w-full text-center text-sm text-slate-400 hover:text-white font-medium py-2 transition-colors"
-          >
-            ← Back to Dashboard
-          </Link>
         </div>
 
         <p className="text-center text-[10px] text-slate-600 pt-1 leading-relaxed">
