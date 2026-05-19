@@ -191,7 +191,7 @@ export default async function PatientDashboardPage() {
           gridTemplateColumns: "1fr 1fr 1fr",
           gap: "12px", marginBottom: "24px" }}>
           {[
-            { label: "Log Today's Pulse", sub: "Weekly check-in",
+            { label: "Log Weekly Pulse", sub: "Weekly check-in",
               href: "/dashboard/checkin", primary: true },
             { label: "View My Protocol", sub: "Targets & supplements",
               href: "/dashboard/report", primary: false },

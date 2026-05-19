@@ -593,14 +593,14 @@ export default async function ResultsPage({
               className="border text-white font-semibold text-sm py-3.5 rounded-2xl text-center transition-colors"
               style={{ background: '#0D1421', borderColor: '#1A2744' }}
             >
-              Log this week →
+              Log Weekly Pulse →
             </Link>
             <Link
               href="/dashboard/assessment"
               className="border text-white font-semibold text-sm py-3.5 rounded-2xl text-center transition-colors"
               style={{ background: '#0D1421', borderColor: '#1A2744' }}
             >
-              New assessment
+              Generate Updated SRI
             </Link>
           </div>
         </div>

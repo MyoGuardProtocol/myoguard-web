@@ -30,10 +30,28 @@ const NAUSEA_LABELS: Record<number, string> = {
   5: '5 — Severe',
 };
 
-/**
- * Weekly check-in form page.
- * Visual style mirrors the assessment form — white card, teal accents, slate-50 bg.
- */
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  background: 'rgba(26,39,68,0.4)',
+  border: '1px solid #1A2744',
+  borderRadius: '10px',
+  padding: '10px 14px',
+  fontSize: '14px',
+  color: '#F1F5F9',
+  outline: 'none',
+  boxSizing: 'border-box',
+};
+
+const labelStyle: React.CSSProperties = {
+  display: 'block',
+  fontSize: '12px',
+  fontWeight: '600',
+  color: '#94A3B8',
+  textTransform: 'uppercase',
+  letterSpacing: '0.06em',
+  marginBottom: '8px',
+};
+
 export default function CheckinPage() {
   const router = useRouter();
   const [form, setForm] = useState<FormState>({
@@ -82,168 +100,213 @@ export default function CheckinPage() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 font-sans">
+    <main style={{ minHeight: '100vh', background: '#080C14', fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+
       {/* Header */}
-      <header className="bg-white border-b border-slate-200 px-6 py-4">
-        <div className="max-w-3xl mx-auto flex items-center justify-between">
-          <div>
-            <Link href="/" className="text-xl font-bold text-slate-800 tracking-tight hover:opacity-80 transition-opacity">
-              Myo<span className="text-teal-600">Guard</span> Protocol
-            </Link>
-            <p className="text-xs text-slate-500 mt-0.5">Physician-Formulated · Data-Driven Muscle Protection</p>
-          </div>
-          <Link href="/dashboard" className="text-xs text-teal-600 hover:underline font-medium">
+      <nav style={{
+        background: '#060D1E',
+        borderBottom: '1px solid rgba(255,255,255,0.07)',
+        position: 'sticky', top: 0, zIndex: 50,
+        padding: '0 20px',
+      }}>
+        <div style={{
+          maxWidth: '640px', margin: '0 auto',
+          display: 'flex', alignItems: 'center',
+          justifyContent: 'space-between', height: '56px',
+        }}>
+          <Link href="/" style={{ textDecoration: 'none', fontSize: '18px', fontWeight: '900', letterSpacing: '-0.03em', color: '#F8FAFC' }}>
+            Myo<span style={{ color: '#2DD4BF' }}>Guard</span>
+          </Link>
+          <Link href="/dashboard" style={{ fontSize: '13px', color: '#94A3B8', textDecoration: 'none' }}>
             ← Dashboard
           </Link>
         </div>
-      </header>
+      </nav>
 
-      <div className="max-w-3xl mx-auto px-6 py-10">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-800 leading-tight">
-            Weekly <span className="text-teal-600">Check-in</span>
+      <div style={{ maxWidth: '640px', margin: '0 auto', padding: '32px 20px 48px' }}>
+
+        {/* Page heading */}
+        <div style={{ marginBottom: '28px' }}>
+          <p style={{ fontSize: '10px', fontWeight: '700', color: '#2DD4BF', textTransform: 'uppercase', letterSpacing: '0.2em', marginBottom: '6px' }}>
+            MyoGuard Protocol
+          </p>
+          <h1 style={{ fontFamily: 'Georgia, serif', fontSize: '26px', fontWeight: '400', color: '#F1F5F9', marginBottom: '8px', lineHeight: '1.3' }}>
+            Weekly Pulse
           </h1>
-          <p className="mt-3 text-slate-600 text-base leading-relaxed">
+          <p style={{ fontSize: '13px', color: '#94A3B8', lineHeight: '1.6' }}>
             Log this week&apos;s metrics to track your protocol adherence and symptom trends over time.
           </p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-6">
+        {/* Form card */}
+        <div style={{ background: '#0D1421', border: '1px solid #1A2744', borderRadius: '20px', overflow: 'hidden' }}>
 
-          {/* Weight */}
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
-              Average Weight This Week (kg) <span className="text-slate-400 font-normal">optional</span>
-            </label>
-            <input
-              type="number"
-              placeholder="e.g. 84.5"
-              value={form.avgWeightKg}
-              onChange={e => setForm(f => ({ ...f, avgWeightKg: e.target.value }))}
-              className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-slate-800 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-400 text-sm"
-            />
-          </div>
+          {/* Numeric fields */}
+          <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px', borderBottom: '1px solid #1A2744' }}>
 
-          {/* Protein */}
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
-              Average Daily Protein (g) <span className="text-slate-400 font-normal">optional</span>
-            </label>
-            <input
-              type="number"
-              placeholder="e.g. 120"
-              value={form.avgProteinG}
-              onChange={e => setForm(f => ({ ...f, avgProteinG: e.target.value }))}
-              className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-slate-800 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-400 text-sm"
-            />
-          </div>
+            {/* Weight */}
+            <div>
+              <label style={labelStyle}>
+                Body Weight (kg) <span style={{ color: '#475569', fontWeight: '400', textTransform: 'none' }}>optional</span>
+              </label>
+              <input
+                type="number"
+                placeholder="e.g. 84.5"
+                value={form.avgWeightKg}
+                onChange={e => setForm(f => ({ ...f, avgWeightKg: e.target.value }))}
+                style={inputStyle}
+              />
+            </div>
 
-          {/* Workouts */}
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
-              Total Workouts This Week <span className="text-slate-400 font-normal">optional</span>
-            </label>
-            <input
-              type="number"
-              placeholder="e.g. 3"
-              min={0}
-              max={21}
-              value={form.totalWorkouts}
-              onChange={e => setForm(f => ({ ...f, totalWorkouts: e.target.value }))}
-              className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-slate-800 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-400 text-sm"
-            />
-          </div>
+            {/* Protein */}
+            <div>
+              <label style={labelStyle}>
+                Average Daily Protein (g) <span style={{ color: '#475569', fontWeight: '400', textTransform: 'none' }}>optional</span>
+              </label>
+              <input
+                type="number"
+                placeholder="e.g. 120"
+                value={form.avgProteinG}
+                onChange={e => setForm(f => ({ ...f, avgProteinG: e.target.value }))}
+                style={inputStyle}
+              />
+            </div>
 
-          {/* Hydration */}
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
-              Average Daily Hydration (L) <span className="text-slate-400 font-normal">optional</span>
-            </label>
-            <input
-              type="number"
-              placeholder="e.g. 2.5"
-              value={form.avgHydration}
-              onChange={e => setForm(f => ({ ...f, avgHydration: e.target.value }))}
-              className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-slate-800 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-400 text-sm"
-            />
+            {/* Workouts */}
+            <div>
+              <label style={labelStyle}>
+                Resistance Sessions This Week <span style={{ color: '#475569', fontWeight: '400', textTransform: 'none' }}>optional</span>
+              </label>
+              <input
+                type="number"
+                placeholder="e.g. 3"
+                min={0}
+                max={21}
+                value={form.totalWorkouts}
+                onChange={e => setForm(f => ({ ...f, totalWorkouts: e.target.value }))}
+                style={inputStyle}
+              />
+            </div>
+
+            {/* Hydration */}
+            <div>
+              <label style={labelStyle}>
+                Average Daily Hydration (L) <span style={{ color: '#475569', fontWeight: '400', textTransform: 'none' }}>optional</span>
+              </label>
+              <input
+                type="number"
+                placeholder="e.g. 2.5"
+                value={form.avgHydration}
+                onChange={e => setForm(f => ({ ...f, avgHydration: e.target.value }))}
+                style={inputStyle}
+              />
+            </div>
           </div>
 
           {/* Energy level */}
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
-              Energy Level This Week
-            </label>
-            <div className="grid grid-cols-5 gap-2">
+          <div style={{ padding: '20px 24px', borderBottom: '1px solid #1A2744' }}>
+            <label style={labelStyle}>Energy Level This Week</label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px', marginBottom: '8px' }}>
               {[1, 2, 3, 4, 5].map(n => (
                 <button
                   key={n}
                   onClick={() => setForm(f => ({ ...f, energyLevel: n }))}
-                  className={`rounded-lg border p-2 text-center transition-all ${
-                    form.energyLevel === n
-                      ? 'border-teal-500 bg-teal-50 text-teal-700'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-                  }`}
+                  style={{
+                    borderRadius: '10px',
+                    border: form.energyLevel === n ? '1px solid #2DD4BF' : '1px solid #1A2744',
+                    padding: '10px 0',
+                    textAlign: 'center',
+                    background: form.energyLevel === n ? 'rgba(45,212,191,0.1)' : 'rgba(26,39,68,0.4)',
+                    color: form.energyLevel === n ? '#2DD4BF' : '#94A3B8',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                  }}
                 >
-                  <p className="text-lg font-bold">{n}</p>
+                  <p style={{ fontSize: '18px', fontWeight: '700', margin: 0 }}>{n}</p>
                 </button>
               ))}
             </div>
-            <p className="text-xs text-slate-400 mt-1">{SCALE_LABELS[form.energyLevel]}</p>
+            <p style={{ fontSize: '11px', color: '#475569' }}>{SCALE_LABELS[form.energyLevel]}</p>
           </div>
 
           {/* Nausea level */}
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
-              Nausea Level This Week
-            </label>
-            <div className="grid grid-cols-5 gap-2">
+          <div style={{ padding: '20px 24px', borderBottom: '1px solid #1A2744' }}>
+            <label style={labelStyle}>Nausea / GI Symptoms This Week</label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px', marginBottom: '8px' }}>
               {[1, 2, 3, 4, 5].map(n => (
                 <button
                   key={n}
                   onClick={() => setForm(f => ({ ...f, nauseaLevel: n }))}
-                  className={`rounded-lg border p-2 text-center transition-all ${
-                    form.nauseaLevel === n
-                      ? 'border-teal-500 bg-teal-50 text-teal-700'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-                  }`}
+                  style={{
+                    borderRadius: '10px',
+                    border: form.nauseaLevel === n ? '1px solid #2DD4BF' : '1px solid #1A2744',
+                    padding: '10px 0',
+                    textAlign: 'center',
+                    background: form.nauseaLevel === n ? 'rgba(45,212,191,0.1)' : 'rgba(26,39,68,0.4)',
+                    color: form.nauseaLevel === n ? '#2DD4BF' : '#94A3B8',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                  }}
                 >
-                  <p className="text-lg font-bold">{n}</p>
+                  <p style={{ fontSize: '18px', fontWeight: '700', margin: 0 }}>{n}</p>
                 </button>
               ))}
             </div>
-            <p className="text-xs text-slate-400 mt-1">{NAUSEA_LABELS[form.nauseaLevel]}</p>
+            <p style={{ fontSize: '11px', color: '#475569' }}>{NAUSEA_LABELS[form.nauseaLevel]}</p>
           </div>
 
           {/* Notes */}
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
-              Notes <span className="text-slate-400 font-normal">optional</span>
+          <div style={{ padding: '20px 24px', borderBottom: error ? '1px solid #1A2744' : 'none' }}>
+            <label style={labelStyle}>
+              Notes <span style={{ color: '#475569', fontWeight: '400', textTransform: 'none' }}>optional</span>
             </label>
             <textarea
               placeholder="Any observations, side effects, or wins this week…"
               value={form.notes}
               onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
               rows={3}
-              className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-slate-800 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-400 text-sm resize-none"
+              style={{ ...inputStyle, resize: 'none', lineHeight: '1.6' }}
             />
           </div>
 
+          {/* Error */}
           {error && (
-            <p className="text-sm text-red-500 bg-red-50 border border-red-200 rounded-lg px-4 py-3">{error}</p>
+            <div style={{ padding: '12px 24px', borderBottom: '1px solid #1A2744' }}>
+              <p style={{ fontSize: '13px', color: '#FB7185', background: 'rgba(248,113,133,0.08)', border: '1px solid rgba(248,113,133,0.2)', borderRadius: '10px', padding: '12px 14px', margin: 0 }}>
+                {error}
+              </p>
+            </div>
           )}
 
-          <button
-            onClick={handleSubmit}
-            disabled={submitting}
-            className="w-full py-3.5 rounded-xl font-semibold text-sm bg-teal-600 hover:bg-teal-700 text-white shadow-sm transition-all disabled:opacity-60"
-          >
-            {submitting ? 'Saving…' : 'Submit Check-in →'}
-          </button>
+          {/* Submit */}
+          <div style={{ padding: '20px 24px' }}>
+            <button
+              onClick={handleSubmit}
+              disabled={submitting}
+              style={{
+                width: '100%',
+                padding: '14px',
+                borderRadius: '14px',
+                border: 'none',
+                background: submitting ? 'rgba(45,212,191,0.4)' : '#2DD4BF',
+                color: '#080C14',
+                fontSize: '14px',
+                fontWeight: '700',
+                cursor: submitting ? 'not-allowed' : 'pointer',
+                transition: 'all 0.15s',
+                letterSpacing: '0.02em',
+              }}
+            >
+              {submitting ? 'Saving…' : 'Log Weekly Pulse →'}
+            </button>
+          </div>
+
         </div>
 
-        <p className="mt-6 text-xs text-slate-400 text-center">
-          © 2026 MyoGuard Protocol · <a href="/privacy" className="underline hover:text-slate-600 transition-colors">Privacy Policy</a>
+        <p style={{ marginTop: '24px', fontSize: '11px', color: '#1A2744', textAlign: 'center' }}>
+          © 2026 Meridian Wellness Systems LLC · MyoGuard Protocol
         </p>
+
       </div>
     </main>
   );

@@ -706,13 +706,26 @@ export default async function ReportPage() {
                 }}>
                   <span style={{ fontSize: '11px', color: '#2DD4BF', fontWeight: '700' }}>3</span>
                 </div>
-                <div>
+                <div style={{ flex: 1 }}>
                   <p style={{ fontSize: '14px', fontWeight: '600', color: '#F1F5F9', marginBottom: '4px' }}>
                     Log your weekly check-in
                   </p>
-                  <p style={{ fontSize: '13px', color: '#94A3B8', lineHeight: '1.5' }}>
+                  <p style={{ fontSize: '13px', color: '#94A3B8', lineHeight: '1.5', marginBottom: '10px' }}>
                     Takes 60 seconds. Consistent logging builds your progress trajectory in The Odyssey.
                   </p>
+                  <a href="/checkin" style={{
+                    display: 'inline-block',
+                    background: '#2DD4BF',
+                    color: '#080C14',
+                    padding: '8px 18px',
+                    borderRadius: '10px',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    textDecoration: 'none',
+                    letterSpacing: '0.01em',
+                  }}>
+                    Log Weekly Pulse →
+                  </a>
                 </div>
               </div>
             </div>

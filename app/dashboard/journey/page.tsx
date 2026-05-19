@@ -81,7 +81,7 @@ function getSmartNextAction(
       icon:     '⚠️',
       title:    'Review your MyoGuard protocol today',
       subtitle: 'Your trend shows a declining score. Protein adherence and resistance training are the two fastest levers to reverse this.',
-      cta:      'Run new assessment →',
+      cta:      'Generate Updated SRI →',
       ctaHref:  '/dashboard/assessment',
       type:     'urgent',
     };
@@ -92,7 +92,7 @@ function getSmartNextAction(
       icon:     '📋',
       title:    'Complete your weekly check-in',
       subtitle: "It's been over a week since your last log. Consistent tracking gives MyoGuard more signal to keep your protocol accurate.",
-      cta:      'Log this week →',
+      cta:      'Log Weekly Pulse →',
       ctaHref:  '/checkin',
       type:     'recommended',
     };
@@ -105,7 +105,7 @@ function getSmartNextAction(
         icon:     '🥩',
         title:    `Add ${Math.round(gap)}g protein today to stay on track`,
         subtitle: `Your recent average is ${Math.round(latestCheckin.avgProteinG)}g vs your ${Math.round(proteinTargetG)}g daily target. Closing this gap is the fastest route to a higher score.`,
-        cta:      'Log this week →',
+        cta:      'Log Weekly Pulse →',
         ctaHref:  '/checkin',
         type:     'recommended',
       };
@@ -121,8 +121,8 @@ function getSmartNextAction(
       icon:     '🏋️',
       title:    'Add 2 resistance sessions this week',
       subtitle: 'Your recent log shows fewer than 2 workouts. Resistance training is the single highest-impact change at your current risk level.',
-      cta:      'View protocol →',
-      ctaHref:  '/dashboard/assessment',
+      cta:      'Log Weekly Pulse →',
+      ctaHref:  '/checkin',
       type:     'recommended',
     };
   }
@@ -132,7 +132,7 @@ function getSmartNextAction(
       icon:     '✅',
       title:    'Reassess before your next dose escalation',
       subtitle: "You're in the optimal zone. Each dose step-up is a muscle-risk window — a fresh assessment keeps your protocol ahead of it.",
-      cta:      'New assessment →',
+      cta:      'Generate Updated SRI →',
       ctaHref:  '/dashboard/assessment',
       type:     'maintenance',
     };
@@ -143,7 +143,7 @@ function getSmartNextAction(
       icon:     '🥩',
       title:    'Hit your daily protein target consistently',
       subtitle: 'Sustained protein adherence over 4–6 weeks is the most reliable path out of the Moderate Risk zone.',
-      cta:      'Log this week →',
+      cta:      'Log Weekly Pulse →',
       ctaHref:  '/checkin',
       type:     'recommended',
     };
@@ -153,8 +153,8 @@ function getSmartNextAction(
     icon:     '🏋️',
     title:    'Add resistance training 2–3 sessions this week',
     subtitle: 'Resistance training carries the largest single score gain at your current risk level. Bodyweight exercises count — no gym needed.',
-    cta:      'View protocol →',
-    ctaHref:  '/',
+    cta:      'Generate Updated SRI →',
+    ctaHref:  '/dashboard/assessment',
     type:     'urgent',
   };
 }
@@ -167,8 +167,8 @@ const ACTION_STYLE: Record<ActionType, {
   ctaCls:  string;
 }> = {
   urgent:      { border: 'border-orange-800', bg: 'bg-orange-950', badge: 'bg-orange-900  text-orange-300  border-orange-800', label: 'Highest impact', ctaCls: 'bg-orange-600 hover:bg-orange-500' },
-  recommended: { border: 'border-teal-800',   bg: 'bg-teal-950',   badge: 'bg-teal-900    text-teal-300    border-teal-800',   label: 'Recommended',   ctaCls: 'bg-green-600  hover:bg-green-700'  },
-  maintenance: { border: 'border-slate-700',  bg: 'bg-slate-800',  badge: 'bg-slate-700   text-slate-300   border-slate-600',  label: 'Maintenance',   ctaCls: 'bg-slate-600  hover:bg-slate-500'  },
+  recommended: { border: 'border-teal-800',   bg: 'bg-teal-950',   badge: 'bg-teal-900    text-teal-300    border-teal-800',   label: 'Recommended',   ctaCls: 'bg-teal-600   hover:bg-teal-500'   },
+  maintenance: { border: 'border-[#1A2744]',   bg: 'bg-[#0D1421]',  badge: 'bg-slate-800   text-slate-300   border-slate-700',   label: 'Maintenance',   ctaCls: 'bg-slate-600  hover:bg-slate-500'  },
 };
 
 // ─── Streak message ─────────────────────────────────────────────────────────────
@@ -300,7 +300,7 @@ export default async function JourneyPage() {
         orderBy: { assessmentDate: 'asc' },
         include: {
           muscleScore: {
-            select: { score: true, riskBand: true },
+            select: { score: true, riskBand: true, proteinTargetG: true },
           },
         },
       },
@@ -326,9 +326,9 @@ export default async function JourneyPage() {
   // ── Empty state (no scored assessments yet) ───────────────────────────────────
   if (scored.length === 0) {
     return (
-      <main className="min-h-screen bg-slate-900 font-sans flex items-center justify-center px-6">
+      <main className="min-h-screen font-sans flex items-center justify-center px-6" style={{ background: '#080C14' }}>
         <div className="max-w-sm w-full text-center">
-          <div className="w-16 h-16 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-3xl mx-auto mb-5">
+          <div className="w-16 h-16 rounded-full flex items-center justify-center text-3xl mx-auto mb-5" style={{ background: '#0D1421', border: '1px solid #1A2744' }}>
             📊
           </div>
           <h1 className="text-xl font-bold text-white mb-2">
@@ -405,7 +405,7 @@ export default async function JourneyPage() {
   const message    = getProgressMessage(delta, band, scored.length);
 
   return (
-    <main className="min-h-screen bg-slate-900 font-sans">
+    <main className="min-h-screen font-sans" style={{ background: '#080C14' }}>
 
       {/* ── Sticky header ── */}
       <nav style={{
@@ -450,7 +450,7 @@ export default async function JourneyPage() {
         {/* ══════════════════════════════════════════════════════════════════════ */}
         {/* ── SCORE HERO CARD ── */}
         {/* ══════════════════════════════════════════════════════════════════════ */}
-        <div className="bg-slate-800 rounded-3xl p-6 border border-slate-700">
+        <div className="rounded-3xl p-6" style={{ background: '#0D1421', border: '1px solid #1A2744' }}>
 
           <div className="flex items-start justify-between gap-4 mb-6">
             <div>
@@ -536,7 +536,7 @@ export default async function JourneyPage() {
           )}
 
           {/* ── Protein target row ── */}
-          <div className="mt-3 flex items-center justify-between bg-slate-700/30 rounded-xl px-4 py-3 border border-slate-700/50">
+          <div className="mt-3 flex items-center justify-between rounded-xl px-4 py-3" style={{ background: 'rgba(26,39,68,0.35)', border: '1px solid rgba(26,39,68,0.7)' }}>
             <div className="flex items-center gap-2.5">
               <span className="text-base leading-none">🥩</span>
               <p className="text-xs text-slate-400 font-medium">
@@ -562,9 +562,9 @@ export default async function JourneyPage() {
         {/* ══════════════════════════════════════════════════════════════════════ */}
         {/* ── 30-DAY SCORE PROJECTION CARD ── */}
         {/* ══════════════════════════════════════════════════════════════════════ */}
-        <div className="bg-slate-800 rounded-3xl border border-slate-700 overflow-hidden">
+        <div className="rounded-3xl overflow-hidden" style={{ background: '#0D1421', border: '1px solid #1A2744' }}>
 
-          <div className="px-5 pt-5 pb-4 border-b border-slate-700/70">
+          <div className="px-5 pt-5 pb-4" style={{ borderBottom: '1px solid #1A2744' }}>
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] mb-1">
@@ -586,7 +586,7 @@ export default async function JourneyPage() {
                 Complete your next assessment after your next dose escalation to activate score projection.
               </p>
               <Link href="/dashboard/assessment" className="inline-block bg-teal-600 hover:bg-teal-500 text-white font-semibold text-xs px-5 py-2.5 rounded-xl transition-colors">
-                New assessment →
+                Generate Updated SRI →
               </Link>
             </div>
           ) : (
@@ -653,7 +653,7 @@ export default async function JourneyPage() {
         {/* ══════════════════════════════════════════════════════════════════════ */}
         {/* ── PROGRESS MESSAGE ── */}
         {/* ══════════════════════════════════════════════════════════════════════ */}
-        <div className="bg-slate-800/60 rounded-2xl px-5 py-4 border border-slate-700/50">
+        <div className="rounded-2xl px-5 py-4" style={{ background: '#0D1421', border: '1px solid #1A2744' }}>
           <div className="flex items-start gap-3">
             <span className="text-xl flex-shrink-0 mt-0.5">
               {delta !== null && delta > 0 ? '🚀' : delta !== null && delta < 0 ? '💪' : '🎯'}
@@ -678,7 +678,7 @@ export default async function JourneyPage() {
           </div>
           <div className="px-5 py-5">
             <div className="flex items-start gap-4 mb-5">
-              <div className="w-12 h-12 rounded-2xl bg-slate-800/50 border border-slate-700/50 flex items-center justify-center text-2xl flex-shrink-0">
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0" style={{ background: 'rgba(13,20,33,0.8)', border: '1px solid #1A2744' }}>
                 {nextAction.icon}
               </div>
               <div className="flex-1 min-w-0">
@@ -695,10 +695,10 @@ export default async function JourneyPage() {
         {/* ══════════════════════════════════════════════════════════════════════ */}
         {/* ── CONSISTENCY STREAK + WINS ── */}
         {/* ══════════════════════════════════════════════════════════════════════ */}
-        <div className="bg-slate-800 rounded-3xl border border-slate-700 overflow-hidden">
+        <div className="rounded-3xl overflow-hidden" style={{ background: '#0D1421', border: '1px solid #1A2744' }}>
 
           {/* ── Header ── */}
-          <div className="px-5 pt-5 pb-4 border-b border-slate-700/70">
+          <div className="px-5 pt-5 pb-4" style={{ borderBottom: '1px solid #1A2744' }}>
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] mb-1">
@@ -747,7 +747,7 @@ export default async function JourneyPage() {
           </div>
 
           {/* ── Stat trio ── */}
-          <div className="grid grid-cols-3 divide-x divide-slate-700/60 border-t border-slate-700/60">
+          <div className="grid grid-cols-3 divide-x divide-[#1A2744]" style={{ borderTop: '1px solid #1A2744' }}>
             {[
               { value: digest.streakWeeks,   label: 'Current streak',  unit: 'wks' },
               { value: digest.bestStreak,    label: 'Best streak',     unit: 'wks' },
@@ -765,7 +765,7 @@ export default async function JourneyPage() {
 
           {/* ── Recent wins ── */}
           {recentWins.length > 0 && (
-            <div className="border-t border-slate-700/60">
+            <div style={{ borderTop: '1px solid #1A2744' }}>
               <div className="px-5 pt-3.5 pb-1">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em]">
                   Recent wins
@@ -791,7 +791,7 @@ export default async function JourneyPage() {
 
           {/* No wins yet — prompt */}
           {recentWins.length === 0 && (
-            <div className="border-t border-slate-700/60 px-5 py-5 text-center">
+            <div className="px-5 py-5 text-center" style={{ borderTop: '1px solid #1A2744' }}>
               <p className="text-xs text-slate-500 leading-relaxed mb-3">
                 Complete a weekly check-in to start building your wins record.
               </p>
@@ -799,7 +799,7 @@ export default async function JourneyPage() {
                 href="/checkin"
                 className="inline-block bg-teal-700/60 hover:bg-teal-700 text-teal-300 font-semibold text-xs px-4 py-2 rounded-xl transition-colors border border-teal-700"
               >
-                Log this week →
+                Log Weekly Pulse →
               </Link>
             </div>
           )}
@@ -808,14 +808,14 @@ export default async function JourneyPage() {
         {/* ══════════════════════════════════════════════════════════════════════ */}
         {/* ── RECENT CHECK-INS ── */}
         {/* ══════════════════════════════════════════════════════════════════════ */}
-        <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
+        <div className="rounded-2xl overflow-hidden" style={{ background: '#0D1421', border: '1px solid #1A2744' }}>
 
-          <div className="px-5 pt-4 pb-3 border-b border-slate-700/70 flex items-center justify-between">
+          <div className="px-5 pt-4 pb-3 flex items-center justify-between" style={{ borderBottom: '1px solid #1A2744' }}>
             <p className="text-[10px] font-bold text-slate-300 uppercase tracking-[0.15em]">
               Recent check-ins
             </p>
             <Link href="/checkin" className="text-xs text-teal-400 hover:text-teal-300 font-semibold transition-colors">
-              + Log this week
+              + Log Weekly Pulse
             </Link>
           </div>
 
@@ -828,7 +828,7 @@ export default async function JourneyPage() {
                 assessments — building a richer picture of your progress.
               </p>
               <Link href="/checkin" className="inline-block bg-teal-600 hover:bg-teal-500 text-white font-semibold text-xs px-5 py-2.5 rounded-xl transition-colors">
-                Log this week →
+                Log Weekly Pulse →
               </Link>
             </div>
           ) : (
@@ -878,9 +878,9 @@ export default async function JourneyPage() {
         {/* ══════════════════════════════════════════════════════════════════════ */}
         {/* ── PROGRESS TREND ── */}
         {/* ══════════════════════════════════════════════════════════════════════ */}
-        <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
+        <div className="rounded-2xl overflow-hidden" style={{ background: '#0D1421', border: '1px solid #1A2744' }}>
 
-          <div className="px-5 pt-4 pb-3 border-b border-slate-700/70 flex items-center justify-between">
+          <div className="px-5 pt-4 pb-3 flex items-center justify-between" style={{ borderBottom: '1px solid #1A2744' }}>
             <p className="text-[10px] font-bold text-slate-300 uppercase tracking-[0.15em]">Progress trend</p>
             {scored.length > 1 && (
               <span className="text-[10px] text-slate-500 font-medium">{scored.length} assessments</span>
@@ -895,7 +895,7 @@ export default async function JourneyPage() {
                 Run a new assessment after your next dose escalation to start tracking how your score changes over time.
               </p>
               <Link href="/dashboard/assessment" className="inline-block bg-slate-700 hover:bg-slate-600 text-white font-semibold text-xs px-5 py-2.5 rounded-xl transition-colors">
-                New assessment →
+                Generate Updated SRI →
               </Link>
             </div>
           ) : (
@@ -941,13 +941,87 @@ export default async function JourneyPage() {
           )}
         </div>
 
+        {/* ══════════════════════════════════════════════════════════════════════ */}
+        {/* ── ASSESSMENT HISTORY ── */}
+        {/* ══════════════════════════════════════════════════════════════════════ */}
+        <div className="rounded-2xl overflow-hidden" style={{ background: '#0D1421', border: '1px solid #1A2744' }}>
+
+          <div className="px-5 pt-4 pb-3 flex items-center justify-between" style={{ borderBottom: '1px solid #1A2744' }}>
+            <p className="text-[10px] font-bold text-slate-300 uppercase tracking-[0.15em]">
+              Assessment history
+            </p>
+            <span className="text-[10px] text-slate-500 font-medium">
+              {scored.length} {scored.length === 1 ? 'assessment' : 'assessments'}
+            </span>
+          </div>
+
+          {scored.length < 2 ? (
+            <div className="px-5 py-7 text-center">
+              <div className="w-12 h-12 rounded-full bg-slate-700/60 flex items-center justify-center text-2xl mx-auto mb-3">📋</div>
+              <p className="text-sm font-semibold text-slate-200 mb-1">Complete a second assessment to build your history</p>
+              <p className="text-xs text-slate-500 leading-relaxed mb-5 max-w-xs mx-auto">
+                Each reassessment after a dose escalation builds your longitudinal record here.
+              </p>
+              <Link href="/dashboard/assessment" className="inline-block bg-slate-700 hover:bg-slate-600 text-white font-semibold text-xs px-5 py-2.5 rounded-xl transition-colors">
+                Generate Updated SRI →
+              </Link>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-700/40">
+              {scored.slice().reverse().map((a, i) => {
+                const s    = Math.round(a.muscleScore!.score);
+                const b    = (a.muscleScore!.riskBand as Band) ?? 'HIGH';
+                const bm   = BAND_META[b];
+                const prot = a.muscleScore!.proteinTargetG
+                  ? Math.round(a.muscleScore!.proteinTargetG)
+                  : null;
+                const isLatest = i === 0;
+                return (
+                  <div key={a.id} className={`px-5 py-4 flex items-center justify-between gap-4 ${isLatest ? 'bg-slate-800/50' : ''}`}>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <span className="text-xs font-semibold text-slate-200 tabular-nums">
+                          {dateWithTime(a.assessmentDate)}
+                        </span>
+                        {isLatest && (
+                          <span className="text-[9px] font-bold text-teal-400 bg-teal-900/50 border border-teal-800 rounded-full px-2 py-0.5">Latest</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${bm.bg} ${bm.border} ${bm.colour}`}>
+                          <span className={`w-1 h-1 rounded-full ${bm.dot}`} />
+                          {bm.label}
+                        </span>
+                        {prot != null && (
+                          <span className="text-[10px] text-slate-500 tabular-nums">
+                            🥩 {prot}g/day target
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <span className="text-2xl font-black text-white tabular-nums leading-none">{s}</span>
+                      <Link
+                        href={`/dashboard/results/${a.id}`}
+                        className="text-[11px] font-semibold text-teal-400 hover:text-teal-300 transition-colors whitespace-nowrap"
+                      >
+                        View SRI Summary →
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         {/* ── CTA pair ── */}
         <div className="grid grid-cols-2 gap-3 pt-1">
-          <Link href="/checkin" className="bg-teal-500 hover:bg-teal-400 text-white font-bold text-sm py-3.5 rounded-2xl text-center transition-colors">
-            Log this week →
+          <Link href="/checkin" className="bg-teal-600 hover:bg-teal-500 text-white font-bold text-sm py-3.5 rounded-2xl text-center transition-colors">
+            Log Weekly Pulse →
           </Link>
           <Link href="/dashboard/assessment" className="bg-slate-700 hover:bg-slate-600 text-white font-semibold text-sm py-3.5 rounded-2xl text-center transition-colors">
-            New assessment
+            Generate Updated SRI
           </Link>
         </div>
 
