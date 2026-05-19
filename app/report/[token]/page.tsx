@@ -186,7 +186,7 @@ export default async function PublicReportPage({
   });
 
   return (
-    <main className="min-h-screen bg-slate-100 font-sans">
+    <main className="min-h-screen font-sans" style={{ background: '#080C14' }}>
       <AnalyticsMount event={AnalyticsEvents.REPORT_VIEWED} properties={{ context: "shared_token" }} />
 
       {/* ── Attribution banner (screen only) ── */}
@@ -324,7 +324,7 @@ export default async function PublicReportPage({
                     <p className={`text-sm font-black tracking-tight ${
                       signal.urgency === 'urgent' ? 'text-red-900' : 'text-amber-900'
                     }`}>
-                      Physician Escalation Alert
+                      Physician Review Priority
                     </p>
                   </div>
                   <span className={`flex-shrink-0 text-[10px] font-black uppercase tracking-[0.15em] px-2.5 py-1 rounded border ${
@@ -332,7 +332,7 @@ export default async function PublicReportPage({
                       ? 'bg-red-100 text-red-700 border-red-300'
                       : 'bg-amber-100 text-amber-700 border-amber-300'
                   }`}>
-                    {signal.urgency === 'urgent' ? 'Urgent' : 'Monitor'}
+                    {signal.urgency === 'urgent' ? 'Priority Review' : 'Monitor'}
                   </span>
                 </div>
                 <p className={`text-xs leading-relaxed ${
@@ -343,7 +343,7 @@ export default async function PublicReportPage({
                 <p className={`text-[11px] font-semibold ${
                   signal.urgency === 'urgent' ? 'text-red-700' : 'text-amber-700'
                 }`}>
-                  Consider reassessment or intervention.
+                  Consider clinical review of the patient's protein strategy, recovery status, and follow-up interval.
                 </p>
               </div>
             </section>
@@ -447,7 +447,7 @@ export default async function PublicReportPage({
           {/* ── Suggested Physician Actions ── */}
           <section>
             <h2 className="text-[10px] font-bold text-teal-700 uppercase tracking-[0.18em] mb-3">
-              Suggested Physician Actions
+              Clinical Considerations for Physician Review
             </h2>
             <ol className="space-y-2.5">
               {actions.map((action, i) => {
@@ -761,6 +761,57 @@ export default async function PublicReportPage({
               </div>
             </section>
           )}
+
+          {/* ── Physician onboarding CTA (screen only) ── */}
+          <div className="print:hidden">
+            <div style={{
+              background: '#0D1421',
+              border: '1px solid #1A2744',
+              borderRadius: '16px',
+              padding: '24px 28px',
+            }}>
+              <p style={{
+                fontSize: '10px', fontWeight: '700', color: '#2DD4BF',
+                textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '10px',
+              }}>
+                Clinical Access
+              </p>
+              <p style={{
+                fontFamily: 'Georgia, serif', fontSize: '15px', fontWeight: '600',
+                color: '#F1F5F9', marginBottom: '10px', lineHeight: '1.4',
+              }}>
+                Are you this patient&apos;s physician?
+              </p>
+              <p style={{
+                fontSize: '13px', color: '#94A3B8', lineHeight: '1.6', marginBottom: '20px',
+              }}>
+                MyoGuard Protocol provides longitudinal SRI summaries, protein adherence trends,
+                and patient-authorized clinical data — accessible from your Clinical Command Center.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <a
+                  href="/doctor/sign-up"
+                  style={{
+                    display: 'inline-block', background: '#2DD4BF', color: '#080C14',
+                    padding: '10px 20px', borderRadius: '10px', fontSize: '13px',
+                    fontWeight: '700', textDecoration: 'none', letterSpacing: '0.01em',
+                    alignSelf: 'flex-start',
+                  }}
+                >
+                  Access Clinical Command Center →
+                </a>
+                <a
+                  href="/"
+                  style={{
+                    fontSize: '12px', color: '#94A3B8', textDecoration: 'none',
+                    alignSelf: 'flex-start',
+                  }}
+                >
+                  Learn how MyoGuard supports GLP-1 muscle preservation
+                </a>
+              </div>
+            </div>
+          </div>
 
           {/* Footer */}
           <footer className="border-t-2 border-slate-200 pt-5 space-y-2">
