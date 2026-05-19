@@ -456,7 +456,7 @@ export function buildEscalationSignal(params: {
   if (proteinDeficit > 30) {
     triggers.push({
       level: 'urgent',
-      text:  `Critical protein deficit (−${Math.round(proteinDeficit)} g/day) — anabolic stimulus severely insufficient for muscle preservation during GLP-1 therapy`,
+      text:  `Severe protein deficit (−${Math.round(proteinDeficit)} g/day) — anabolic stimulus severely insufficient for muscle preservation during GLP-1 therapy`,
     });
   }
 
@@ -464,7 +464,7 @@ export function buildEscalationSignal(params: {
   if (exerciseDaysWk < 2) {
     triggers.push({
       level: 'urgent',
-      text:  `Critically low resistance exercise stimulus (${exerciseDaysWk} day${exerciseDaysWk !== 1 ? 's' : ''}/week) — sarcopenic risk is currently unmitigated by mechanical loading`,
+      text:  `Severely low resistance exercise stimulus (${exerciseDaysWk} day${exerciseDaysWk !== 1 ? 's' : ''}/week) — sarcopenic risk is currently unmitigated by mechanical loading`,
     });
   }
 

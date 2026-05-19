@@ -458,7 +458,7 @@ export default async function PublicReportPage({
                     numBg:       'bg-red-100 text-red-700',
                     badgeBg:     'bg-red-100 text-red-700 border-red-200',
                     timeBg:      'bg-red-100/70 text-red-600',
-                    label:       'Urgent',
+                    label:       'High Priority',
                   },
                   recommended: {
                     cardBorder:  'border-amber-200',
@@ -507,7 +507,7 @@ export default async function PublicReportPage({
                           {urgencyTokens.label}
                         </span>
                         <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${urgencyTokens.timeBg}`}>
-                          {action.timeframe}
+                          {action.timeframe === 'Immediate' ? 'Early Review' : action.timeframe}
                         </span>
                       </div>
                       <p className="text-xs text-slate-700 leading-relaxed">
@@ -792,14 +792,17 @@ export default async function PublicReportPage({
                 <a
                   href="/doctor/sign-up"
                   style={{
-                    display: 'inline-block', background: '#2DD4BF', color: '#080C14',
-                    padding: '10px 20px', borderRadius: '10px', fontSize: '13px',
+                    display: 'inline-block', background: '#22B5A9', color: '#080C14',
+                    padding: '8px 20px', borderRadius: '8px', fontSize: '13px',
                     fontWeight: '700', textDecoration: 'none', letterSpacing: '0.01em',
                     alignSelf: 'flex-start',
                   }}
                 >
-                  Access Clinical Command Center →
+                  Register for Physician Access →
                 </a>
+                <p style={{ fontSize: '12px', color: '#94A3B8', lineHeight: '1.5', margin: 0 }}>
+                  Access longitudinal SRI monitoring and patient-authorized clinical reports.
+                </p>
                 <a
                   href="/"
                   style={{
