@@ -10,7 +10,7 @@ const APP_URL =
 const RISK_LABELS: Record<string, string> = {
   LOW: "Low Risk",
   MODERATE: "Moderate Risk",
-  HIGH: "High Risk",
+  HIGH: "Elevated SRI Risk",
 };
 
 const RISK_COLORS: Record<string, string> = {

@@ -92,7 +92,7 @@ const RISK_META: Record<RiskBand, {
       "Protein adequacy or recovery environment is suboptimal relative to your GLP-1 dose stage. A sarcopenic trajectory is possible without intervention. Supplementation and structured resistance training are recommended.",
   },
   HIGH: {
-    label: "High Risk",
+    label: "Elevated SRI Risk",
     color: "text-red-600",
     bar: "bg-red-500",
     explanation:
@@ -639,7 +639,7 @@ export default function HomePage() {
                     />
                   </div>
                   <div className="flex items-center justify-between text-xs text-slate-400">
-                    <span>0 — High Risk</span>
+                    <span>0 — Elevated SRI Risk</span>
                     <span>40</span>
                     <span>70</span>
                     <span>100 — Low Risk</span>

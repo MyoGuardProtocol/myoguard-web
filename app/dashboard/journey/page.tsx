@@ -19,8 +19,8 @@ const BAND_META: Record<Band, {
   bg:         string;
   border:     string;
 }> = {
-  CRITICAL: { label: 'Critical Risk', threshold: 0,  next: 'HIGH',     nextThr: 40,  colour: 'text-red-400',     dimColour: 'text-red-500/70',    dot: 'bg-red-500',     ring: 'ring-red-500',     bg: 'bg-red-950',     border: 'border-red-800'     },
-  HIGH:     { label: 'High Risk',     threshold: 40, next: 'MODERATE', nextThr: 60,  colour: 'text-orange-400',  dimColour: 'text-orange-500/70', dot: 'bg-orange-500',  ring: 'ring-orange-500',  bg: 'bg-orange-950',  border: 'border-orange-800'  },
+  CRITICAL: { label: 'Elevated SRI Risk', threshold: 0,  next: 'HIGH',     nextThr: 40,  colour: 'text-red-400',     dimColour: 'text-red-500/70',    dot: 'bg-red-500',     ring: 'ring-red-500',     bg: 'bg-red-950',     border: 'border-red-800'     },
+  HIGH:     { label: 'Elevated SRI Risk', threshold: 40, next: 'MODERATE', nextThr: 60,  colour: 'text-orange-400',  dimColour: 'text-orange-500/70', dot: 'bg-orange-500',  ring: 'ring-orange-500',  bg: 'bg-orange-950',  border: 'border-orange-800'  },
   MODERATE: { label: 'Moderate Risk', threshold: 60, next: 'LOW',      nextThr: 80,  colour: 'text-amber-400',   dimColour: 'text-amber-500/70',  dot: 'bg-amber-500',   ring: 'ring-amber-500',   bg: 'bg-amber-950',   border: 'border-amber-800'   },
   LOW:      { label: 'Low Risk',      threshold: 80, next: null,       nextThr: null, colour: 'text-emerald-400', dimColour: 'text-emerald-500/70', dot: 'bg-emerald-500', ring: 'ring-emerald-500', bg: 'bg-emerald-950', border: 'border-emerald-800' },
 };
@@ -455,7 +455,7 @@ export default async function JourneyPage() {
           <div className="flex items-start justify-between gap-4 mb-6">
             <div>
               <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
-                Current Score
+                Current SRI Status
               </p>
               <div className="flex items-baseline gap-1.5">
                 <span className="text-7xl font-black text-white tabular-nums leading-none">
@@ -471,6 +471,11 @@ export default async function JourneyPage() {
                 <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />
                 {meta.label}
               </span>
+              {band === 'HIGH' && (
+                <p className="text-[9px] text-slate-500 text-right leading-tight">
+                  Physician review recommended
+                </p>
+              )}
               {delta !== null && (
                 /* Delta badge — slightly later fade-in */
                 <span className={`myg-badge-in-late inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold ${

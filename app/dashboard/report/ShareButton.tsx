@@ -5,9 +5,9 @@ import QRCode from 'react-qr-code';
 
 // ─── Share message templates ──────────────────────────────────────────────────
 const WHATSAPP_MSG =
-  "Hi Doctor, I've generated my MyoGuard SRI summary and wanted to share it with you for review.";
+  "Hi Doctor, I've generated my MyoGuard Sarcopenia Risk Index (SRI) summary and wanted to share it with you for review.";
 
-const EMAIL_SUBJECT = 'My MyoGuard Protocol Summary — for clinical review';
+const EMAIL_SUBJECT = 'My MyoGuard Sarcopenia Risk Index (SRI) Summary — for clinical review';
 
 const EMAIL_BODY =
   "I'm sharing my MyoGuard Protocol summary with you as my treating physician.\n\n" +

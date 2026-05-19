@@ -49,7 +49,7 @@ const BAND_CONFIG: Record<string, {
     trackFill:   'rgba(244,63,94,0.12)',
     glowClass:   'gauge-glow-critical',
     labelColour: '#FDA4AF',
-    label:       'Critical Risk',
+    label:       'Elevated SRI Risk',
   },
 };
 

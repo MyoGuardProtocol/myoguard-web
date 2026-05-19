@@ -21,7 +21,7 @@ const BAND_META: Record<Band, {
   trackCls: string;
 }> = {
   CRITICAL: {
-    label: 'Critical Risk',  colour: 'text-red-400',
+    label: 'Elevated SRI Risk',  colour: 'text-red-400',
     dot: 'bg-red-500',       ring: 'ring-red-500',
     bg: 'bg-red-950',        border: 'border-red-800',
     trackCls: 'bg-red-900/40',

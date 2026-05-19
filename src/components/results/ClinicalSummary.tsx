@@ -23,7 +23,7 @@ const ACTIVITY_LABEL: Record<AssessmentInput['activityLevel'], string> = {
 function clinicalRisk(score: number): { level: string; badge: string; dot: string } {
   if (score >= 70) return { level: 'LOW RISK',      badge: 'bg-emerald-100 text-emerald-700 border-emerald-300', dot: 'bg-emerald-500' };
   if (score >= 40) return { level: 'MODERATE RISK', badge: 'bg-amber-100   text-amber-700   border-amber-300',   dot: 'bg-amber-500'   };
-  return              { level: 'HIGH RISK',      badge: 'bg-red-100     text-red-700     border-red-300',     dot: 'bg-red-500'     };
+  return              { level: 'ELEVATED SRI RISK', badge: 'bg-red-100     text-red-700     border-red-300',     dot: 'bg-red-500'     };
 }
 
 /**
@@ -109,7 +109,7 @@ export default function ClinicalSummary({ results, formData, physician }: Clinic
           />
         </div>
         <div className="flex justify-between text-[10px] text-slate-400 mt-1 select-none">
-          <span>0 — High Risk</span>
+          <span>0 — Elevated SRI Risk</span>
           <span>40 — Moderate</span>
           <span>70 — Low Risk — 100</span>
         </div>

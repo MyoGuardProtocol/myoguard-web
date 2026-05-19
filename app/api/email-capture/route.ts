@@ -145,8 +145,8 @@ type TemplateData = {
 const RISK_LABELS: Record<string, string> = {
   LOW:      'Low Risk',
   MODERATE: 'Moderate Risk',
-  HIGH:     'High Risk',
-  CRITICAL: 'Critical Risk',
+  HIGH:     'Elevated SRI Risk',
+  CRITICAL: 'Elevated SRI Risk',
 };
 
 const RISK_COLOURS: Record<string, { bg: string; text: string; border: string }> = {

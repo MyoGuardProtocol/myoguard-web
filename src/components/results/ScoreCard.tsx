@@ -40,7 +40,7 @@ function getClinicalRisk(score: number) {
   }
   return {
     level: 'HIGH' as const,
-    label: 'High Risk',
+    label: 'Elevated SRI Risk',
     badge: 'bg-red-100 text-red-700 border-red-300',
     bar: 'bg-red-500',
     thumb: '#ef4444',
@@ -95,7 +95,7 @@ export default function ScoreCard({ myoguardScore, leanLossEstPct, explanation }
         {/* Scale labels */}
         <div className="flex justify-between text-[10px] text-slate-400 mb-1 font-medium select-none">
           <span>0</span>
-          <span className="text-red-400">High Risk</span>
+          <span className="text-red-400">Elevated SRI Risk</span>
           <span className="text-amber-400">Moderate</span>
           <span className="text-emerald-500">Low Risk</span>
           <span>100</span>

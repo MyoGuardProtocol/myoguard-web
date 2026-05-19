@@ -27,7 +27,7 @@ export const BAND_LIGHT: Record<Band, {
   dot:     string;
   barCls:  string;
 }> = {
-  CRITICAL: { label: 'Critical Risk', colour: 'text-red-700',     bg: 'bg-red-50',     border: 'border-red-200',     dot: 'bg-red-500',     barCls: 'bg-red-500'     },
+  CRITICAL: { label: 'Elevated SRI Risk', colour: 'text-red-700',     bg: 'bg-red-50',     border: 'border-red-200',     dot: 'bg-red-500',     barCls: 'bg-red-500'     },
   HIGH:     { label: 'Elevated SRI Risk', colour: 'text-orange-700',  bg: 'bg-orange-50',  border: 'border-orange-200',  dot: 'bg-orange-500',  barCls: 'bg-orange-500'  },
   MODERATE: { label: 'Moderate Risk', colour: 'text-amber-700',   bg: 'bg-amber-50',   border: 'border-amber-200',   dot: 'bg-amber-500',   barCls: 'bg-amber-500'   },
   LOW:      { label: 'Low Risk',      colour: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200', dot: 'bg-emerald-500', barCls: 'bg-emerald-500' },

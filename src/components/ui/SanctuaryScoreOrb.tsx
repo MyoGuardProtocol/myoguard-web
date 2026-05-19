@@ -10,12 +10,16 @@ export default function SanctuaryScoreOrb({ score, riskBand }: Props) {
   const [offset, setOffset] = useState(502)
 
   const orbColor =
-    score >= 70 ? "#2DD4BF" :
-    score >= 50 ? "#F59E0B" : "#FB7185"
+    riskBand === "LOW"      ? "#2DD4BF" :
+    riskBand === "MODERATE" ? "#F59E0B" :
+    riskBand === "HIGH"     ? "#FB923C" :
+    "#F87171"
 
   const riskLabel =
-    riskBand === "LOW" ? "Low Risk" :
-    riskBand === "MODERATE" ? "Moderate Risk" : "High Risk"
+    riskBand === "LOW"      ? "Low Risk" :
+    riskBand === "MODERATE" ? "Moderate Risk" :
+    riskBand === "HIGH"     ? "Elevated SRI Risk" :
+    "Elevated SRI Risk"
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -67,6 +71,13 @@ export default function SanctuaryScoreOrb({ score, riskBand }: Props) {
             fontFamily="-apple-system, sans-serif">
             {riskLabel}
           </text>
+          {riskBand === "HIGH" && (
+            <text x="100" y="151" textAnchor="middle"
+              fill="#64748B" fontSize="8"
+              fontFamily="-apple-system, sans-serif">
+              Physician review recommended
+            </text>
+          )}
         </svg>
       </div>
     </div>
