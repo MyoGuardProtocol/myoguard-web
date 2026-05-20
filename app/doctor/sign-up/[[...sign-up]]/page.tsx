@@ -88,8 +88,32 @@ export default function PhysicianSignUpPage() {
   const { userId } = useAuth();
   const { user: clerkUser, isLoaded: clerkLoaded } = useUser();
 
-  // true = user already authenticated via Clerk (OTP or otherwise)
-  const isPreAuth = !!userId;
+  // invite token from URL — read once on mount
+  const [inviteToken, setInviteToken] = useState<string | null>(null);
+
+  // DB role of the currently authenticated Clerk session — undefined = not yet fetched
+  const [sessionRole, setSessionRole] = useState<string | null | undefined>(undefined);
+
+  // Detect invite token from URL on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setInviteToken(params.get("invite"));
+  }, []);
+
+  // Fetch DB role to detect patient-session contamination
+  useEffect(() => {
+    if (!userId) { setSessionRole(null); return; }
+    fetch("/api/auth/role")
+      .then(r => r.json() as Promise<{ role: string | null }>)
+      .then(d => setSessionRole(d.role))
+      .catch(() => setSessionRole(null));
+  }, [userId]);
+
+  // A PATIENT session must never be used as physician identity
+  const isPatientSession = sessionRole === "PATIENT";
+
+  // Only treat as pre-authenticated if the session belongs to a non-patient
+  const isPreAuth = !!userId && !isPatientSession;
 
   const [form, setForm] = useState({
     fullName:      "",
@@ -108,13 +132,13 @@ export default function PhysicianSignUpPage() {
   const [error, setError]                                  = useState("");
   const npiLookupRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Pre-fill email from authenticated Clerk session
+  // Pre-fill email from Clerk session — only for non-patient pre-auth sessions
   useEffect(() => {
-    if (isPreAuth && clerkLoaded && clerkUser) {
+    if (isPreAuth && !isPatientSession && clerkLoaded && clerkUser) {
       const email = clerkUser.emailAddresses[0]?.emailAddress ?? "";
       if (email) setForm(prev => ({ ...prev, email }));
     }
-  }, [isPreAuth, clerkLoaded, clerkUser]);
+  }, [isPreAuth, isPatientSession, clerkLoaded, clerkUser]);
 
   // NPPES auto-lookup when NPI reaches 10 digits
   useEffect(() => {
@@ -208,6 +232,7 @@ export default function PhysicianSignUpPage() {
             specialty:     form.specialty,
             npiNumber:     !internationalProvider && form.npi     ? form.npi           : undefined,
             licenseNumber: form.licenseNumber                     ? form.licenseNumber : undefined,
+            inviteToken:   inviteToken                            ? inviteToken         : undefined,
           }
         : {
             fullName:      form.fullName.trim(),
@@ -233,7 +258,10 @@ export default function PhysicianSignUpPage() {
         return;
       }
 
-      router.push("/doctor/onboarding/pending");
+      const dest = inviteToken
+        ? `/doctor/onboarding/pending?invite=${inviteToken}`
+        : "/doctor/onboarding/pending";
+      router.push(dest);
     } catch (e: unknown) {
       setError(`Network error: ${String(e)}`);
     } finally {
@@ -245,8 +273,8 @@ export default function PhysicianSignUpPage() {
     ? [npisSpecialty, ...SPECIALTIES]
     : SPECIALTIES;
 
-  // Brief loading state while Clerk resolves session
-  if (!clerkLoaded) {
+  // Brief loading state while Clerk and role check resolve
+  if (!clerkLoaded || (userId && sessionRole === undefined)) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
         <div className="w-5 h-5 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" />
@@ -272,6 +300,23 @@ export default function PhysicianSignUpPage() {
 
         {/* Card */}
         <div className="bg-slate-900 border border-slate-700 rounded-2xl p-8">
+
+          {/* Patient session isolation warning */}
+          {isPatientSession && (
+            <div className="mb-5 bg-amber-950 border border-amber-700 rounded-xl px-4 py-4">
+              <p className="text-sm font-semibold text-amber-300 mb-1">You&apos;re signed in as a patient</p>
+              <p className="text-xs text-amber-400 leading-relaxed mb-3">
+                Your current session belongs to a patient account. Physician registration requires
+                a separate physician identity. Please sign in with your physician credentials.
+              </p>
+              <a
+                href={inviteToken ? `/doctor/sign-in?invite=${inviteToken}` : "/doctor/sign-in"}
+                className="inline-block text-xs font-semibold text-amber-300 hover:text-amber-100 underline"
+              >
+                Sign in as physician →
+              </a>
+            </div>
+          )}
 
           <div className="mb-6">
             <h1 className="text-xl font-semibold text-white mb-1">

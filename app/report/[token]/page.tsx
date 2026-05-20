@@ -18,6 +18,7 @@
 
 import { notFound }             from 'next/navigation';
 import Link                     from 'next/link';
+import { auth }                 from '@clerk/nextjs/server';
 import { prisma }               from '@/src/lib/prisma';
 import { generateWeeklyDigest } from '@/src/lib/weeklyDigest';
 import AnalyticsMount           from '@/src/components/analytics/AnalyticsMount';
@@ -138,6 +139,19 @@ export default async function PublicReportPage({
   const trendCfg   = TREND_LABEL[digest?.trendStatus ?? 'insufficient'];
   const historyAsc = [...user.assessments].reverse();
   const generatedAt = new Date();
+
+  // Auth-aware CTA — detect if visitor is a physician so we can show the right action
+  let visitorRole: string | null = null;
+  try {
+    const { userId: authUserId } = await auth();
+    if (authUserId) {
+      const authUser = await prisma.user.findUnique({
+        where:  { clerkId: authUserId },
+        select: { role: true },
+      });
+      visitorRole = authUser?.role ?? null;
+    }
+  } catch { /* non-critical — CTA falls back to unauthenticated state */ }
 
   let savedReview: {
     overallImpression: string | null;
@@ -762,7 +776,7 @@ export default async function PublicReportPage({
             </section>
           )}
 
-          {/* ── Physician onboarding CTA (screen only) ── */}
+          {/* ── Physician access CTA (screen only, auth-aware) ── */}
           <div className="print:hidden">
             <div style={{
               background: '#0D1421',
@@ -788,31 +802,105 @@ export default async function PublicReportPage({
                 MyoGuard Protocol provides longitudinal SRI summaries, protein adherence trends,
                 and patient-authorized clinical data — accessible from your Clinical Command Center.
               </p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <a
-                  href="/doctor/sign-up"
-                  style={{
-                    display: 'inline-block', background: '#22B5A9', color: '#080C14',
-                    padding: '8px 20px', borderRadius: '8px', fontSize: '13px',
-                    fontWeight: '700', textDecoration: 'none', letterSpacing: '0.01em',
-                    alignSelf: 'flex-start',
-                  }}
-                >
-                  Register for Physician Access →
-                </a>
-                <p style={{ fontSize: '12px', color: '#94A3B8', lineHeight: '1.5', margin: 0 }}>
-                  Access longitudinal SRI monitoring and patient-authorized clinical reports.
-                </p>
-                <a
-                  href="/"
-                  style={{
-                    fontSize: '12px', color: '#94A3B8', textDecoration: 'none',
-                    alignSelf: 'flex-start',
-                  }}
-                >
-                  Learn how MyoGuard supports GLP-1 muscle preservation
-                </a>
-              </div>
+
+              {/* PHYSICIAN — direct accept CTA */}
+              {visitorRole === 'PHYSICIAN' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <a
+                    href={`/doctor/accept-patient?invite=${token}`}
+                    style={{
+                      display: 'inline-block', background: '#22B5A9', color: '#080C14',
+                      padding: '8px 20px', borderRadius: '8px', fontSize: '13px',
+                      fontWeight: '700', textDecoration: 'none', letterSpacing: '0.01em',
+                      alignSelf: 'flex-start',
+                    }}
+                  >
+                    Accept Patient to Clinical Command Center →
+                  </a>
+                  <p style={{ fontSize: '12px', color: '#94A3B8', lineHeight: '1.5', margin: 0 }}>
+                    One click to add this patient to your monitoring panel.
+                  </p>
+                </div>
+              )}
+
+              {/* PHYSICIAN_PENDING — account under review */}
+              {visitorRole === 'PHYSICIAN_PENDING' && (
+                <div style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: '10px', padding: '14px 16px' }}>
+                  <p style={{ fontSize: '13px', color: '#F59E0B', fontWeight: '600', marginBottom: '4px' }}>
+                    Your account is pending verification
+                  </p>
+                  <p style={{ fontSize: '12px', color: '#92400E', lineHeight: '1.5' }}>
+                    Once your credentials are approved, sign in to accept this patient and
+                    view their SRI report in your Clinical Command Center.
+                  </p>
+                  <a
+                    href="/doctor/dashboard"
+                    style={{ display: 'inline-block', marginTop: '10px', fontSize: '12px', color: '#2DD4BF', textDecoration: 'none', fontWeight: '600' }}
+                  >
+                    Check verification status →
+                  </a>
+                </div>
+              )}
+
+              {/* PATIENT — must use physician identity, not patient session */}
+              {visitorRole === 'PATIENT' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <a
+                    href={`/doctor/sign-in?invite=${token}`}
+                    style={{
+                      display: 'inline-block', background: '#22B5A9', color: '#080C14',
+                      padding: '8px 20px', borderRadius: '8px', fontSize: '13px',
+                      fontWeight: '700', textDecoration: 'none', letterSpacing: '0.01em',
+                      alignSelf: 'flex-start',
+                    }}
+                  >
+                    Sign in as Physician →
+                  </a>
+                  <p style={{ fontSize: '12px', color: '#94A3B8', lineHeight: '1.5', margin: 0 }}>
+                    Use your physician account to accept this patient and access their clinical data.
+                  </p>
+                </div>
+              )}
+
+              {/* Unauthenticated — register or sign in */}
+              {!visitorRole && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    <a
+                      href={`/doctor/sign-up?invite=${token}`}
+                      style={{
+                        display: 'inline-block', background: '#22B5A9', color: '#080C14',
+                        padding: '8px 20px', borderRadius: '8px', fontSize: '13px',
+                        fontWeight: '700', textDecoration: 'none', letterSpacing: '0.01em',
+                      }}
+                    >
+                      Register for Physician Access →
+                    </a>
+                    <a
+                      href={`/doctor/sign-in?invite=${token}`}
+                      style={{
+                        display: 'inline-block', background: 'transparent', color: '#2DD4BF',
+                        padding: '8px 20px', borderRadius: '8px', fontSize: '13px',
+                        fontWeight: '600', textDecoration: 'none', border: '1px solid rgba(45,212,191,0.3)',
+                      }}
+                    >
+                      Sign in as Physician
+                    </a>
+                  </div>
+                  <p style={{ fontSize: '12px', color: '#94A3B8', lineHeight: '1.5', margin: 0 }}>
+                    Access longitudinal SRI monitoring and patient-authorized clinical reports.
+                  </p>
+                  <a
+                    href="/"
+                    style={{
+                      fontSize: '12px', color: '#94A3B8', textDecoration: 'none',
+                      alignSelf: 'flex-start',
+                    }}
+                  >
+                    Learn how MyoGuard supports GLP-1 muscle preservation
+                  </a>
+                </div>
+              )}
             </div>
           </div>
 

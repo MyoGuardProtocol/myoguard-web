@@ -330,6 +330,24 @@ model PreloadedAssessment {
   createdAt   DateTime @default(now())
 }
 
+/// Tracks a patient's invitation to a physician via a shared report link.
+/// Created when a physician registers or accepts from a /report/[token] CTA.
+/// shareToken refs ShareCard.shareToken; patientUserId / claimedByUserId ref User.id
+/// — plain scalars (zero-touch on existing models).
+model PhysicianPatientInvitation {
+  id              String    @id @default(cuid())
+  shareToken      String
+  patientUserId   String
+  status          String    @default("PENDING") // PENDING | ACCEPTED | EXPIRED
+  claimedByUserId String?
+  createdAt       DateTime  @default(now())
+  expiresAt       DateTime
+
+  @@index([shareToken])
+  @@index([patientUserId])
+  @@index([claimedByUserId])
+}
+
 enum Role {
   PATIENT
   PHYSICIAN

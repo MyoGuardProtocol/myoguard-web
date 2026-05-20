@@ -13,13 +13,14 @@ export async function POST(req: Request) {
     const { userId } = await auth();
 
     const body = await req.json();
-    const { fullName, email, country, specialty, npiNumber, licenseNumber } = body as {
+    const { fullName, email, country, specialty, npiNumber, licenseNumber, inviteToken } = body as {
       fullName: string;
       email: string;
       country: string;
       specialty: string;
       npiNumber?: string;
       licenseNumber?: string;
+      inviteToken?: string;
     };
 
     if (!fullName || fullName.trim().length < 2) {
@@ -117,6 +118,41 @@ export async function POST(req: Request) {
         { ok: false, error: "Failed to save application" },
         { status: 500 }
       );
+    }
+
+    // Store pending patient invitation if physician arrived from a shared report
+    if (inviteToken && userId) {
+      try {
+        const shareCard = await prisma.shareCard.findUnique({
+          where:  { shareToken: inviteToken },
+          select: { userId: true },
+        });
+        if (shareCard) {
+          const physicianRow = await prisma.user.findUnique({
+            where:  { clerkId: userId },
+            select: { id: true },
+          });
+          if (physicianRow) {
+            const existing = await prisma.physicianPatientInvitation.findFirst({
+              where:  { shareToken: inviteToken, claimedByUserId: physicianRow.id },
+              select: { id: true },
+            });
+            if (!existing) {
+              await prisma.physicianPatientInvitation.create({
+                data: {
+                  shareToken:      inviteToken,
+                  patientUserId:   shareCard.userId,
+                  status:          "PENDING",
+                  claimedByUserId: physicianRow.id,
+                  expiresAt:       new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+                },
+              });
+            }
+          }
+        }
+      } catch (e: unknown) {
+        console.warn("[onboarding] invite store failed:", e);
+      }
     }
 
     const approveUrl = `https://myoguard.health/api/admin/verify-physician?token=${adminToken}&action=approve`;

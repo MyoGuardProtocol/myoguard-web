@@ -19,8 +19,13 @@ import Link from 'next/link';
  *   PATIENT           → /doctor  (bounced back to landing — cannot enter flow)
  *   not signed in     → renders Clerk sign-in widget
  */
-export default async function PhysicianSignInPage() {
+export default async function PhysicianSignInPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ invite?: string }>;
+}) {
   const { userId } = await auth();
+  const { invite } = await searchParams;
 
   if (userId) {
     const user = await prisma.user.findUnique({
@@ -30,9 +35,12 @@ export default async function PhysicianSignInPage() {
 
     // Deterministic routing — no fallback to /doctor (that causes a loop for patients)
     const dest =
-      user?.role === 'PHYSICIAN'         ? '/doctor/dashboard'          :
-      user?.role === 'PHYSICIAN_PENDING' ? '/doctor/onboarding/pending' :
-      !user                              ? '/doctor/onboarding'          :
+      user?.role === 'PHYSICIAN' && invite         ? `/doctor/accept-patient?invite=${invite}` :
+      user?.role === 'PHYSICIAN'                   ? '/doctor/dashboard' :
+      user?.role === 'PHYSICIAN_PENDING' && invite ? `/doctor/onboarding/pending?invite=${invite}` :
+      user?.role === 'PHYSICIAN_PENDING'           ? '/doctor/onboarding/pending' :
+      !user && invite                              ? `/doctor/onboarding?invite=${invite}` :
+      !user                                        ? '/doctor/onboarding' :
       '/doctor/sign-up'; // PATIENT or unrecognised role → physician registration
 
     if (process.env.NODE_ENV === 'development') {
@@ -40,6 +48,7 @@ export default async function PhysicianSignInPage() {
         route:         '/doctor/sign-in',
         authStatus:    'authenticated',
         role:          user?.role ?? null,
+        invite:        invite ?? null,
         finalRedirect: dest,
       });
     }
@@ -47,11 +56,18 @@ export default async function PhysicianSignInPage() {
     redirect(dest);
   }
 
+  // After successful auth, route to accept-patient if invite present, else dashboard
+  const redirectAfterAuth = invite
+    ? `/doctor/accept-patient?invite=${invite}`
+    : '/doctor/dashboard';
+
   if (process.env.NODE_ENV === 'development') {
     console.log('[/doctor/sign-in] routing', {
-      route:         '/doctor/sign-in',
-      authStatus:    'unauthenticated',
-      finalRedirect: 'render_clerk_widget',
+      route:              '/doctor/sign-in',
+      authStatus:         'unauthenticated',
+      invite:             invite ?? null,
+      redirectAfterAuth,
+      finalRedirect:      'render_clerk_widget',
     });
   }
 
@@ -91,8 +107,8 @@ export default async function PhysicianSignInPage() {
       <SignIn
         routing="path"
         path="/doctor/sign-in"
-        signUpUrl="/doctor/sign-up"
-        forceRedirectUrl="/doctor/dashboard"
+        signUpUrl={invite ? `/doctor/sign-up?invite=${invite}` : "/doctor/sign-up"}
+        forceRedirectUrl={redirectAfterAuth}
         appearance={{
           variables: {
             colorBackground: "#0A0A0A",

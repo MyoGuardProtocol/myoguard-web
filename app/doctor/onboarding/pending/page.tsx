@@ -1,4 +1,10 @@
-export default function PhysicianPendingPage() {
+export default async function PhysicianPendingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ invite?: string }>;
+}) {
+  const { invite } = await searchParams;
+
   return (
     <div
       className="min-h-screen flex items-center justify-center px-4 py-12"
@@ -86,6 +92,32 @@ export default function PhysicianPendingPage() {
               the treating physician.
             </p>
           </div>
+
+          {/* Pending patient invitation context */}
+          {invite && (
+            <div
+              style={{
+                background: 'rgba(45,212,191,0.05)',
+                border: '1px solid rgba(45,212,191,0.2)',
+                borderRadius: '12px',
+                padding: '16px',
+                textAlign: 'left',
+              }}
+            >
+              <p style={{
+                fontSize: '11px', fontWeight: '600',
+                color: '#2DD4BF', textTransform: 'uppercase',
+                letterSpacing: '0.08em', marginBottom: '8px',
+              }}>
+                Patient invitation saved
+              </p>
+              <p style={{ fontSize: '13px', color: '#94A3B8', lineHeight: '1.6' }}>
+                A patient has invited you to view their Sarcopenia Risk Index (SRI) report.
+                Once your account is approved, sign in to accept the patient and add them
+                to your Clinical Command Center.
+              </p>
+            </div>
+          )}
 
           {/* CTA */}
           <a
