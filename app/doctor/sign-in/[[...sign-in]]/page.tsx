@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { prisma } from '@/src/lib/prisma';
 import { SignIn } from '@clerk/nextjs';
 import Link from 'next/link';
+import PhysicianBoundary from '@/src/components/ui/PhysicianBoundary';
 
 /**
  * /doctor/sign-in — Physician-specific sign-in surface.
@@ -71,8 +72,13 @@ export default async function PhysicianSignInPage({
     });
   }
 
+  // Client-side safeguard for any PATIENT session that slips past server routing
+  const signInDest = invite ? `/doctor/sign-in?invite=${invite}` : '/doctor/sign-in';
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans flex flex-col items-center justify-center px-6 py-12">
+
+      <PhysicianBoundary redirectTo={signInDest} />
 
       {/* Brand header */}
       <div className="mb-6 text-center">

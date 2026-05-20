@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth, useUser } from "@clerk/nextjs";
 import Link from "next/link";
+import PhysicianBoundary from "@/src/components/ui/PhysicianBoundary";
 
 const SPECIALTIES = [
   "Internal Medicine",
@@ -282,6 +283,12 @@ export default function PhysicianSignUpPage() {
     );
   }
 
+  // Hard boundary — PATIENT sessions must never see the physician registration form
+  if (isPatientSession) {
+    const dest = inviteToken ? `/doctor/sign-up?invite=${inviteToken}` : '/doctor/sign-up';
+    return <PhysicianBoundary redirectTo={dest} />;
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-lg">
@@ -300,23 +307,6 @@ export default function PhysicianSignUpPage() {
 
         {/* Card */}
         <div className="bg-slate-900 border border-slate-700 rounded-2xl p-8">
-
-          {/* Patient session isolation warning */}
-          {isPatientSession && (
-            <div className="mb-5 bg-amber-950 border border-amber-700 rounded-xl px-4 py-4">
-              <p className="text-sm font-semibold text-amber-300 mb-1">You&apos;re signed in as a patient</p>
-              <p className="text-xs text-amber-400 leading-relaxed mb-3">
-                Your current session belongs to a patient account. Physician registration requires
-                a separate physician identity. Please sign in with your physician credentials.
-              </p>
-              <a
-                href={inviteToken ? `/doctor/sign-in?invite=${inviteToken}` : "/doctor/sign-in"}
-                className="inline-block text-xs font-semibold text-amber-300 hover:text-amber-100 underline"
-              >
-                Sign in as physician →
-              </a>
-            </div>
-          )}
 
           <div className="mb-6">
             <h1 className="text-xl font-semibold text-white mb-1">

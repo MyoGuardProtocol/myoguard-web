@@ -8,13 +8,12 @@ const WHATSAPP_MSG =
   "Hi Doctor, I've generated my MyoGuard Sarcopenia Risk Index (SRI) summary and wanted to share it with you for review.\n\n" +
   'MyoGuard Protocol is a physician-led Clinical Decision Support platform for muscle preservation during GLP-1 receptor agonist therapy. This summary was generated using the Sarcopenia Risk Index (SRI) framework and is shared for your clinical review.';
 
-const EMAIL_SUBJECT = 'My MyoGuard Sarcopenia Risk Index (SRI) Summary — for clinical review';
+const EMAIL_SUBJECT = 'My MyoGuard Protocol summary for your review';
 
 const EMAIL_BODY =
+  'Dear Doctor,\n\n' +
   "I'm sharing my MyoGuard Protocol summary with you as my treating physician.\n\n" +
-  'MyoGuard is a physician-led Clinical Decision Support (CDS) platform designed to support muscle-preservation awareness during GLP-1 therapy.\n\n' +
-  'This summary is intended for your clinical review.\n\n' +
-  'MyoGuard Protocol is a physician-led Clinical Decision Support platform for muscle preservation during GLP-1 receptor agonist therapy. This summary was generated using the Sarcopenia Risk Index (SRI) framework and is shared for your clinical review.';
+  'MyoGuard Protocol is a physician-led Clinical Decision Support platform for muscle preservation during GLP-1 therapy. This summary was generated using the Sarcopenia Risk Index (SRI) framework and is shared for your clinical review.';
 
 // ─── sessionStorage key for consent (persists within the browser tab session) ─
 const CONSENT_KEY = 'myoguard_share_consent';
