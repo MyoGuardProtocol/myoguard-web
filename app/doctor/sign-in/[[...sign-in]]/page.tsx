@@ -8,17 +8,15 @@ import PhysicianBoundary from '@/src/components/ui/PhysicianBoundary';
 /**
  * /doctor/sign-in — Physician-specific sign-in surface.
  *
- * Distinct from the patient /sign-in-new route. Clinical framing, no patient
- * language. Always redirects to /doctor/onboarding after successful auth so
- * new physicians land directly on setup. Existing approved physicians are
- * caught by the server-side role check and routed to /doctor/patients before
- * the Clerk widget is ever rendered.
- *
  * Role routing (server-side, fires before render):
- *   PHYSICIAN         → /doctor/patients
- *   PHYSICIAN_PENDING → /doctor/dashboard
- *   PATIENT           → /doctor  (bounced back to landing — cannot enter flow)
- *   not signed in     → renders Clerk sign-in widget
+ *   PHYSICIAN         → /doctor/patients (CCC), or accept-patient if invite pending
+ *   PHYSICIAN_PENDING → /doctor/onboarding/pending
+ *   PATIENT           → /doctor/sign-up (bounced — cannot enter physician flow)
+ *   not signed in     → renders Clerk OTP widget
+ *
+ * Invite resolution order:
+ *   1. URL ?invite= param (existing physician following report link)
+ *   2. DB PhysicianPatientInvitation (newly-approved physician — no URL invite)
  */
 export default async function PhysicianSignInPage({
   searchParams,
@@ -31,143 +29,181 @@ export default async function PhysicianSignInPage({
   if (userId) {
     const user = await prisma.user.findUnique({
       where:  { clerkId: userId },
-      select: { role: true },
+      select: { role: true, id: true },
     });
 
-    // Deterministic routing — no fallback to /doctor (that causes a loop for patients)
+    // For approved physician with no URL invite — check DB for a stored pending invitation
+    // created during sign-up (new physician approved after patient sent them a report link).
+    let storedInvite: string | null = null;
+    if (user?.role === 'PHYSICIAN' && !invite) {
+      try {
+        const pending = await prisma.physicianPatientInvitation.findFirst({
+          where:  { claimedByUserId: user.id, status: 'PENDING' },
+          select: { shareToken: true },
+        });
+        storedInvite = pending?.shareToken ?? null;
+      } catch {
+        // Non-fatal — proceed without stored invite
+      }
+    }
+
+    const effectiveInvite = invite ?? storedInvite;
+
     const dest =
-      user?.role === 'PHYSICIAN' && invite         ? `/doctor/accept-patient?invite=${invite}` :
-      user?.role === 'PHYSICIAN'                   ? '/doctor/dashboard' :
-      user?.role === 'PHYSICIAN_PENDING' && invite ? `/doctor/onboarding/pending?invite=${invite}` :
-      user?.role === 'PHYSICIAN_PENDING'           ? '/doctor/onboarding/pending' :
-      !user && invite                              ? `/doctor/onboarding?invite=${invite}` :
-      !user                                        ? '/doctor/onboarding' :
+      user?.role === 'PHYSICIAN' && effectiveInvite ? `/doctor/accept-patient?invite=${effectiveInvite}` :
+      user?.role === 'PHYSICIAN'                    ? '/doctor/patients' :
+      user?.role === 'PHYSICIAN_PENDING' && invite  ? `/doctor/onboarding/pending?invite=${invite}` :
+      user?.role === 'PHYSICIAN_PENDING'            ? '/doctor/onboarding/pending' :
+      !user && invite                               ? `/doctor/onboarding?invite=${invite}` :
+      !user                                         ? '/doctor/onboarding' :
       '/doctor/sign-up'; // PATIENT or unrecognised role → physician registration
 
     if (process.env.NODE_ENV === 'development') {
       console.log('[/doctor/sign-in] routing', {
-        route:         '/doctor/sign-in',
-        authStatus:    'authenticated',
-        role:          user?.role ?? null,
-        invite:        invite ?? null,
-        finalRedirect: dest,
+        route:          '/doctor/sign-in',
+        authStatus:     'authenticated',
+        role:           user?.role ?? null,
+        invite:         invite ?? null,
+        storedInvite,
+        effectiveInvite,
+        finalRedirect:  dest,
       });
     }
 
     redirect(dest);
   }
 
-  // After successful auth, route to accept-patient if invite present, else dashboard
+  // After successful auth, route to accept-patient if invite present, else CCC
   const redirectAfterAuth = invite
     ? `/doctor/accept-patient?invite=${invite}`
-    : '/doctor/dashboard';
+    : '/doctor/patients';
+
+  const signInDest = invite ? `/doctor/sign-in?invite=${invite}` : '/doctor/sign-in';
 
   if (process.env.NODE_ENV === 'development') {
     console.log('[/doctor/sign-in] routing', {
-      route:              '/doctor/sign-in',
-      authStatus:         'unauthenticated',
-      invite:             invite ?? null,
+      route:             '/doctor/sign-in',
+      authStatus:        'unauthenticated',
+      invite:            invite ?? null,
       redirectAfterAuth,
-      finalRedirect:      'render_clerk_widget',
+      finalRedirect:     'render_clerk_widget',
     });
   }
 
-  // Client-side safeguard for any PATIENT session that slips past server routing
-  const signInDest = invite ? `/doctor/sign-in?invite=${invite}` : '/doctor/sign-in';
-
   return (
-    <div className="min-h-screen bg-slate-50 font-sans flex flex-col items-center justify-center px-6 py-12">
-
+    <div
+      style={{
+        minHeight: '100vh',
+        background: '#080C14',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '48px 24px',
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      }}
+    >
+      {/* Client-side safeguard for PATIENT sessions that slip past server routing */}
       <PhysicianBoundary redirectTo={signInDest} />
 
-      {/* Brand header */}
-      <div className="mb-6 text-center">
-        <Link href="/doctor" className="text-xl font-bold text-slate-900 tracking-tight hover:opacity-80 transition-opacity">
-          Myo<span className="text-teal-600">Guard</span>
+      {/* Logo */}
+      <div style={{ marginBottom: '32px', textAlign: 'center' }}>
+        <Link href="/doctor" style={{ textDecoration: 'none', display: 'inline-block' }}>
+          <span style={{ fontSize: '22px', fontWeight: 900, letterSpacing: '-0.03em', color: '#F8FAFC' }}>
+            Myo<span style={{ color: '#2DD4BF' }}>Guard</span>
+          </span>
+          <span style={{ color: '#475569', fontWeight: 300, fontSize: '13px', marginLeft: '4px' }}>Protocol</span>
         </Link>
-        <p className="text-xs text-slate-500 mt-1 tracking-wide uppercase">Physician Portal</p>
+        <p style={{ fontSize: '11px', color: '#475569', marginTop: '6px', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}>
+          Physician Portal
+        </p>
       </div>
 
       {/* Context card */}
-      <div className="w-full max-w-sm bg-white border border-slate-200 rounded-2xl shadow-sm px-5 py-4 text-center mb-4">
-        <p className="text-sm font-bold text-slate-900 mb-1">Clinical Access</p>
-        <p className="text-xs text-slate-500 leading-relaxed">
-          Sign in to your physician command center. Patient risk scores,
-          protocol oversight, and muscle-protection flags — all in one place.
+      <div
+        style={{
+          width: '100%', maxWidth: '380px',
+          background: '#0D1421',
+          border: '1px solid #1A2744',
+          borderRadius: '16px',
+          padding: '16px 20px',
+          marginBottom: '16px',
+          textAlign: 'center',
+        }}
+      >
+        <p style={{ fontFamily: 'Georgia, serif', fontSize: '14px', fontWeight: 600, color: '#F1F5F9', marginBottom: '6px' }}>
+          Clinical Command Center
         </p>
-        <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-center gap-3">
-          <span className="text-xs text-slate-400">No physician account?</span>
-          <Link href="/doctor/sign-up" className="text-xs font-semibold text-teal-600 hover:underline">
+        <p style={{ fontSize: '12px', color: '#64748B', lineHeight: '1.6', margin: 0 }}>
+          Sign in to access patient risk scores, protocol oversight, and muscle-protection flags.
+        </p>
+        <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #1A2744', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+          <span style={{ fontSize: '12px', color: '#475569' }}>No physician account?</span>
+          <Link
+            href={invite ? `/doctor/sign-up?invite=${invite}` : '/doctor/sign-up'}
+            style={{ fontSize: '12px', fontWeight: 600, color: '#2DD4BF', textDecoration: 'none' }}
+          >
             Register →
           </Link>
         </div>
       </div>
 
       {/*
-        signUpUrl overrides the ClerkProvider-level signUpUrl so the widget's
-        internal "sign up" link routes to /doctor/sign-up, not /sign-up-new.
-        forceRedirectUrl ensures all new auths land on /doctor/onboarding.
-        Do NOT pass routing="path" — Clerk v6 App Router auto-detects path
-        routing from the [[...sign-in]] catch-all convention.
+        signUpUrl overrides the Clerk widget's internal "sign up" link so it
+        routes to /doctor/sign-up, not the global /sign-up-new.
+        forceRedirectUrl ensures all new auths land on the correct physician path.
+        routing="path" uses the [[...sign-in]] catch-all convention.
       */}
       <SignIn
         routing="path"
         path="/doctor/sign-in"
-        signUpUrl={invite ? `/doctor/sign-up?invite=${invite}` : "/doctor/sign-up"}
+        signUpUrl={invite ? `/doctor/sign-up?invite=${invite}` : '/doctor/sign-up'}
         forceRedirectUrl={redirectAfterAuth}
         appearance={{
           variables: {
-            colorBackground: "#0A0A0A",
-            colorInputBackground: "#1e293b",
-            colorInputText: "#ffffff",
-            colorText: "#ffffff",
-            colorTextSecondary: "#94a3b8",
-            colorPrimary: "#10B981",
-            colorTextOnPrimaryBackground: "#ffffff",
-            borderRadius: "0.75rem",
+            colorBackground:              '#0D1421',
+            colorInputBackground:         '#060D1E',
+            colorInputText:               '#F1F5F9',
+            colorText:                    '#F1F5F9',
+            colorTextSecondary:           '#94A3B8',
+            colorPrimary:                 '#2DD4BF',
+            colorTextOnPrimaryBackground: '#080C14',
+            borderRadius:                 '0.75rem',
           },
           elements: {
             card: {
-              border: "1px solid #1F2937",
-              boxShadow: "0 0 40px rgba(0,0,0,0.5)",
+              border:     '1px solid #1A2744',
+              boxShadow:  'none',
             },
             formFieldInput: {
-              border: "1px solid #334155",
+              border: '1px solid #1A2744',
             },
             primaryButton: {
-              backgroundColor: "#10B981",
+              backgroundColor: '#2DD4BF',
+              color:           '#080C14',
             },
-            footerAction: { display: "none" },
-            footerPages: { display: "none" },
+            footerAction:  { display: 'none' },
+            footerPages:   { display: 'none' },
             otpCodeFieldInput: {
-              backgroundColor: "#1e293b",
-              border: "1px solid #334155",
-              color: "#ffffff",
-              caretColor: "#2DD4BF",
+              backgroundColor: '#060D1E',
+              border:          '1px solid #1A2744',
+              color:           '#F1F5F9',
+              caretColor:      '#2DD4BF',
             },
             formResendCodeLink: {
-              color: "#2DD4BF",
+              color: '#2DD4BF',
             },
           },
         }}
       />
 
-      <p style={{ textAlign: "center", fontSize: "13px", color: "#94A3B8", marginTop: "16px", lineHeight: "1.6" }}>
-        Enter your email above and we will send you a
-        6-digit code to sign in instantly.
-        No password required.
-      </p>
-
-      <p style={{ textAlign: "center", marginTop: "16px", fontSize: "13px", color: "#64748b" }}>
-        Not yet registered?{" "}
-        <a href="/doctor/sign-up" style={{ color: "#2dd4bf", textDecoration: "underline" }}>
-          Apply for physician access
-        </a>
+      <p style={{ textAlign: 'center', fontSize: '12px', color: '#475569', marginTop: '16px', lineHeight: '1.6', maxWidth: '320px' }}>
+        Enter your email and we&apos;ll send a 6-digit access code. No password required.
       </p>
 
       <Link
         href="/"
-        className="mt-4 text-xs text-slate-400 hover:text-slate-600 transition-colors"
+        style={{ marginTop: '24px', fontSize: '12px', color: '#334155', textDecoration: 'none' }}
       >
         ← Back to MyoGuard
       </Link>

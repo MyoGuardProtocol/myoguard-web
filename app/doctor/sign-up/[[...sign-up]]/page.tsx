@@ -290,34 +290,35 @@ export default function PhysicianSignUpPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4 py-12">
+    <div className="min-h-screen flex items-center justify-center px-4 py-12" style={{ background: '#080C14' }}>
       <div className="w-full max-w-lg">
 
         {/* Logo + badge */}
         <div className="flex flex-col items-center gap-3 mb-8">
-          <div className="flex items-center gap-1">
-            <span className="text-2xl font-bold text-white tracking-tight">Myo</span>
-            <span className="text-2xl font-bold text-teal-400 tracking-tight">Guard</span>
+          <div className="flex items-center gap-0">
+            <span style={{ fontSize: '22px', fontWeight: 900, letterSpacing: '-0.03em', color: '#F8FAFC' }}>Myo</span>
+            <span style={{ fontSize: '22px', fontWeight: 900, letterSpacing: '-0.03em', color: '#2DD4BF' }}>Guard</span>
+            <span style={{ color: '#475569', fontWeight: 300, fontSize: '13px', marginLeft: '4px' }}>Protocol</span>
           </div>
-          <span className="inline-flex items-center gap-1.5 bg-slate-800 border border-slate-700 text-teal-400 text-xs font-medium px-3 py-1.5 rounded-full">
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(45,212,191,0.08)', border: '1px solid rgba(45,212,191,0.2)', color: '#2DD4BF', fontSize: '11px', fontWeight: 600, padding: '4px 12px', borderRadius: '99px', letterSpacing: '0.08em', textTransform: 'uppercase' as const }}>
             Physician Registration
           </span>
-          <span className="text-xs text-slate-500">Physician-led Clinical Decision Support</span>
+          <span style={{ fontSize: '12px', color: '#475569' }}>Physician-led Clinical Decision Support</span>
         </div>
 
         {/* Card */}
-        <div className="bg-slate-900 border border-slate-700 rounded-2xl p-8">
+        <div className="rounded-2xl p-8" style={{ background: '#0D1421', border: '1px solid #1A2744' }}>
 
           <div className="mb-6">
-            <h1 className="text-xl font-semibold text-white mb-1">
+            <h1 style={{ fontFamily: 'Georgia, serif', fontSize: '20px', fontWeight: 400, color: '#F1F5F9', marginBottom: '6px' }}>
               {isPreAuth ? "Complete Your Physician Profile" : "Physician Credential Registration"}
             </h1>
-            <p className="text-sm text-slate-400 leading-relaxed">
+            <p style={{ fontSize: '13px', color: '#64748B', lineHeight: '1.6', marginBottom: '8px' }}>
               {isPreAuth
                 ? "You're already signed in. Complete your credentials below to submit for clinical review."
                 : "Complete your registration to access the MyoGuard Protocol platform. Your credentials will be reviewed within 24 hours."}
             </p>
-            <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+            <p style={{ fontSize: '12px', color: '#334155', lineHeight: '1.5' }}>
               MyoGuard Protocol is a Clinical Decision Support (CDS) platform. All clinical decisions remain with the treating physician.
             </p>
           </div>
@@ -574,16 +575,16 @@ export default function PhysicianSignUpPage() {
           </form>
 
           {/* Footer links */}
-          <div className="mt-6 pt-5 border-t border-slate-700 flex flex-col items-center gap-2">
-            <Link href="/doctor/sign-in" className="text-sm text-slate-400 hover:text-teal-400 transition-colors">
+          <div className="mt-6 pt-5 flex flex-col items-center gap-2" style={{ borderTop: '1px solid #1A2744' }}>
+            <Link href="/doctor/sign-in" style={{ fontSize: '13px', color: '#64748B', textDecoration: 'none' }}>
               Already approved? Sign in →
             </Link>
-            <Link href="/" className="text-sm text-slate-500 hover:text-slate-300 transition-colors">
+            <Link href="/" style={{ fontSize: '13px', color: '#475569', textDecoration: 'none' }}>
               Patient? Start your free assessment →
             </Link>
-            <p className="text-xs text-slate-600 mt-1">
+            <p style={{ fontSize: '12px', color: '#334155', marginTop: '4px' }}>
               Questions?{" "}
-              <a href="mailto:support@myoguard.health" className="text-teal-400 hover:underline">
+              <a href="mailto:support@myoguard.health" style={{ color: '#2DD4BF', textDecoration: 'none' }}>
                 support@myoguard.health
               </a>
             </p>

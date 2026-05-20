@@ -88,6 +88,18 @@ export default async function DoctorDashboardPage() {
   // ── Role routing ──────────────────────────────────────────────────────────
   if (user.role === 'ADMIN')   redirect('/admin/physicians');
   if (user.role === 'PATIENT') redirect('/dashboard');
+
+  // For approved physicians, check for a stored pending patient invitation
+  // (belt-and-suspenders for the /doctor/patients safety net)
+  if (user.role === 'PHYSICIAN') {
+    const pendingInvitation = await prisma.physicianPatientInvitation.findFirst({
+      where:  { claimedByUserId: user.id, status: 'PENDING' },
+      select: { shareToken: true },
+    }).catch(() => null);
+    if (pendingInvitation) {
+      redirect(`/doctor/accept-patient?invite=${pendingInvitation.shareToken}`);
+    }
+  }
   // PHYSICIAN and PHYSICIAN_PENDING both fall through to JSX below
   return (
     <main style={{ background: '#080C14', minHeight: '100vh',

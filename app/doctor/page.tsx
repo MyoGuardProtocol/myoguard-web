@@ -4,15 +4,11 @@ import { redirect } from 'next/navigation';
 import { prisma } from '@/src/lib/prisma';
 
 /**
- * /doctor — Physician portal landing page.
+ * /doctor — Physician portal landing page (Midnight Silk).
  *
- * Signed-in physicians are routed directly to their portal without seeing
- * this marketing page. Signed-in patients may view it per policy — they are
- * not automatically redirected. Unauthenticated visitors see the full page.
- *
- * Mobile-first: all elements use full-width tap targets, readable font sizes,
- * and stack vertically on xs screens. The feature grid goes 1-col on mobile,
- * 3-col on sm+.
+ * Signed-in physicians are routed directly to their portal.
+ * Signed-in patients see the page with a sign-up CTA (no patient data exposed).
+ * Unauthenticated visitors see the full landing.
  */
 export default async function DoctorLandingPage() {
   const { userId } = await auth();
@@ -26,132 +22,132 @@ export default async function DoctorLandingPage() {
     });
     if (user?.role === 'PHYSICIAN')         redirect('/doctor/patients');
     if (user?.role === 'PHYSICIAN_PENDING') redirect('/doctor/dashboard');
-    // Authenticated patient or unrecognised role → physician registration CTA directly
-    // (avoids the /doctor/sign-in → redirect('/doctor') loop)
-    if (user?.role === 'PATIENT') ctaHref = '/doctor/sign-up';
+    if (user?.role === 'PATIENT')           ctaHref = '/doctor/sign-up';
   }
 
-  if (process.env.NODE_ENV === 'development') {
-    console.log('[/doctor] routing', {
-      route:           '/doctor',
-      authStatus:      userId ? 'authenticated' : 'unauthenticated',
-      invitationToken: null,
-      primaryCta:      ctaHref,
-      finalRedirect:   'render_landing',
-    });
-  }
+  const features = [
+    { label: 'MyoGuard Score',  detail: 'Per-patient muscle risk 0–100' },
+    { label: 'Clinical Flags',  detail: 'Protein deficit, fatigue, weakness' },
+    { label: 'Risk Bands',      detail: 'Low → Critical prioritisation' },
+  ];
+
+  const trust = ['Physician-Formulated', 'Evidence-Based', 'GLP-1 Specialist Tool'];
 
   return (
-    <main className="min-h-screen bg-white font-sans flex flex-col">
+    <main style={{ minHeight: '100vh', background: '#080C14', fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
 
-      {/* ── Header ── */}
-      <header className="border-b border-slate-100 px-6 py-4">
-        <div className="max-w-2xl mx-auto flex items-center justify-between gap-3">
-          <Link href="/" className="flex items-baseline gap-1">
-            <span className="text-xl font-black text-slate-900 tracking-tight">
-              Myo<span className="text-teal-600">Guard</span>
-            </span>
-            <span className="text-slate-400 font-light text-sm ml-0.5">Protocol</span>
+      {/* Header */}
+      <header style={{ background: '#060D1E', borderBottom: '1px solid rgba(255,255,255,0.07)', padding: '0 24px' }}>
+        <div style={{ maxWidth: '720px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '56px' }}>
+          <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'baseline', gap: '2px' }}>
+            <span style={{ fontSize: '18px', fontWeight: 900, color: '#F8FAFC', letterSpacing: '-0.02em' }}>Myo</span>
+            <span style={{ fontSize: '18px', fontWeight: 900, color: '#2DD4BF', letterSpacing: '-0.02em' }}>Guard</span>
+            <span style={{ color: '#475569', fontWeight: 300, fontSize: '12px', marginLeft: '4px' }}>Protocol</span>
           </Link>
           <Link
-            href="/sign-in"
-            className="text-xs text-slate-500 hover:text-slate-700 font-medium transition-colors whitespace-nowrap"
+            href="/sign-in-new"
+            style={{ fontSize: '12px', color: '#475569', textDecoration: 'none', fontWeight: 500 }}
           >
-            Sign in →
+            Patient login →
           </Link>
         </div>
       </header>
 
-      {/* ── Hero ── */}
-      <div className="flex-1 flex items-center justify-center px-6 py-12">
-        <div className="max-w-lg w-full text-center space-y-7">
+      {/* Hero */}
+      <div style={{ maxWidth: '600px', margin: '0 auto', padding: '72px 24px 56px', textAlign: 'center' }}>
 
-          {/* Tag */}
-          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-teal-700 bg-teal-50 border border-teal-100 rounded-full px-3.5 py-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-teal-500 inline-block" />
-            Physician Portal
-          </span>
+        {/* Badge */}
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(45,212,191,0.08)', border: '1px solid rgba(45,212,191,0.2)', borderRadius: '99px', padding: '5px 14px', marginBottom: '32px' }}>
+          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#2DD4BF', display: 'inline-block' }} />
+          <span style={{ fontSize: '11px', fontWeight: 600, color: '#2DD4BF', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Physician Portal</span>
+        </div>
 
-          {/* Headline */}
-          <div className="space-y-4">
-            <h1 className="text-3xl sm:text-5xl font-black text-slate-900 leading-tight tracking-tight">
-              Built for Physicians.<br />Designed for Speed.
-            </h1>
-            <p className="text-base sm:text-lg text-slate-500 leading-relaxed">
-              Monitor your GLP-1 patients&apos; muscle health in real-time. Clinical-grade risk
-              scores, personalised protocols, and flag-based prioritisation — in under 60 seconds.
-            </p>
-          </div>
+        {/* Headline */}
+        <h1 style={{ fontFamily: 'Georgia, serif', fontSize: 'clamp(32px, 6vw, 44px)', fontWeight: 400, color: '#F1F5F9', lineHeight: '1.2', marginBottom: '20px' }}>
+          Built for Physicians.<br />Designed for Speed.
+        </h1>
+        <p style={{ fontSize: '16px', color: '#64748B', lineHeight: '1.7', marginBottom: '40px', maxWidth: '460px', margin: '0 auto 40px' }}>
+          Monitor your GLP-1 patients&apos; muscle health in real-time. Clinical-grade risk
+          scores, personalised protocols, and flag-based prioritisation — in under 60 seconds.
+        </p>
 
-          {/* CTA */}
-          <div className="space-y-3">
-            <Link
-              href={ctaHref}
-              className="w-full inline-flex items-center justify-center gap-2 bg-slate-900 text-white text-base font-semibold px-8 py-4 rounded-2xl hover:bg-slate-800 active:bg-slate-950 transition-colors shadow-sm min-h-[52px]"
-            >
-              Continue as Physician
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-              </svg>
-            </Link>
-            <Link
-              href="/doctor/sign-up"
-              className="w-full inline-flex items-center justify-center gap-2 bg-white border border-slate-200 text-slate-700 text-sm font-semibold px-8 py-3.5 rounded-2xl hover:border-teal-300 hover:text-teal-700 hover:bg-teal-50 transition-colors min-h-[48px]"
-            >
-              New to MyoGuard? Create account
-            </Link>
-            <p className="text-xs text-slate-400">
-              Sign in with Google or email link — no password required
-            </p>
-          </div>
-
-          {/* Trust badges */}
-          <div className="flex items-center justify-center gap-5 flex-wrap pt-1">
-            {[
-              'Physician-Formulated',
-              'Evidence-Based',
-              'GLP-1 Specialist Tool',
-            ].map(tag => (
-              <span key={tag} className="flex items-center gap-1.5 text-xs text-slate-500">
-                <svg
-                  className="w-3.5 h-3.5 text-teal-500 flex-shrink-0"
-                  fill="none"
-                  viewBox="0 0 12 12"
-                  stroke="currentColor"
-                  strokeWidth={2.5}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M2 6l3 3 5-5" />
-                </svg>
-                {tag}
-              </span>
-            ))}
-          </div>
-
-          {/* Feature grid — 1 col on mobile, 3 col on sm+ */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 text-left">
-            {[
-              { icon: '🧬', label: 'MyoGuard Score', detail: 'Per-patient muscle risk 0–100' },
-              { icon: '🚩', label: 'Clinical Flags', detail: 'Protein deficit, fatigue, weakness' },
-              { icon: '📊', label: 'Risk Bands', detail: 'Low → Critical prioritisation' },
-            ].map(f => (
-              <div key={f.label} className="bg-slate-50 rounded-xl p-4 space-y-1.5">
-                <div className="text-xl">{f.icon}</div>
-                <p className="text-sm font-semibold text-slate-700">{f.label}</p>
-                <p className="text-xs text-slate-500 leading-snug">{f.detail}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* Patient flow separator */}
-          <p className="text-xs text-slate-400 pt-2">
-            Are you a patient?{' '}
-            <Link href="/" className="text-teal-600 font-medium hover:underline">
-              Take the assessment →
-            </Link>
+        {/* CTAs */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '360px', margin: '0 auto 48px' }}>
+          <Link
+            href={ctaHref}
+            style={{
+              display: 'block',
+              background: '#2DD4BF',
+              color: '#080C14',
+              padding: '15px 24px',
+              borderRadius: '14px',
+              fontSize: '15px',
+              fontWeight: 700,
+              textDecoration: 'none',
+              textAlign: 'center',
+            }}
+          >
+            Continue as Physician →
+          </Link>
+          <Link
+            href="/doctor/sign-up"
+            style={{
+              display: 'block',
+              background: 'transparent',
+              color: '#94A3B8',
+              padding: '13px 24px',
+              borderRadius: '14px',
+              fontSize: '14px',
+              fontWeight: 600,
+              textDecoration: 'none',
+              textAlign: 'center',
+              border: '1px solid #1A2744',
+            }}
+          >
+            New to MyoGuard? Create account
+          </Link>
+          <p style={{ fontSize: '12px', color: '#334155', marginTop: '4px' }}>
+            Sign in with email — no password required
           </p>
         </div>
+
+        {/* Trust badges */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', flexWrap: 'wrap', marginBottom: '52px' }}>
+          {trust.map(tag => (
+            <span key={tag} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#475569' }}>
+              <svg width="14" height="14" fill="none" viewBox="0 0 12 12" stroke="#2DD4BF" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M2 6l3 3 5-5" />
+              </svg>
+              {tag}
+            </span>
+          ))}
+        </div>
+
+        {/* Feature grid — 1 col mobile, 3 col sm+ */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-10 text-left">
+          {features.map(f => (
+            <div
+              key={f.label}
+              style={{
+                background: '#0D1421',
+                border: '1px solid #1A2744',
+                borderRadius: '14px',
+                padding: '16px',
+              }}
+            >
+              <p style={{ fontSize: '13px', fontWeight: 600, color: '#F1F5F9', marginBottom: '4px' }}>{f.label}</p>
+              <p style={{ fontSize: '12px', color: '#475569', lineHeight: '1.4', margin: 0 }}>{f.detail}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Patient link */}
+        <p style={{ fontSize: '13px', color: '#334155' }}>
+          Are you a patient?{' '}
+          <Link href="/" style={{ color: '#2DD4BF', fontWeight: 500, textDecoration: 'none' }}>
+            Take the assessment →
+          </Link>
+        </p>
       </div>
     </main>
   );

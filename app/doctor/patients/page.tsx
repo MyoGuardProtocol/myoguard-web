@@ -13,7 +13,7 @@ import { prisma } from '@/src/lib/prisma';
 import Link from 'next/link';
 import PhysicianAvatar from '@/src/components/ui/PhysicianAvatar';
 import PatientCommandCenter, { type PatientRow } from '@/src/components/ui/PatientCommandCenter';
-import PatientGrowthCard from '@/src/components/ui/PatientGrowthCard';
+import PhysicianEmptyState from '@/src/components/ui/PhysicianEmptyState';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -135,6 +135,16 @@ export default async function PatientsPage() {
   if (!physician)                            redirect('/dashboard');
   if (physician.role === 'PHYSICIAN_PENDING') redirect('/doctor/dashboard');
   if (physician.role !== 'PHYSICIAN')         redirect('/dashboard');
+
+  // Safety net: route to accept-patient if a pending invitation exists in DB
+  // (catches newly-approved physicians who signed up from a patient report link)
+  const pendingInvitation = await prisma.physicianPatientInvitation.findFirst({
+    where:  { claimedByUserId: physician.id, status: 'PENDING' },
+    select: { shareToken: true },
+  }).catch(() => null);
+  if (pendingInvitation) {
+    redirect(`/doctor/accept-patient?invite=${pendingInvitation.shareToken}`);
+  }
 
   // Resolve canonical referral code for QR / invite links
   let physicianReferralCode: string | null = null;
@@ -275,13 +285,11 @@ export default async function PatientsPage() {
       </header>
 
       {patients.length === 0 && (
-        <div className="max-w-6xl mx-auto px-6 py-6">
-          <PatientGrowthCard
-            doctorId={physician.id}
-            doctorName={physician.fullName}
-            referralCode={physicianReferralCode}
-          />
-        </div>
+        <PhysicianEmptyState
+          doctorId={physician.id}
+          doctorName={physician.fullName}
+          referralCode={physicianReferralCode}
+        />
       )}
       <PatientCommandCenter patients={patients} isVerified={physician.isVerified} />
     </main>
