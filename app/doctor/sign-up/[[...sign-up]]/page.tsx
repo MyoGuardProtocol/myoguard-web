@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth, useUser } from "@clerk/nextjs";
 import Link from "next/link";
 
 const SPECIALTIES = [
@@ -84,6 +85,11 @@ type NpiStatus = "idle" | "loading" | "verified" | "not_found";
 
 export default function PhysicianSignUpPage() {
   const router = useRouter();
+  const { userId } = useAuth();
+  const { user: clerkUser, isLoaded: clerkLoaded } = useUser();
+
+  // true = user already authenticated via Clerk (OTP or otherwise)
+  const isPreAuth = !!userId;
 
   const [form, setForm] = useState({
     fullName:      "",
@@ -94,13 +100,21 @@ export default function PhysicianSignUpPage() {
     country:       "",
     licenseNumber: "",
   });
-  const [showPassword, setShowPassword]           = useState(false);
-  const [internationalProvider, setInternationalProvider] = useState(false);
-  const [npiStatus, setNpiStatus]                 = useState<NpiStatus>("idle");
-  const [npisSpecialty, setNpisSpecialty]          = useState("");  // raw NPPES value
-  const [loading, setLoading]                     = useState(false);
-  const [error, setError]                         = useState("");
+  const [showPassword, setShowPassword]                    = useState(false);
+  const [internationalProvider, setInternationalProvider]  = useState(false);
+  const [npiStatus, setNpiStatus]                          = useState<NpiStatus>("idle");
+  const [npisSpecialty, setNpisSpecialty]                  = useState("");
+  const [loading, setLoading]                              = useState(false);
+  const [error, setError]                                  = useState("");
   const npiLookupRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Pre-fill email from authenticated Clerk session
+  useEffect(() => {
+    if (isPreAuth && clerkLoaded && clerkUser) {
+      const email = clerkUser.emailAddresses[0]?.emailAddress ?? "";
+      if (email) setForm(prev => ({ ...prev, email }));
+    }
+  }, [isPreAuth, clerkLoaded, clerkUser]);
 
   // NPPES auto-lookup when NPI reaches 10 digits
   useEffect(() => {
@@ -123,8 +137,7 @@ export default function PhysicianSignUpPage() {
         if (data.result_count > 0 && data.results?.[0]?.taxonomies?.[0]?.desc) {
           const desc = data.results[0].taxonomies[0].desc;
           setNpisSpecialty(desc);
-          // Pre-fill: use NPPES value — if not in list it becomes a dynamic option
-          setForm((prev) => ({ ...prev, specialty: desc }));
+          setForm(prev => ({ ...prev, specialty: desc }));
           setNpiStatus("verified");
         } else {
           setNpiStatus("not_found");
@@ -143,13 +156,13 @@ export default function PhysicianSignUpPage() {
     const { name, value } = e.target;
     if (name === "npi") {
       const digits = value.replace(/\D/g, "").slice(0, 10);
-      setForm((prev) => ({ ...prev, npi: digits }));
+      setForm(prev => ({ ...prev, npi: digits }));
       if (digits.length < 10) {
         setNpiStatus("idle");
         setNpisSpecialty("");
       }
     } else {
-      setForm((prev) => ({ ...prev, [name]: value }));
+      setForm(prev => ({ ...prev, [name]: value }));
     }
   }
 
@@ -165,7 +178,8 @@ export default function PhysicianSignUpPage() {
       setError("A valid email address is required.");
       return;
     }
-    if (!form.password || form.password.length < 8) {
+    // Password only required when creating a new Clerk account
+    if (!isPreAuth && (!form.password || form.password.length < 8)) {
       setError("Password must be at least 8 characters.");
       return;
     }
@@ -180,18 +194,35 @@ export default function PhysicianSignUpPage() {
 
     setLoading(true);
     try {
-      const res = await fetch("/api/doctor/register", {
+      // Authenticated users complete their profile via /api/doctor/onboarding
+      // (no Clerk account creation needed — session already exists).
+      // Unauthenticated users go through /api/doctor/register which creates
+      // the Clerk account and DB row in one step.
+      const endpoint = isPreAuth ? "/api/doctor/onboarding" : "/api/doctor/register";
+
+      const payload = isPreAuth
+        ? {
+            fullName:      form.fullName.trim(),
+            email:         form.email.trim().toLowerCase(),
+            country:       form.country,
+            specialty:     form.specialty,
+            npiNumber:     !internationalProvider && form.npi     ? form.npi           : undefined,
+            licenseNumber: form.licenseNumber                     ? form.licenseNumber : undefined,
+          }
+        : {
+            fullName:      form.fullName.trim(),
+            email:         form.email.trim().toLowerCase(),
+            password:      form.password,
+            country:       form.country,
+            specialty:     form.specialty,
+            npiNumber:     !internationalProvider && form.npi     ? form.npi           : undefined,
+            licenseNumber: form.licenseNumber                     ? form.licenseNumber : undefined,
+          };
+
+      const res = await fetch(endpoint, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fullName:      form.fullName.trim(),
-          email:         form.email.trim().toLowerCase(),
-          password:      form.password,
-          country:       form.country,
-          specialty:     form.specialty,
-          npiNumber:     !internationalProvider && form.npi           ? form.npi           : undefined,
-          licenseNumber: form.licenseNumber                           ? form.licenseNumber : undefined,
-        }),
+        body:    JSON.stringify(payload),
       });
 
       const json = await res.json() as { ok: boolean; error?: string; detail?: string };
@@ -210,10 +241,18 @@ export default function PhysicianSignUpPage() {
     }
   }
 
-  // Build the specialty options — add NPPES value dynamically if not in the list
   const specialtyOptions = npisSpecialty && !SPECIALTIES.includes(npisSpecialty)
     ? [npisSpecialty, ...SPECIALTIES]
     : SPECIALTIES;
+
+  // Brief loading state while Clerk resolves session
+  if (!clerkLoaded) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="w-5 h-5 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4 py-12">
@@ -236,10 +275,12 @@ export default function PhysicianSignUpPage() {
 
           <div className="mb-6">
             <h1 className="text-xl font-semibold text-white mb-1">
-              Physician Credential Registration
+              {isPreAuth ? "Complete Your Physician Profile" : "Physician Credential Registration"}
             </h1>
             <p className="text-sm text-slate-400 leading-relaxed">
-              Complete your registration to access the MyoGuard Protocol platform. Your credentials will be reviewed within 24 hours.
+              {isPreAuth
+                ? "You're already signed in. Complete your credentials below to submit for clinical review."
+                : "Complete your registration to access the MyoGuard Protocol platform. Your credentials will be reviewed within 24 hours."}
             </p>
             <p className="text-xs text-slate-500 mt-2 leading-relaxed">
               MyoGuard Protocol is a Clinical Decision Support (CDS) platform. All clinical decisions remain with the treating physician.
@@ -265,7 +306,7 @@ export default function PhysicianSignUpPage() {
               />
             </label>
 
-            {/* Professional email */}
+            {/* Professional email — locked when pre-authenticated */}
             <label className="flex flex-col gap-1.5">
               <span className="text-xs font-medium text-slate-300">
                 Professional email <span className="text-red-400">*</span>
@@ -278,45 +319,54 @@ export default function PhysicianSignUpPage() {
                 onChange={handleChange}
                 required
                 autoComplete="email"
-                className="bg-slate-800 border border-slate-600 rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-colors"
+                readOnly={isPreAuth}
+                disabled={isPreAuth}
+                className={`bg-slate-800 border border-slate-600 rounded-lg px-3 py-2.5 text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-colors ${
+                  isPreAuth ? "text-slate-400 opacity-70 cursor-not-allowed" : "text-white"
+                }`}
               />
+              {isPreAuth && (
+                <p className="text-xs text-slate-500">From your verified sign-in account</p>
+              )}
             </label>
 
-            {/* Password */}
-            <label className="flex flex-col gap-1.5">
-              <span className="text-xs font-medium text-slate-300">
-                Password <span className="text-red-400">*</span>
-              </span>
-              <div className="relative">
-                <input
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Minimum 8 characters"
-                  value={form.password}
-                  onChange={handleChange}
-                  required
-                  autoComplete="new-password"
-                  className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2.5 pr-10 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-colors"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  className="absolute inset-y-0 right-0 px-3 flex items-center text-slate-400 hover:text-slate-200 transition-colors"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                >
-                  {showPassword ? (
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                    </svg>
-                  ) : (
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
-                  )}
-                </button>
-              </div>
-            </label>
+            {/* Password — only shown when creating a new account */}
+            {!isPreAuth && (
+              <label className="flex flex-col gap-1.5">
+                <span className="text-xs font-medium text-slate-300">
+                  Password <span className="text-red-400">*</span>
+                </span>
+                <div className="relative">
+                  <input
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Minimum 8 characters"
+                    value={form.password}
+                    onChange={handleChange}
+                    required
+                    autoComplete="new-password"
+                    className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2.5 pr-10 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-colors"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(v => !v)}
+                    className="absolute inset-y-0 right-0 px-3 flex items-center text-slate-400 hover:text-slate-200 transition-colors"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </label>
+            )}
 
             {/* International provider toggle */}
             <div className="flex items-center justify-between py-1">
@@ -327,10 +377,10 @@ export default function PhysicianSignUpPage() {
               <button
                 type="button"
                 onClick={() => {
-                  setInternationalProvider((v) => !v);
+                  setInternationalProvider(v => !v);
                   setNpiStatus("idle");
                   setNpisSpecialty("");
-                  setForm((prev) => ({ ...prev, npi: "" }));
+                  setForm(prev => ({ ...prev, npi: "" }));
                 }}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none flex-shrink-0 ${
                   internationalProvider ? "bg-teal-600" : "bg-slate-600"
@@ -416,7 +466,7 @@ export default function PhysicianSignUpPage() {
                 className="bg-slate-800 border border-slate-600 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-colors"
               >
                 <option value="">Select specialty</option>
-                {specialtyOptions.map((s) => (
+                {specialtyOptions.map(s => (
                   <option key={s} value={s}>{s}</option>
                 ))}
               </select>
@@ -438,7 +488,7 @@ export default function PhysicianSignUpPage() {
                 className="bg-slate-800 border border-slate-600 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-colors"
               >
                 <option value="">Select country</option>
-                {COUNTRIES.map((c) => (
+                {COUNTRIES.map(c => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>

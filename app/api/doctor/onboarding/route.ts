@@ -10,18 +10,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(req: Request) {
   try {
-    // Promote the Clerk user to PHYSICIAN_PENDING as soon as they submit
-    // credentials. This is safer than relying on the webhook, which fires
-    // before unsafeMetadata is available server-side.
     const { userId } = await auth();
-    if (userId) {
-      await prisma.user.update({
-        where: { clerkId: userId },
-        data:  { role: 'PHYSICIAN_PENDING' },
-      }).catch((e: unknown) => {
-        console.warn('[onboarding] role update skipped (no DB row yet?):', e);
-      });
-    }
 
     const body = await req.json();
     const { fullName, email, country, specialty, npiNumber, licenseNumber } = body as {
@@ -56,6 +45,28 @@ export async function POST(req: Request) {
         { ok: false, error: "Specialty required" },
         { status: 422 }
       );
+    }
+
+    // Upsert User row — ensures DB record exists even when the Clerk webhook
+    // hasn't fired yet (OTP sign-in → immediate profile completion path).
+    if (userId) {
+      await prisma.user.upsert({
+        where:  { clerkId: userId },
+        create: {
+          clerkId:            userId,
+          email,
+          fullName,
+          role:               'PHYSICIAN_PENDING',
+          subscriptionStatus: 'FREE',
+        },
+        update: {
+          role:     'PHYSICIAN_PENDING',
+          fullName,
+          email,
+        },
+      }).catch((e: unknown) => {
+        console.warn('[onboarding] user upsert failed:', e);
+      });
     }
 
     // Generate signed HMAC token valid for 48 hours

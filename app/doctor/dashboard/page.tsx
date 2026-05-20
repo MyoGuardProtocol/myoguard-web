@@ -71,6 +71,20 @@ export default async function DoctorDashboardPage() {
   // Still no row → new physician (webhook hasn't fired yet or first visit)
   if (!user) redirect('/doctor/onboarding');
 
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[/doctor/dashboard] routing', {
+      route:              '/doctor/dashboard',
+      authStatus:         'authenticated',
+      role:               user.role,
+      verificationStatus: user.role === 'PHYSICIAN' ? 'verified'
+                        : user.role === 'PHYSICIAN_PENDING' ? 'pending' : 'other',
+      physicianProfile:   !!user.physicianOnboarding,
+      finalRedirect:      user.role === 'ADMIN'   ? '/admin/physicians'
+                        : user.role === 'PATIENT' ? '/dashboard'
+                        : 'render_dashboard',
+    });
+  }
+
   // ── Role routing ──────────────────────────────────────────────────────────
   if (user.role === 'ADMIN')   redirect('/admin/physicians');
   if (user.role === 'PATIENT') redirect('/dashboard');

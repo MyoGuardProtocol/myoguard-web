@@ -27,11 +27,32 @@ export default async function PhysicianSignInPage() {
       where:  { clerkId: userId },
       select: { role: true },
     });
-    if (user?.role === 'PHYSICIAN')         redirect('/doctor/dashboard');
-    if (user?.role === 'PHYSICIAN_PENDING') redirect('/doctor/onboarding/pending');
-    if (!user)                              redirect('/doctor/onboarding');
-    // PATIENT or unrecognised role → back to physician landing
-    redirect('/doctor');
+
+    // Deterministic routing — no fallback to /doctor (that causes a loop for patients)
+    const dest =
+      user?.role === 'PHYSICIAN'         ? '/doctor/dashboard'          :
+      user?.role === 'PHYSICIAN_PENDING' ? '/doctor/onboarding/pending' :
+      !user                              ? '/doctor/onboarding'          :
+      '/doctor/sign-up'; // PATIENT or unrecognised role → physician registration
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[/doctor/sign-in] routing', {
+        route:         '/doctor/sign-in',
+        authStatus:    'authenticated',
+        role:          user?.role ?? null,
+        finalRedirect: dest,
+      });
+    }
+
+    redirect(dest);
+  }
+
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[/doctor/sign-in] routing', {
+      route:         '/doctor/sign-in',
+      authStatus:    'unauthenticated',
+      finalRedirect: 'render_clerk_widget',
+    });
   }
 
   return (

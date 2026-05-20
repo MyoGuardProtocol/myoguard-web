@@ -17,6 +17,8 @@ import { prisma } from '@/src/lib/prisma';
 export default async function DoctorLandingPage() {
   const { userId } = await auth();
 
+  let ctaHref = '/doctor/sign-in';
+
   if (userId) {
     const user = await prisma.user.findUnique({
       where:  { clerkId: userId },
@@ -24,8 +26,21 @@ export default async function DoctorLandingPage() {
     });
     if (user?.role === 'PHYSICIAN')         redirect('/doctor/patients');
     if (user?.role === 'PHYSICIAN_PENDING') redirect('/doctor/dashboard');
-    // PATIENT or unknown → fall through and render the landing page
+    // Authenticated patient or unrecognised role → physician registration CTA directly
+    // (avoids the /doctor/sign-in → redirect('/doctor') loop)
+    if (user?.role === 'PATIENT') ctaHref = '/doctor/sign-up';
   }
+
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[/doctor] routing', {
+      route:           '/doctor',
+      authStatus:      userId ? 'authenticated' : 'unauthenticated',
+      invitationToken: null,
+      primaryCta:      ctaHref,
+      finalRedirect:   'render_landing',
+    });
+  }
+
   return (
     <main className="min-h-screen bg-white font-sans flex flex-col">
 
@@ -71,7 +86,7 @@ export default async function DoctorLandingPage() {
           {/* CTA */}
           <div className="space-y-3">
             <Link
-              href="/doctor/sign-in"
+              href={ctaHref}
               className="w-full inline-flex items-center justify-center gap-2 bg-slate-900 text-white text-base font-semibold px-8 py-4 rounded-2xl hover:bg-slate-800 active:bg-slate-950 transition-colors shadow-sm min-h-[52px]"
             >
               Continue as Physician
