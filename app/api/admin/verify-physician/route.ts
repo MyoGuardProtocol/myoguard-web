@@ -28,6 +28,7 @@
 import { timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 import { prisma } from "@/src/lib/prisma";
+import { ensureReferralProfile } from "@/src/lib/physician/ensureReferralProfile";
 import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -121,6 +122,22 @@ export async function GET(req: Request) {
     }).catch((e: unknown) => {
       console.error("[verify-physician] fallback email role update failed:", e);
     });
+  }
+
+  // Auto-generate referral slug + PhysicianProfile so the physician can
+  // invite patients immediately without waiting for admin to run upgrade-physician.
+  try {
+    const approvedUser = await prisma.user.findFirst({
+      where:  application.clerkUserId
+        ? { clerkId: application.clerkUserId }
+        : { email:   application.email },
+      select: { id: true, fullName: true, referralSlug: true },
+    });
+    if (approvedUser) {
+      await ensureReferralProfile(approvedUser);
+    }
+  } catch (e) {
+    console.error("[verify-physician] ensureReferralProfile failed:", e);
   }
 
   // Send activation email to physician

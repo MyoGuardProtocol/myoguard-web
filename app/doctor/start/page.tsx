@@ -1,6 +1,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/src/lib/prisma';
+import { ensureReferralProfile } from '@/src/lib/physician/ensureReferralProfile';
 import Link from 'next/link';
 import CopyButton from './CopyButton';
 import PhysicianAvatar from '@/src/components/ui/PhysicianAvatar';
@@ -14,25 +15,28 @@ export default async function DoctorStartPage() {
 
   const user = await prisma.user.findUnique({
     where: { clerkId: userId },
-    select: { role: true, referralSlug: true, fullName: true, email: true },
+    select: { id: true, role: true, referralSlug: true, fullName: true, email: true },
   });
 
   if (!user) redirect('/dashboard');
   if (user.role === 'PHYSICIAN_PENDING') redirect('/doctor/dashboard');
   if (user.role !== 'PHYSICIAN') redirect('/dashboard');
 
-  const slug = user.referralSlug;
+  // Auto-generate slug + profile if missing — idempotent
+  const referralResult = await ensureReferralProfile(user);
+  const activeSlug     = referralResult?.slug ?? user.referralSlug;
 
+  // Fetch full profile for display name, clinic, specialty
   let physician = null;
-  if (slug) {
+  if (activeSlug) {
     physician = await prisma.physicianProfile.findUnique({
-      where: { slug },
+      where:  { slug: activeSlug },
       select: { displayName: true, clinicName: true, specialty: true, slug: true, referralCode: true },
     });
   }
 
-  const displayName  = physician?.displayName ?? user.fullName ?? 'Physician';
-  const referralCode = physician?.referralCode ?? null;
+  const displayName   = physician?.displayName ?? user.fullName ?? 'Physician';
+  const referralCode  = referralResult?.referralCode ?? physician?.referralCode ?? null;
   const activationUrl = referralCode ? `${APP_URL}/join?ref=${referralCode}` : null;
 
   const navLinks = [
@@ -120,19 +124,12 @@ export default async function DoctorStartPage() {
             </div>
 
           </div>
-        ) : slug ? (
-          <div style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: '12px', padding: '16px 20px' }}>
-            <p style={{ fontSize: '0.875rem', color: '#fbbf24', fontWeight: 500, margin: 0 }}>Activation link not yet available</p>
-            <p style={{ fontSize: '0.75rem', color: '#d97706', marginTop: '4px' }}>
-              Your patient activation link will appear here once your account is fully activated.
-              Contact <a href="mailto:hello@myoguard.health" style={{ color: '#2DD4BF' }}>hello@myoguard.health</a> if this persists.
-            </p>
-          </div>
         ) : (
           <div style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: '12px', padding: '16px 20px' }}>
-            <p style={{ fontSize: '0.875rem', color: '#fbbf24', fontWeight: 500, margin: 0 }}>No referral slug assigned</p>
+            <p style={{ fontSize: '0.875rem', color: '#fbbf24', fontWeight: 500, margin: 0 }}>Activation link temporarily unavailable</p>
             <p style={{ fontSize: '0.75rem', color: '#d97706', marginTop: '4px' }}>
-              Contact <a href="mailto:hello@myoguard.health" style={{ color: '#2DD4BF' }}>hello@myoguard.health</a> to have a referral slug created for your account.
+              Your invite link could not be generated. Please try refreshing, or contact{' '}
+              <a href="mailto:hello@myoguard.health" style={{ color: '#2DD4BF' }}>hello@myoguard.health</a> if the issue persists.
             </p>
           </div>
         )}

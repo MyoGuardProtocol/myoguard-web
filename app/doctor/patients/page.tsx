@@ -10,6 +10,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/src/lib/prisma';
+import { ensureReferralProfile } from '@/src/lib/physician/ensureReferralProfile';
 import Link from 'next/link';
 import PhysicianAvatar from '@/src/components/ui/PhysicianAvatar';
 import PatientCommandCenter, { type PatientRow } from '@/src/components/ui/PatientCommandCenter';
@@ -146,15 +147,9 @@ export default async function PatientsPage() {
     redirect(`/doctor/accept-patient?invite=${pendingInvitation.shareToken}`);
   }
 
-  // Resolve canonical referral code for QR / invite links
-  let physicianReferralCode: string | null = null;
-  if (physician.referralSlug) {
-    const profile = await prisma.physicianProfile.findUnique({
-      where:  { slug: physician.referralSlug },
-      select: { referralCode: true },
-    }).catch(() => null);
-    physicianReferralCode = profile?.referralCode ?? null;
-  }
+  // Resolve (or auto-generate) referral code for QR / invite links
+  const referralResult      = await ensureReferralProfile(physician);
+  const physicianReferralCode = referralResult?.referralCode ?? null;
 
   // Build OR clause for patient lookup
   const orClauses: Record<string, unknown>[] = [{ physicianId: physician.id }];
