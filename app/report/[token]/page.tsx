@@ -30,6 +30,7 @@ import {
   buildEscalationSignal,
   type Band,
 }                               from '@/src/lib/reportClinical';
+import EverydayProteinReference from '@/src/components/protein/EverydayProteinReference';
 
 // ─── Display helpers ──────────────────────────────────────────────────────────
 
@@ -716,6 +717,9 @@ export default async function PublicReportPage({
               )}
             </div>
           </section>
+
+          {/* ── EVERYDAY PROTEIN REFERENCE ───────────────────────────────────── */}
+          <EverydayProteinReference proteinTargetG={ms.proteinTargetG} variant="print" />
 
           {/* Check-in adherence */}
           {user.weeklyCheckins.length > 0 && (

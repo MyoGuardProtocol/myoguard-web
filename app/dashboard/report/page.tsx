@@ -18,6 +18,7 @@ import ShareButton               from './ShareButton';
 import DownloadPDFButton         from './DownloadPDFButton';
 import PhysicianFeedback         from './PhysicianFeedback';
 import SupplementCTA             from '@/src/components/ui/SupplementCTA';
+import EverydayProteinReference   from '@/src/components/protein/EverydayProteinReference';
 
 const TREND_LABEL: Record<string, { text: string; colour: string; icon: string }> = {
   improving:    { text: 'Improving',         colour: '#2DD4BF', icon: '↑' },
@@ -1069,6 +1070,9 @@ export default async function ReportPage() {
               )}
             </div>
           </section>
+
+          {/* ── EVERYDAY PROTEIN REFERENCE ───────────────────────────────────── */}
+          <EverydayProteinReference proteinTargetG={ms.proteinTargetG} variant="clinical" />
 
           {/* ══════════════════════════════════════════════════════════════════ */}
           {/* CHECK-IN ADHERENCE — moved to Odyssey                             */}

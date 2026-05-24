@@ -7,6 +7,7 @@ import ScoreGauge from '@/src/components/ui/ScoreGauge';
 import ClinicalAlert from '@/src/components/ui/ClinicalAlert';
 import RecoverySignalCard from '@/src/components/ui/RecoverySignalCard';
 import SupplementCTA from '@/src/components/ui/SupplementCTA';
+import EverydayProteinReference from '@/src/components/protein/EverydayProteinReference';
 
 // ─── Band config ───────────────────────────────────────────────────────────────
 type Band = 'CRITICAL' | 'HIGH' | 'MODERATE' | 'LOW';
@@ -383,6 +384,9 @@ export default async function ResultsPage({
             </p>
           </div>
         </div>
+
+        {/* ── EVERYDAY PROTEIN REFERENCE ─────────────────────────────────────── */}
+        <EverydayProteinReference proteinTargetG={ms.proteinTargetG} variant="clinical" />
 
         {/* ══════════════════════════════════════════════════════════════════════ */}
         {/* ── SUPPLEMENT STACK — placed after protein target per clinical flow ── */}
