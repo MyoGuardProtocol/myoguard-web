@@ -4,6 +4,10 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/src/lib/prisma';
 import { calculateProtocol, type AssessmentInput, type ProtocolResult } from '@/src/lib/protocolEngine';
 import { AssessmentInputSchema } from '@/src/schemas/assessment';
+import {
+  triggerPhysicianPriorityReview,
+  type LeanVelocityFlag,
+} from '@/src/lib/email/categories/PhysicianPriorityReview';
 
 /**
  * POST /api/assessment
@@ -367,6 +371,21 @@ export async function POST(req: NextRequest) {
         metadata:  { score: protocol.myoguardScore, band: protocol.riskBand },
       },
     }).catch((err) => console.error('[analytics] ASSESSMENT_COMPLETE failed', err));
+
+    // Fire-and-forget: Physician Priority Review trigger.
+    // Non-blocking — assessment persistence and response completion are already guaranteed.
+    // Fires only when lean mass velocity meets a clinical review threshold.
+    // De-duplication, physician lookup, and Notification write handled inside the trigger.
+    if (leanVelocityFlag === 'concerning' || leanVelocityFlag === 'critical_review') {
+      triggerPhysicianPriorityReview({
+        patientId:        user.id,
+        assessmentId:     result.assessment.id,
+        riskBand:         result.muscleScore.riskBand,
+        leanVelocityFlag: leanVelocityFlag as LeanVelocityFlag,
+        leanLossEstPct:   protocol.leanLossEstPct,
+        leanVelocityPct:  leanVelocityPct ?? 0,
+      }).catch((err) => console.error('[assessment] Physician priority review trigger failed:', err));
+    }
 
     return NextResponse.json({
       assessmentId: result.assessment.id,
