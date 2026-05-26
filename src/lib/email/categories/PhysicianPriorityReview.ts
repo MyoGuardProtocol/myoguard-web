@@ -213,8 +213,10 @@ export function buildPhysicianPriorityReviewEmail({
 // ─── De-duplication ───────────────────────────────────────────────────────────
 //
 // Maximum one physician review notification per patient per 7 days.
-// Uses Notification.type = REPORT_READY — the closest available NotificationType
-// for this purpose. A dedicated PHYSICIAN_REVIEW type is pending BUILD 4C schema extension.
+// Uses Notification.type = PHYSICIAN_REVIEW — dedicated semantic type added in BUILD 4C-i.
+// Prospective only: no historical rows existed using REPORT_READY for physician review intent
+// (confirmed by production audit: 0 rows). REPORT_READY is retained in the enum for its
+// original purpose (patient report-ready notifications).
 // userId = patientId — records the notification against the patient's continuity record.
 
 const DEDUP_WINDOW_DAYS = 7;
@@ -258,7 +260,7 @@ export async function triggerPhysicianPriorityReview(
   const existing = await prisma.notification.findFirst({
     where: {
       userId: patientId,
-      type:   'REPORT_READY',  // PHYSICIAN_REVIEW type pending BUILD 4C schema extension
+      type:   'PHYSICIAN_REVIEW',
       sentAt: { gte: dedupSince },
     },
     select: { id: true },
@@ -313,13 +315,13 @@ export async function triggerPhysicianPriorityReview(
   }
 
   // 6. Write Notification record — de-duplication tracking and audit trail
-  //    type: REPORT_READY — closest available NotificationType (pending BUILD 4C)
+  //    type: PHYSICIAN_REVIEW — dedicated semantic type (BUILD 4C-i)
   //    userId: patientId  — notification recorded against the patient's record
   //    body: JSON-encoded signal metadata for auditability
   await prisma.notification.create({
     data: {
       userId:  patientId,
-      type:    'REPORT_READY',
+      type:    'PHYSICIAN_REVIEW',
       subject: style.subject,
       body:    JSON.stringify({ leanVelocityFlag, assessmentId, leanVelocityPct, riskBand }),
       sentAt:  new Date(),

@@ -395,6 +395,7 @@ enum NotificationType {
   REPORT_READY
   PAYMENT_CONFIRMED
   WELCOME
+  PHYSICIAN_REVIEW
 }
 
 // ─── Observational Study Infrastructure ────────────────────────────────────
