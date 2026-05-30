@@ -159,7 +159,7 @@ export default function ScoreProjectionCard({ results, formData }: ScoreProjecti
 
         {/* Current score pill */}
         <div className="mt-3 inline-flex items-center gap-2 bg-slate-100 rounded-full px-3 py-1.5">
-          <span className="text-xs text-slate-500 font-medium">Current Score</span>
+          <span className="text-xs text-slate-500 font-medium">Current SRI Status</span>
           <span className="text-sm font-bold text-slate-800 tabular-nums">{myoguardScore}</span>
           <span className="text-xs text-slate-400">/ 100</span>
         </div>
