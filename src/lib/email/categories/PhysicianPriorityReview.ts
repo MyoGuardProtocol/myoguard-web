@@ -259,9 +259,9 @@ export async function triggerPhysicianPriorityReview(
   const dedupSince = new Date(Date.now() - DEDUP_WINDOW_DAYS * 24 * 60 * 60 * 1000);
   const existing = await prisma.notification.findFirst({
     where: {
-      userId: patientId,
-      type:   'PHYSICIAN_REVIEW',
-      sentAt: { gte: dedupSince },
+      userId:    patientId,
+      type:      'PHYSICIAN_REVIEW',
+      createdAt: { gte: dedupSince },  // createdAt — non-nullable anchor (BUILD 4C-ii governance)
     },
     select: { id: true },
   });
