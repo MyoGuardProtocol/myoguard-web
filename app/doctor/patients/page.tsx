@@ -15,6 +15,10 @@ import Link from 'next/link';
 import PhysicianAvatar from '@/src/components/ui/PhysicianAvatar';
 import PatientCommandCenter, { type PatientRow } from '@/src/components/ui/PatientCommandCenter';
 import PhysicianEmptyState from '@/src/components/ui/PhysicianEmptyState';
+import {
+  computePhysicianScopedIntelligence,
+  emptyPhysicianScopedIntelligence,
+} from '@/src/lib/insights/physician-scoped';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -239,6 +243,17 @@ export default async function PatientsPage() {
     return (a.score ?? 100) - (b.score ?? 100);
   });
 
+  // Physician-scoped intelligence — computed for all enrolled patients
+  // (rawPatients includes those without assessments; they return insufficient_data)
+  let physicianIntelligence = emptyPhysicianScopedIntelligence();
+  try {
+    physicianIntelligence = await computePhysicianScopedIntelligence(
+      rawPatients.map(p => p.id),
+    );
+  } catch {
+    // Intelligence unavailable — cards display zero baseline
+  }
+
   const navLinks = [
     { label: 'Dashboard',   href: '/doctor/dashboard' },
     { label: 'Patients',    href: '/doctor/patients' },
@@ -286,7 +301,11 @@ export default async function PatientsPage() {
           referralCode={physicianReferralCode}
         />
       )}
-      <PatientCommandCenter patients={patients} isVerified={physician.isVerified} />
+      <PatientCommandCenter
+        patients={patients}
+        isVerified={physician.isVerified}
+        physicianIntelligence={physicianIntelligence}
+      />
     </main>
   );
 }

@@ -1,7 +1,11 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import PatientDrawer from './PatientDrawer';
+import PatientDrawer         from './PatientDrawer';
+import PhysicianOverviewCard from '@/src/components/doctor/intelligence/PhysicianOverviewCard';
+import CohortOverviewCard    from '@/src/components/doctor/intelligence/CohortOverviewCard';
+import ReviewQueueCard       from '@/src/components/doctor/intelligence/ReviewQueueCard';
+import type { PhysicianScopedIntelligence } from '@/src/lib/insights/physician-scoped';
 
 // ─── CPT helpers ─────────────────────────────────────────────────────────────
 
@@ -135,9 +139,11 @@ function FlagChip({ flag }: { flag: string }) {
 export default function PatientCommandCenter({
   patients,
   isVerified,
+  physicianIntelligence,
 }: {
-  patients:   PatientRow[];
-  isVerified: boolean;
+  patients:              PatientRow[];
+  isVerified:            boolean;
+  physicianIntelligence: PhysicianScopedIntelligence;
 }) {
   const [search,        setSearch]        = useState('');
   const [bandFilter,    setBandFilter]    = useState<string | null>(null);
@@ -194,12 +200,6 @@ export default function PatientCommandCenter({
 
   const criticalPlusHigh = (bandCounts.CRITICAL ?? 0) + (bandCounts.HIGH ?? 0);
 
-  const sevenDaysAgo  = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  const insightRecent = patients.filter(p => {
-    if (!p.lastAssessmentDate) return false;
-    try { return new Date(p.lastAssessmentDate) >= sevenDaysAgo; } catch { return false; }
-  }).length;
-
   // Filter
   const filtered = patients.filter(p => {
     const matchSearch = !search ||
@@ -247,81 +247,14 @@ export default function PatientCommandCenter({
 
       <div style={{ maxWidth: '64rem', margin: '0 auto', padding: '28px 20px' }}>
 
-        {/* ── Practice Insights ────────────────────────────────────────────── */}
-        <div style={{
-          background:   '#0D1421',
-          border:       '1px solid #1A2744',
-          borderRadius: 16,
-          padding:      '18px 20px',
-          marginBottom: 20,
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: '#F8FAFC', margin: 0 }}>Practice Insights</p>
-            <span style={{
-              fontSize:     10,
-              color:        '#2DD4BF',
-              border:       '1px solid rgba(45,212,191,0.3)',
-              borderRadius: 999,
-              padding:      '2px 8px',
-            }}>
-              Advanced Monitoring Active
-            </span>
-          </div>
-          <p style={{ fontSize: 11, color: 'rgba(148,163,184,0.7)', marginBottom: 16 }}>
-            Overview of patient engagement and clinical activity
-          </p>
-          <div className="insights-grid">
-            {([
-              { label: 'Active Patients',           value: patients.length   },
-              { label: 'Requiring Attention',        value: criticalPlusHigh  },
-              { label: 'Assessments (Last 7 Days)',  value: insightRecent     },
-            ] as { label: string; value: number }[]).map(stat => (
-              <div key={stat.label} style={{
-                background:   'rgba(255,255,255,0.03)',
-                border:       '1px solid rgba(26,39,68,0.8)',
-                borderRadius: 10,
-                padding:      '12px 16px',
-              }}>
-                <p style={{ fontFamily: 'monospace', fontSize: 28, fontWeight: 900, color: '#2DD4BF', lineHeight: 1, marginBottom: 5 }}>
-                  {stat.value}
-                </p>
-                <p style={{ fontSize: 10, fontWeight: 600, color: 'rgba(148,163,184,0.6)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-                  {stat.label}
-                </p>
-              </div>
-            ))}
-          </div>
-          <p style={{ fontSize: 11, color: 'rgba(148,163,184,0.4)', fontStyle: 'italic', marginTop: 14 }}>
-            Structured patient monitoring may support advanced clinical and reimbursable care pathways.
-          </p>
+        {/* ── Intelligence Overview ─────────────────────────────────────────── */}
+        <div className="physician-overview-grid" style={{ marginBottom: '20px' }}>
+          <PhysicianOverviewCard data={physicianIntelligence} />
+          <CohortOverviewCard    data={physicianIntelligence} />
         </div>
 
-        {/* ── Coming Soon ──────────────────────────────────────────────────── */}
-        <div style={{
-          marginBottom: 20,
-          padding:      '14px 18px',
-          background:   'rgba(255,255,255,0.02)',
-          border:       '1px solid rgba(255,255,255,0.06)',
-          borderRadius: 12,
-        }}>
-          <p style={{ fontSize: 10, fontWeight: 700, color: 'rgba(148,163,184,0.5)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>
-            Coming Soon
-          </p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {['Longitudinal SRI Trends', 'Automated Patient Alerts', 'Expanded Monitoring Cohorts'].map(item => (
-              <span key={item} style={{
-                fontSize:     11,
-                color:        '#94A3B8',
-                background:   'rgba(148,163,184,0.06)',
-                border:       '1px solid rgba(148,163,184,0.12)',
-                borderRadius: 6,
-                padding:      '3px 10px',
-              }}>
-                {item}
-              </span>
-            ))}
-          </div>
-        </div>
+        {/* ── Review Queue ──────────────────────────────────────────────────── */}
+        <ReviewQueueCard data={physicianIntelligence} />
 
         {/* ── Attention banner ─────────────────────────────────────────────── */}
         {criticalPlusHigh > 0 && (
@@ -585,8 +518,8 @@ export default function PatientCommandCenter({
           @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
           input::placeholder { color: rgba(255,255,255,0.25); }
           input:focus { border-color: rgba(45,212,191,0.4) !important; box-shadow: 0 0 0 3px rgba(45,212,191,0.08); }
-          .insights-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
-          @media (max-width: 480px) { .insights-grid { grid-template-columns: 1fr; } }
+          .physician-overview-grid { display: flex; gap: 14px; }
+          @media (max-width: 480px) { .physician-overview-grid { flex-direction: column; } }
         `}</style>
       </div>
     </>

@@ -4,6 +4,12 @@ import { prisma } from '@/src/lib/prisma';
 import Link from 'next/link';
 import { SignOutButton } from '@clerk/nextjs';
 import PhysicianAvatar from '@/src/components/ui/PhysicianAvatar';
+import {
+  computePhysicianScopedIntelligence,
+} from '@/src/lib/insights/physician-scoped';
+import CCCExecutiveOverviewCard from '@/src/components/doctor/intelligence/CCCExecutiveOverviewCard';
+import RegistryOverviewCard     from '@/src/components/doctor/intelligence/RegistryOverviewCard';
+import type { PhysicianExecutiveSummary } from '@/src/lib/insights/physician-scoped';
 
 /**
  * /doctor/dashboard — Physician command hub.
@@ -100,6 +106,31 @@ export default async function DoctorDashboardPage() {
       redirect(`/doctor/accept-patient?invite=${pendingInvitation.shareToken}`);
     }
   }
+  // Physician-scoped executive intelligence (PHYSICIAN role only)
+  // Fetch patient IDs → run intelligence summaries concurrently → derive summary.
+  // Wrapped in try/catch: dashboard still renders if intelligence layer is unavailable.
+  let executiveSummary: PhysicianExecutiveSummary | null = null;
+  if (user.role === 'PHYSICIAN') {
+    try {
+      const physicianPatients = await prisma.user.findMany({
+        where:  { role: 'PATIENT', physicianId: user.id },
+        select: { id: true },
+      });
+      const intel = await computePhysicianScopedIntelligence(
+        physicianPatients.map(p => p.id),
+      );
+      executiveSummary = {
+        totalPatients:              intel.totalPatients,
+        patientsActive:             intel.patientsActive,
+        patientsRequiringAttention: intel.patientsRequiringAttention,
+        reviewRequiredCount:        intel.reviewRequiredCount,
+        generatedAt:                intel.generatedAt,
+      };
+    } catch {
+      // Intelligence unavailable — CCCExecutiveOverviewCard will not render
+    }
+  }
+
   // PHYSICIAN and PHYSICIAN_PENDING both fall through to JSX below
   return (
     <main style={{ background: '#080C14', minHeight: '100vh',
@@ -174,6 +205,10 @@ export default async function DoctorDashboardPage() {
             </p>
           </div>
 
+          {executiveSummary && (
+            <CCCExecutiveOverviewCard data={executiveSummary} />
+          )}
+
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(2, 1fr)',
@@ -210,6 +245,8 @@ export default async function DoctorDashboardPage() {
               </a>
             ))}
           </div>
+
+          <RegistryOverviewCard />
         </div>
       )}
 
