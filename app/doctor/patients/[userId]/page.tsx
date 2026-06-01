@@ -571,6 +571,26 @@ export default async function PatientDetailPage({
                 reviewedAt:        latest.physicianReview.reviewedAt.toISOString(),
               } : null}
             />
+
+            {/* ── Clinical Evidence ─────────────────────────────────────────── */}
+            <div style={{ paddingTop: '8px' }}>
+              <a
+                href={`/doctor/patients/${patientId}/evidence`}
+                style={{
+                  display:        'inline-block',
+                  background:     'transparent',
+                  border:         '1px solid #1A2744',
+                  color:          '#2DD4BF',
+                  borderRadius:   '99px',
+                  padding:        '8px 20px',
+                  fontSize:       '13px',
+                  fontWeight:     '600',
+                  textDecoration: 'none',
+                }}
+              >
+                View Clinical Evidence →
+              </a>
+            </div>
           </>
         )}
 
