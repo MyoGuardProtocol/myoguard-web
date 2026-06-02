@@ -33,8 +33,9 @@ import Link                   from 'next/link';
 import { prisma }                        from '@/src/lib/prisma';
 import { generateClinicalEvidenceRecord } from '@/src/lib/evidence/evidencePacket';
 import { generatePhysicianReviewSummary } from '@/src/lib/evidence/physicianReviewSummary';
-import PhysicianNav                       from '@/src/components/ui/PhysicianNav';
-import PhysicianReviewSummaryCollapsible  from '@/src/components/doctor/evidence/PhysicianReviewSummaryCollapsible';
+import PhysicianNav                        from '@/src/components/ui/PhysicianNav';
+import PhysicianReviewSummaryCollapsible   from '@/src/components/doctor/evidence/PhysicianReviewSummaryCollapsible';
+import DocumentationTimelineToggle         from '@/src/components/doctor/evidence/DocumentationTimelineToggle';
 
 // ─── Readiness label map ──────────────────────────────────────────────────────
 //
@@ -48,13 +49,38 @@ const READINESS_LABEL: Record<string, string> = {
   limited:    'Limited',
 };
 
-// ─── Signal status display helper ────────────────────────────────────────────
+// ─── Physician signal → summary bar display label ─────────────────────────────
 //
-// Converts underscore_separated status values to spaced readable form.
-// e.g. "positive_trend" → "positive trend"
+// Maps intelligence signal status values to physician-readable review status labels.
+// "within_expected_range" maps to "No Review Signals" — the absence of a signal
+// is the most common state and deserves a clear affirmative label.
+
+const PHYSICIAN_SIGNAL_DISPLAY: Record<string, string> = {
+  review_recommended:       'Review Recommended',
+  review_threshold_crossed: 'Review Threshold Crossed',
+  continuity_concern:       'Continuity Concern',
+  within_expected_range:    'No Review Signals',
+};
+
+// ─── Signal display helpers ───────────────────────────────────────────────────
+//
+// formatStatus()    — Title Case from underscore_separated enum values.
+//                     e.g. "positive_trend" → "Positive Trend"
+// formatConfidence()— Physician-readable confidence label.
+//                     e.g. "high" → "High Confidence"
+//                     e.g. "insufficient_data" → "Insufficient Data"
 
 function formatStatus(status: string): string {
-  return status.replace(/_/g, ' ');
+  return status
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+function formatConfidence(confidence: string): string {
+  if (confidence === 'insufficient_data') return 'Insufficient Data';
+  const capitalised = confidence.charAt(0).toUpperCase() + confidence.slice(1);
+  return `${capitalised} Confidence`;
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -178,6 +204,31 @@ export default async function PatientEvidencePage({
     day: 'numeric', month: 'long', year: 'numeric',
   });
 
+  // ── Summary bar values ────────────────────────────────────────────────
+  //
+  // lastAssessmentRecord: minimal Prisma lookup for display only.
+  // Does not alter evidence calculations or signals.
+  const lastAssessmentRecord = hasData
+    ? await prisma.assessment.findFirst({
+        where:   { userId: patientId },
+        orderBy: { createdAt: 'desc' },
+        select:  { createdAt: true },
+      }).catch(() => null)
+    : null;
+
+  const lastAssessmentDisplay = (() => {
+    if (!lastAssessmentRecord) return hasData ? 'Recently' : 'No assessments';
+    const days = Math.floor(
+      (Date.now() - lastAssessmentRecord.createdAt.getTime()) / (1000 * 60 * 60 * 24),
+    );
+    if (days === 0) return 'Today';
+    if (days === 1) return 'Yesterday';
+    return `${days} days ago`;
+  })();
+
+  const reviewSignalDisplay =
+    PHYSICIAN_SIGNAL_DISPLAY[record.physicianSignals[0]?.status ?? ''] ?? 'No Review Signals';
+
   // ── Page render ────────────────────────────────────────────────────────
   return (
     <main style={{ minHeight: '100vh', background: '#080C14' }}>
@@ -231,6 +282,78 @@ export default async function PatientEvidencePage({
           </p>
         </div>
 
+        {/* ──────────────────────────────────────────────────────────────── */}
+        {/* EVIDENCE SUMMARY BAR                                            */}
+        {/* 5-second physician orientation: trajectory · engagement ·       */}
+        {/* adherence · last assessment · review status                     */}
+        {/* Always shown. Stacks on mobile (flexWrap).                      */}
+        {/* ──────────────────────────────────────────────────────────────── */}
+        <div
+          style={{
+            background:    '#0D1421',
+            border:        '1px solid #1A2744',
+            borderRadius:  '16px',
+            padding:       '20px 24px',
+            marginBottom:  '16px',
+            display:       'flex',
+            flexWrap:      'wrap',
+            gap:           '20px 32px',
+          }}
+        >
+          {(
+            [
+              {
+                label: 'Trajectory',
+                value: formatStatus(record.trajectory.status),
+              },
+              {
+                label: 'Engagement',
+                value: formatStatus(record.continuity.status),
+              },
+              {
+                label: 'Adherence',
+                value: formatStatus(record.adherence.status),
+              },
+              {
+                label: 'Last Assessment',
+                value: lastAssessmentDisplay,
+              },
+              {
+                label: 'Review Status',
+                value: reviewSignalDisplay,
+              },
+            ] as const
+          ).map(({ label, value }) => (
+            <div key={label} style={{ minWidth: '130px', flex: '1 1 130px' }}>
+              <p
+                style={{
+                  fontSize:      '11px',
+                  fontWeight:    '700',
+                  color:         '#94A3B8',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                  marginBottom:  '5px',
+                  marginTop:     0,
+                }}
+              >
+                {label}
+              </p>
+              <p
+                style={{
+                  fontFamily:   'Georgia, serif',
+                  fontSize:     '14px',
+                  fontWeight:   '600',
+                  color:        '#2DD4BF',
+                  margin:       0,
+                  lineHeight:   '1.3',
+                }}
+              >
+                {value}
+              </p>
+            </div>
+          ))}
+        </div>
+
         {/* ── Empty state ────────────────────────────────────────────────── */}
         {!hasData && (
           <div
@@ -250,7 +373,7 @@ export default async function PatientEvidencePage({
         )}
 
         {/* ──────────────────────────────────────────────────────────────── */}
-        {/* SECTION 1 — Evidence Readiness                                  */}
+        {/* SECTION 1 — Documentation Status                                */}
         {/* ──────────────────────────────────────────────────────────────── */}
         <div
           style={{
@@ -272,7 +395,7 @@ export default async function PatientEvidencePage({
               marginTop:     0,
             }}
           >
-            Evidence Readiness
+            Documentation Status
           </p>
 
           {/* Readiness label */}
@@ -297,7 +420,7 @@ export default async function PatientEvidencePage({
                 value: String(record.evidenceReadiness.assessmentCount),
               },
               {
-                label: 'Check-in Count',
+                label: 'Weekly Check-ins',
                 value: String(record.evidenceReadiness.checkinCount),
               },
               {
@@ -440,7 +563,7 @@ export default async function PatientEvidencePage({
                       padding:      '2px 8px',
                     }}
                   >
-                    {signal.confidence}
+                    {formatConfidence(signal.confidence)}
                   </span>
                 </div>
 
@@ -484,6 +607,8 @@ export default async function PatientEvidencePage({
         {/* ──────────────────────────────────────────────────────────────── */}
         {/* SECTION 5 — Documentation Timeline                              */}
         {/* DocumentationNote[] from PhysicianReview records, newest first. */}
+        {/* Default: latest 3 entries. Toggle reveals earlier entries.      */}
+        {/* DocumentationTimelineToggle handles expand state (client).      */}
         {/* ──────────────────────────────────────────────────────────────── */}
         <div
           style={{
@@ -513,95 +638,7 @@ export default async function PatientEvidencePage({
               No physician review documentation recorded within this observation window.
             </p>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
-              {record.documentationNotes.map((note, i) => {
-                const dateLabel = new Date(note.noteDate).toLocaleDateString('en-GB', {
-                  day: 'numeric', month: 'short', year: 'numeric',
-                });
-                // Primary observation text: impression if available, otherwise note
-                const observationText =
-                  note.overallImpression ?? note.note ?? 'Physician review recorded.';
-
-                return (
-                  <div
-                    key={`${note.assessmentId}-${i}`}
-                    style={{
-                      paddingTop:  i > 0 ? '16px' : 0,
-                      paddingBottom: '16px',
-                      borderBottom: i < record.documentationNotes.length - 1
-                        ? '1px solid #1A2744'
-                        : 'none',
-                    }}
-                  >
-                    {/* Category label + date */}
-                    <div
-                      style={{
-                        display:    'flex',
-                        alignItems: 'center',
-                        gap:        '10px',
-                        marginBottom: '6px',
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontSize:      '11px',
-                          fontWeight:    '700',
-                          color:         '#2DD4BF',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.06em',
-                        }}
-                      >
-                        Physician Review
-                      </span>
-                      <span style={{ fontSize: '12px', color: '#94A3B8' }}>
-                        {dateLabel}
-                      </span>
-                    </div>
-
-                    {/* Primary observation text */}
-                    <p
-                      style={{
-                        fontSize:   '13px',
-                        color:      '#F1F5F9',
-                        lineHeight: '1.6',
-                        margin:     0,
-                      }}
-                    >
-                      {observationText}
-                    </p>
-
-                    {/* Additional note — shown when both impression and note are present */}
-                    {note.note && note.overallImpression && (
-                      <p
-                        style={{
-                          fontSize:   '12px',
-                          color:      '#94A3B8',
-                          lineHeight: '1.6',
-                          marginTop:  '4px',
-                          marginBottom: 0,
-                        }}
-                      >
-                        {note.note}
-                      </p>
-                    )}
-
-                    {/* Follow-up days */}
-                    {note.followUpDays != null && (
-                      <p
-                        style={{
-                          fontSize:   '12px',
-                          color:      '#94A3B8',
-                          marginTop:  '4px',
-                          marginBottom: 0,
-                        }}
-                      >
-                        Follow-up: {note.followUpDays} days
-                      </p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+            <DocumentationTimelineToggle notes={record.documentationNotes} />
           )}
         </div>
 

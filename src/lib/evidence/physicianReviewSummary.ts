@@ -37,6 +37,37 @@ export interface PhysicianReviewSummary {
   evidenceReadinessNote:          string;
 }
 
+// ─── Formatting helpers ───────────────────────────────────────────────────────
+
+/**
+ * formatStatus()
+ * Converts underscore_separated status strings to Title Case for display.
+ * e.g. "positive_trend"        → "Positive Trend"
+ * e.g. "within_expected_range" → "Within Expected Range"
+ * Pure presentation — no logic change.
+ */
+function formatStatus(status: string): string {
+  return status
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+/**
+ * formatConfidence()
+ * Converts confidence level strings to display form.
+ * e.g. "high"             → "High Confidence"
+ * e.g. "moderate"         → "Moderate Confidence"
+ * e.g. "low"              → "Low Confidence"
+ * e.g. "insufficient_data"→ "Insufficient Data"
+ * Pure presentation — no logic change.
+ */
+function formatConfidence(confidence: string): string {
+  if (confidence === 'insufficient_data') return 'Insufficient Data';
+  const capitalised = confidence.charAt(0).toUpperCase() + confidence.slice(1);
+  return `${capitalised} Confidence`;
+}
+
 // ─── Primary export ───────────────────────────────────────────────────────────
 
 /**
@@ -81,16 +112,16 @@ export function generatePhysicianReviewSummary(
 
   // ── Section 2 — Trajectory ────────────────────────────────────────────────
   const section2_trajectory = [
-    `Band trajectory status: ${trajectory.status} (confidence: ${trajectory.confidence}).`,
+    `Band trajectory: ${formatStatus(trajectory.status)} (${formatConfidence(trajectory.confidence)}).`,
     trajectory.observationText,
     `${trajectory.dataPoints} assessment${trajectory.dataPoints !== 1 ? 's' : ''} within ${trajectory.windowDays}-day trajectory window.`,
   ].join(' ');
 
   // ── Section 3 — Continuity and adherence ─────────────────────────────────
   const section3_continuityAdherence = [
-    `Continuity status: ${continuity.status} (confidence: ${continuity.confidence}).`,
+    `Continuity: ${formatStatus(continuity.status)} (${formatConfidence(continuity.confidence)}).`,
     continuity.observationText,
-    `Adherence status: ${adherence.status} (confidence: ${adherence.confidence}).`,
+    `Adherence: ${formatStatus(adherence.status)} (${formatConfidence(adherence.confidence)}).`,
     adherence.observationText,
   ].join(' ');
 
@@ -98,7 +129,7 @@ export function generatePhysicianReviewSummary(
   const primarySignal = physicianSignals[0];
   const section4_physicianSignals = primarySignal
     ? [
-        `Physician signal status: ${primarySignal.status} (confidence: ${primarySignal.confidence}).`,
+        `Review signal: ${formatStatus(primarySignal.status)} (${formatConfidence(primarySignal.confidence)}).`,
         primarySignal.explanation,
       ].join(' ')
     : 'No physician signals recorded within the review window.';
@@ -132,7 +163,7 @@ export function generatePhysicianReviewSummary(
       : 'Sufficient longitudinal documentation is available for evidence record composition.';
 
   const evidenceReadinessNote = [
-    `Evidence readiness: ${evidenceReadiness.status}.`,
+    `Documentation status: ${formatStatus(evidenceReadiness.status)}.`,
     `Based on ${evidenceReadiness.assessmentCount} assessment${evidenceReadiness.assessmentCount !== 1 ? 's' : ''}`,
     `and ${evidenceReadiness.checkinCount} check-in${evidenceReadiness.checkinCount !== 1 ? 's' : ''}.`,
     readinessContext,
