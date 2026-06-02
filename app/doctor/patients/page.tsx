@@ -294,18 +294,19 @@ export default async function PatientsPage() {
         </div>
       </header>
 
-      {patients.length === 0 && (
+      {patients.length === 0 ? (
         <PhysicianEmptyState
           doctorId={physician.id}
           doctorName={physician.fullName}
           referralCode={physicianReferralCode}
         />
+      ) : (
+        <PatientCommandCenter
+          patients={patients}
+          isVerified={physician.isVerified}
+          physicianIntelligence={physicianIntelligence}
+        />
       )}
-      <PatientCommandCenter
-        patients={patients}
-        isVerified={physician.isVerified}
-        physicianIntelligence={physicianIntelligence}
-      />
     </main>
   );
 }
