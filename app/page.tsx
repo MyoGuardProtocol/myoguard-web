@@ -109,6 +109,7 @@ export default function HomePage() {
   const [activityLevel,    setActivityLevel]    = useState<string | null>(null);
   const [disclaimerChecked, setDisclaimerChecked] = useState(false);
   const [sleepHours,       setSleepHours]       = useState(7);
+  const [weightUnit,       setWeightUnit]       = useState<'kg' | 'lbs'>('kg');
   const [result, setResult] = useState<{
     leanScore: number;
     recoveryScore: number;
@@ -130,11 +131,14 @@ export default function HomePage() {
       document.getElementById('disclaimer-checkbox')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
-    const w    = parseFloat(weight);
+    const rawW   = parseFloat(weight);
+    const w      = weightUnit === 'lbs'
+      ? Math.round(rawW * 0.453592 * 10) / 10
+      : rawW;
     const p    = parseFloat(protein);
     const drug = GLP1_DRUGS.find((d) => d.label === selectedDrug);
 
-    if (!w || !p || !drug || !activityLevel) {
+    if (!rawW || !p || !drug || !activityLevel) {
       setFormError("Please complete all required fields before generating your SRI.");
       return;
     }
@@ -145,17 +149,25 @@ export default function HomePage() {
     };
     const MAX_PROTEIN_PER_KG = 4.0;
 
-    if (w < LIMITS.weight.min || w > LIMITS.weight.max) {
-      setFormError(`Body weight must be between ${LIMITS.weight.min}kg and ${LIMITS.weight.max}kg.`);
-      return;
+    if (weightUnit === 'lbs') {
+      if (rawW < 66 || rawW > 551) {
+        setFormError(`Body weight must be between 66 lbs and 551 lbs.`);
+        return;
+      }
+    } else {
+      if (w < LIMITS.weight.min || w > LIMITS.weight.max) {
+        setFormError(`Body weight must be between ${LIMITS.weight.min}kg and ${LIMITS.weight.max}kg.`);
+        return;
+      }
     }
     if (p < LIMITS.protein.min || p > LIMITS.protein.max) {
       setFormError(`Daily protein intake must be between ${LIMITS.protein.min}g and ${LIMITS.protein.max}g.`);
       return;
     }
     if (w > 0 && p / w > MAX_PROTEIN_PER_KG) {
+      const weightDisplay = weightUnit === 'lbs' ? `${rawW} lbs` : `${w}kg`;
       setFormError(
-        `Protein intake of ${p}g/day appears unusually high for ${w}kg body weight (${(p / w).toFixed(1)}g/kg). Please verify your entries.`
+        `Protein intake of ${p}g/day appears unusually high for ${weightDisplay} body weight (${(p / w).toFixed(1)}g/kg). Please verify your entries.`
       );
       return;
     }
@@ -214,6 +226,11 @@ export default function HomePage() {
     sleepHours >= 5.5 ? "text-orange-500" :
     "text-red-500";
 
+  // kg-equivalent of whatever the user entered (used in results section + validation)
+  const wKg = weightUnit === 'lbs'
+    ? Math.round(parseFloat(weight || '0') * 0.453592 * 10) / 10
+    : parseFloat(weight || '0');
+
   // Progress indicator — 4 required fields (symptoms optional)
   const fieldsComplete = [!!weight, !!protein, !!selectedDrug, !!activityLevel].filter(Boolean).length;
   const totalFields = 4;
@@ -245,9 +262,8 @@ export default function HomePage() {
             The Clinical Standard for Muscle Protection during GLP-1 Therapy
           </h1>
           <p className="text-lg text-slate-500 leading-relaxed max-w-md">
-            The clinical standard for muscle preservation during GLP-1 therapy.
-            Physician-designed protocols that generate a Sarcopenia Risk Index (SRI) and deliver
-            actionable protection targets.
+            Weight loss should not come at the expense of muscle. MyoGuard converts everyday
+            treatment inputs into physician-guided insights that support lean-tissue preservation.
           </p>
           <div className="flex flex-col gap-3 pt-2">
             {[
@@ -347,14 +363,53 @@ export default function HomePage() {
               </p>
 
               {/* Weight */}
-              <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-medium text-slate-600">Body weight (kg)</span>
+              <div className="flex flex-col gap-1.5">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <label htmlFor="sri-weight" className="text-xs font-medium text-slate-600">
+                    Body weight ({weightUnit})
+                  </label>
+                  {/* kg / lbs toggle */}
+                  <div style={{
+                    display:      'flex',
+                    borderRadius: '999px',
+                    border:       '1px solid #1A2744',
+                    overflow:     'hidden',
+                    background:   '#0D1421',
+                  }}>
+                    {(['kg', 'lbs'] as const).map((unit) => (
+                      <button
+                        key={unit}
+                        type="button"
+                        onClick={() => { setWeightUnit(unit); setWeight(''); }}
+                        style={{
+                          padding:    '3px 10px',
+                          fontSize:   '11px',
+                          fontWeight: unit === weightUnit ? 700 : 400,
+                          background: unit === weightUnit ? '#2DD4BF' : 'transparent',
+                          color:      unit === weightUnit ? '#080C14' : '#94A3B8',
+                          border:     'none',
+                          cursor:     'pointer',
+                          lineHeight: '1.6',
+                          transition: 'background 0.15s, color 0.15s',
+                        }}
+                      >
+                        {unit}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <input
-                  type="number" min={30} max={250} step={0.1} placeholder="e.g. 85"
-                  value={weight} onChange={(e) => setWeight(e.target.value)}
+                  id="sri-weight"
+                  type="number"
+                  min={weightUnit === 'kg' ? 30 : 66}
+                  max={weightUnit === 'kg' ? 250 : 551}
+                  step={weightUnit === 'kg' ? 0.1 : 1}
+                  placeholder={weightUnit === 'kg' ? 'e.g. 85' : 'e.g. 187'}
+                  value={weight}
+                  onChange={(e) => setWeight(e.target.value)}
                   className="border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
-              </label>
+              </div>
 
               {/* Protein */}
               <label className="flex flex-col gap-1.5">
@@ -427,11 +482,18 @@ export default function HomePage() {
                               : [...prev, s.label],
                           )
                         }
-                        className={`px-3 py-2 rounded-lg border text-xs font-medium text-left transition-colors ${
-                          selected
-                            ? "bg-teal-600 text-white border-teal-600"
-                            : "bg-white text-slate-600 border-slate-200 hover:border-teal-300"
-                        }`}
+                        style={{
+                          padding:          '8px 12px',
+                          borderRadius:     '8px',
+                          border:           selected ? '1px solid #2DD4BF' : '1px solid #1A2744',
+                          background:       selected ? '#2DD4BF' : '#0D1421',
+                          color:            selected ? '#080C14' : '#94A3B8',
+                          fontSize:         '12px',
+                          fontWeight:       selected ? 600 : 400,
+                          textAlign:        'left' as const,
+                          cursor:           'pointer',
+                          transition:       'all 0.15s ease',
+                        }}
                       >
                         {s.label}
                       </button>
@@ -457,14 +519,32 @@ export default function HomePage() {
                         key={a.label}
                         type="button"
                         onClick={() => setActivityLevel(a.label)}
-                        className={`flex flex-col items-center gap-1 px-2 py-3 rounded-xl border text-center transition-colors ${
-                          selected
-                            ? "bg-teal-600 text-white border-teal-600"
-                            : "bg-white text-slate-600 border-slate-200 hover:border-teal-300"
-                        }`}
+                        style={{
+                          display:        'flex',
+                          flexDirection:  'column',
+                          alignItems:     'center',
+                          gap:            '4px',
+                          padding:        '12px 8px',
+                          borderRadius:   '12px',
+                          border:         selected ? '1px solid #2DD4BF' : '1px solid #1A2744',
+                          background:     selected ? '#2DD4BF' : '#0D1421',
+                          cursor:         'pointer',
+                          textAlign:      'center' as const,
+                          transition:     'all 0.15s ease',
+                        }}
                       >
-                        <span className="text-xs font-semibold">{a.label}</span>
-                        <span className={`text-xs leading-tight ${selected ? "text-teal-100" : "text-slate-400"}`}>
+                        <span style={{
+                          fontSize:   '12px',
+                          fontWeight: 600,
+                          color:      selected ? '#080C14' : '#F1F5F9',
+                        }}>
+                          {a.label}
+                        </span>
+                        <span style={{
+                          fontSize:   '11px',
+                          lineHeight: '1.4',
+                          color:      selected ? 'rgba(8,12,20,0.65)' : '#94A3B8',
+                        }}>
                           {a.subtitle}
                         </span>
                       </button>
@@ -494,7 +574,7 @@ export default function HomePage() {
                   min="3" max="14" step="0.5"
                   value={sleepHours}
                   onChange={(e) => setSleepHours(parseFloat(e.target.value))}
-                  className="w-full h-2 rounded-full appearance-none cursor-pointer accent-teal-600 bg-slate-100"
+                  className="w-full sri-sleep-slider"
                 />
                 <div className="flex justify-between text-xs text-slate-400">
                   <span>3h</span>
@@ -572,26 +652,29 @@ export default function HomePage() {
               </div>
             )}
 
-            {/* Premium calculate button */}
+            {/* Generate CTA */}
             <button
               onClick={handleCalculate}
               disabled={!canCalculate}
-              className={`w-full py-3.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
-                canCalculate
-                  ? "bg-teal-600 text-white hover:bg-teal-700 active:scale-95 shadow-sm shadow-teal-200"
-                  : "bg-slate-100 text-slate-400 cursor-not-allowed"
-              }`}
+              className="w-full py-3.5 rounded-xl text-sm flex items-center justify-center"
+              style={{
+                fontWeight:  700,
+                background:  canCalculate ? '#2DD4BF' : '#f1f5f9',
+                color:       canCalculate ? '#080C14' : '#94A3B8',
+                cursor:      canCalculate ? 'pointer' : 'not-allowed',
+                transition:  'background 0.2s ease, opacity 0.2s ease',
+                border:      'none',
+              }}
+              onMouseEnter={(e) => {
+                if (canCalculate) (e.currentTarget as HTMLButtonElement).style.background = '#0D9488';
+              }}
+              onMouseLeave={(e) => {
+                if (canCalculate) (e.currentTarget as HTMLButtonElement).style.background = '#2DD4BF';
+              }}
             >
-              {canCalculate ? (
-                <>
-                  Generate Preliminary SRI
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                  </svg>
-                </>
-              ) : (
-                "Complete all fields to generate Preliminary SRI"
-              )}
+              {canCalculate
+                ? "Generate Preliminary SRI →"
+                : "Complete all fields to generate Preliminary SRI"}
             </button>
 
             {/* Results */}
@@ -648,8 +731,7 @@ export default function HomePage() {
 
                 {/* Contributing Factors 2×2 */}
                 {(() => {
-                  const w = parseFloat(weight);
-                  const proteinTarget = w > 0 ? w * 1.6 : 0;
+                  const proteinTarget = wKg > 0 ? wKg * 1.6 : 0;
                   const proteinPct    = proteinTarget > 0 ? (parseFloat(protein) / proteinTarget) * 100 : 0;
                   const giPenalty     = Math.min(
                     SYMPTOM_OPTIONS.filter((s) => symptoms.includes(s.label))
