@@ -89,9 +89,10 @@ export async function POST(req: Request) {
       specialty:      string;
       npiNumber?:     string;
       licenseNumber?: string;
+      inviteToken?:   string;
     };
 
-    const { fullName, email, password, country, specialty, npiNumber, licenseNumber } = body;
+    const { fullName, email, password, country, specialty, npiNumber, licenseNumber, inviteToken } = body;
 
     // ── Basic validation ────────────────────────────────────────────────────
     if (!fullName || fullName.trim().length < 2)
@@ -124,8 +125,9 @@ export async function POST(req: Request) {
     const { clerkUserId } = clerkResult;
 
     // ── Upsert User row in DB ────────────────────────────────────────────────
+    let physicianUserId: string | null = null;
     try {
-      await prisma.user.upsert({
+      const upsertedUser = await prisma.user.upsert({
         where:  { clerkId: clerkUserId },
         create: {
           clerkId:            clerkUserId,
@@ -136,6 +138,7 @@ export async function POST(req: Request) {
         },
         update: { role: "PHYSICIAN_PENDING" },
       });
+      physicianUserId = upsertedUser.id;
     } catch (e: unknown) {
       console.error("[register] USER UPSERT FAILED:", e);
       return NextResponse.json({ ok: false, error: "User DB upsert failed", detail: String(e) }, { status: 500 });
@@ -186,6 +189,40 @@ export async function POST(req: Request) {
     if (!application) {
       console.error("[register] PhysicianApplication upsert returned null");
       return NextResponse.json({ ok: false, error: "Failed to save application." }, { status: 500 });
+    }
+
+    // ── Persist pending patient invitation (non-fatal) ───────────────────────
+    // When a new physician registers after following a patient report link,
+    // store a PhysicianPatientInvitation so that /doctor/sign-in can detect it
+    // after admin approval and route the physician to /doctor/accept-patient
+    // instead of the empty CCC.
+    if (inviteToken && physicianUserId) {
+      try {
+        const shareCard = await prisma.shareCard.findUnique({
+          where:  { shareToken: inviteToken },
+          select: { userId: true },
+        });
+        if (shareCard) {
+          const existingInvite = await prisma.physicianPatientInvitation.findFirst({
+            where:  { shareToken: inviteToken, claimedByUserId: physicianUserId },
+            select: { id: true },
+          });
+          if (!existingInvite) {
+            await prisma.physicianPatientInvitation.create({
+              data: {
+                shareToken:      inviteToken,
+                patientUserId:   shareCard.userId,
+                status:          "PENDING",
+                claimedByUserId: physicianUserId,
+                expiresAt:       new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+              },
+            });
+          }
+        }
+      } catch (e: unknown) {
+        console.warn("[register] invite store failed (non-fatal):", e);
+        // Non-fatal — physician can still accept via the report link after sign-in
+      }
     }
 
     // ── Build one-click admin URLs ───────────────────────────────────────────

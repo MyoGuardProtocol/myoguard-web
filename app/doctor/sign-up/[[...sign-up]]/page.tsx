@@ -243,6 +243,7 @@ export default function PhysicianSignUpPage() {
             specialty:     form.specialty,
             npiNumber:     !internationalProvider && form.npi     ? form.npi           : undefined,
             licenseNumber: form.licenseNumber                     ? form.licenseNumber : undefined,
+            inviteToken:   inviteToken                            ? inviteToken         : undefined,
           };
 
       const res = await fetch(endpoint, {
