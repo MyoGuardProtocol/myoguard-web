@@ -259,6 +259,7 @@ export default async function PatientsPage() {
     { label: 'Patients',    href: '/doctor/patients' },
     { label: 'Start Sheet', href: '/doctor/start-sheet' },
     { label: 'Invite',      href: '/doctor/start' },
+    { label: 'Billing',     href: '/doctor/billing' },
   ];
 
   return (

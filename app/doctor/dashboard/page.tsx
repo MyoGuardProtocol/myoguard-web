@@ -219,6 +219,7 @@ export default async function DoctorDashboardPage() {
               { href: '/doctor/start-sheet', label: 'Start Sheet',    sub: 'Create a patient activation sheet' },
               { href: '/doctor/start',       label: 'Invite Patients', sub: 'Share referral link or QR code' },
               { href: '/doctor/practice-intelligence', label: 'Practice Intelligence', sub: 'Clinical updates, monitoring frameworks, and research resources.' },
+              { href: '/doctor/billing',     label: 'Billing',        sub: 'Manage your clinical access subscription.' },
             ].map((card) => (
               <a
                 key={card.href}
