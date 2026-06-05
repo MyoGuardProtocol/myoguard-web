@@ -145,7 +145,11 @@ export async function POST(req: Request) {
     }
 
     // ── Generate HMAC admin token (valid 48 h) ───────────────────────────────
-    const tokenSecret      = process.env.ADMIN_TOKEN_SECRET ?? "fallback-insecure-secret";
+    const tokenSecret = process.env.ADMIN_TOKEN_SECRET;
+    if (!tokenSecret) {
+      console.error("[register] ADMIN_TOKEN_SECRET is not set — cannot generate admin token");
+      return NextResponse.json({ ok: false, error: "Server configuration error" }, { status: 500 });
+    }
     const timestamp        = Date.now();
     const adminToken       = createHmac("sha256", tokenSecret)
       .update(`${email}:${timestamp}`)
