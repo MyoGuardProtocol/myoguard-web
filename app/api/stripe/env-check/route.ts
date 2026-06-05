@@ -32,7 +32,8 @@ export async function GET() {
     return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
   }
 
-  const secretKey = process.env.STRIPE_SECRET_KEY ?? '';
+  const secretKey     = process.env.STRIPE_SECRET_KEY ?? '';
+  const secretKeyTrim = secretKey.trim();
 
   return NextResponse.json({
     hasStripeSecretKey:  !!secretKey,
@@ -43,5 +44,27 @@ export async function GET() {
     // Diagnostic context — not a secret
     isLiveKey:           secretKey.startsWith('sk_live_'),
     nodeEnv:             process.env.NODE_ENV ?? 'unknown',
+
+    // ── TEMPORARY FORENSIC BLOCK — remove after diagnosis ──────────────────
+    // Never exposes the key value, only safe metadata.
+    _stripe_diag: {
+      /** true = env var exists (even if empty), false = env var not set at all */
+      varPresent:          process.env.STRIPE_SECRET_KEY !== undefined,
+      /** char count of the raw value; 0 = missing or empty */
+      rawLength:           secretKey.length,
+      /** char count after trimming whitespace; mismatch → leading/trailing space */
+      trimmedLength:       secretKeyTrim.length,
+      /** leading/trailing whitespace that would silently break the key */
+      hasLeadingSpace:     secretKey.startsWith(' ') || secretKey.startsWith('\t'),
+      hasTrailingSpace:    secretKey.endsWith(' ')   || secretKey.endsWith('\t'),
+      /** key prefix checks — Stripe live vs test vs unknown */
+      startsWithSkLive:    secretKeyTrim.startsWith('sk_live_'),
+      startsWithSkTest:    secretKeyTrim.startsWith('sk_test_'),
+      startsWithRkLive:    secretKeyTrim.startsWith('rk_live_'),  // restricted key
+      startsWithRkTest:    secretKeyTrim.startsWith('rk_test_'),
+      /** first 7 chars only — enough to see "sk_live" without exposing the key */
+      prefix7:             secretKeyTrim.slice(0, 7),
+    },
+    // ── END FORENSIC BLOCK ──────────────────────────────────────────────────
   });
 }
