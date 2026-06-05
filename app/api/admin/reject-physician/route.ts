@@ -1,7 +1,7 @@
-import { auth } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/src/lib/prisma';
-import { z } from 'zod';
+import { requireAdmin }              from '@/src/lib/requireAdmin';
+import { prisma }                    from '@/src/lib/prisma';
+import { z }                         from 'zod';
 
 const RejectSchema = z.object({
   /** Internal DB User.id of the PHYSICIAN_PENDING account to reject */
@@ -21,17 +21,12 @@ const RejectSchema = z.object({
  * On success returns: { ok: true }
  */
 export async function POST(req: NextRequest) {
-  const { userId: callerClerkId } = await auth();
-  if (!callerClerkId) {
+  const { user: adminUser, error } = await requireAdmin();
+  const callerClerkId = adminUser?.clerkId ?? '';
+  if (error === 'UNAUTHENTICATED') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-
-  // Verify caller is ADMIN
-  const caller = await prisma.user.findUnique({
-    where:  { clerkId: callerClerkId },
-    select: { role: true },
-  });
-  if (!caller || caller.role !== 'ADMIN') {
+  if (error === 'FORBIDDEN') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

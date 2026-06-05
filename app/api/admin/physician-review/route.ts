@@ -1,14 +1,16 @@
-import { auth } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
-import { prisma } from "@/src/lib/prisma";
-import { Resend } from "resend";
+import { NextResponse }  from "next/server";
+import { requireAdmin } from "@/src/lib/requireAdmin";
+import { prisma }       from "@/src/lib/prisma";
+import { Resend }       from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(req: Request) {
-  const { userId } = await auth();
-
-  if (userId !== process.env.ADMIN_USER_ID) {
+  const { error } = await requireAdmin();
+  if (error === 'UNAUTHENTICATED') {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (error === 'FORBIDDEN') {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

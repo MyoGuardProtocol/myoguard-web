@@ -1,6 +1,6 @@
-import { auth } from '@clerk/nextjs/server';
-import { NextResponse } from 'next/server';
-import { prisma } from '@/src/lib/prisma';
+import { NextResponse }  from 'next/server';
+import { requireAdmin } from '@/src/lib/requireAdmin';
+import { prisma }       from '@/src/lib/prisma';
 
 /**
  * GET /api/admin/pending-physicians
@@ -11,16 +11,11 @@ import { prisma } from '@/src/lib/prisma';
  * Caller must have role = ADMIN.
  */
 export async function GET() {
-  const { userId: callerClerkId } = await auth();
-  if (!callerClerkId) {
+  const { error } = await requireAdmin();
+  if (error === 'UNAUTHENTICATED') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-
-  const caller = await prisma.user.findUnique({
-    where:  { clerkId: callerClerkId },
-    select: { role: true },
-  });
-  if (!caller || caller.role !== 'ADMIN') {
+  if (error === 'FORBIDDEN') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

@@ -1,14 +1,11 @@
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
-import { prisma } from "@/src/lib/prisma";
+import { redirect }     from "next/navigation";
+import { requireAdmin } from "@/src/lib/requireAdmin";
+import { prisma }       from "@/src/lib/prisma";
 import AdminPhysicianList from "@/src/components/admin/AdminPhysicianList";
 
 export default async function AdminPhysiciansPage() {
-  const { userId } = await auth();
-
-  if (userId !== process.env.ADMIN_USER_ID) {
-    redirect("/");
-  }
+  const { error } = await requireAdmin();
+  if (error) redirect("/");
 
   const applications = await prisma.physicianApplication.findMany({
     orderBy: { submittedAt: "desc" },

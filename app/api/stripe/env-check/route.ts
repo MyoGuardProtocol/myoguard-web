@@ -1,6 +1,5 @@
-import { NextResponse }  from 'next/server';
-import { auth }          from '@clerk/nextjs/server';
-import { prisma }        from '@/src/lib/prisma';
+import { NextResponse }      from 'next/server';
+import { requireAdmin }      from '@/src/lib/requireAdmin';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,17 +24,11 @@ export const dynamic = 'force-dynamic';
  *   }
  */
 export async function GET() {
-  const { userId } = await auth();
-  if (!userId) {
+  const { error } = await requireAdmin();
+  if (error === 'UNAUTHENTICATED') {
     return NextResponse.json({ error: 'Unauthorised' }, { status: 401 });
   }
-
-  const user = await prisma.user.findUnique({
-    where:  { clerkId: userId },
-    select: { role: true },
-  });
-
-  if (!user || user.role !== 'ADMIN') {
+  if (error === 'FORBIDDEN') {
     return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
   }
 
