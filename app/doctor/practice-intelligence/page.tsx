@@ -24,12 +24,17 @@ export default async function PracticeIntelligencePage() {
 
   const user = await prisma.user.findUnique({
     where:  { clerkId: userId },
-    select: { id: true, role: true, fullName: true, email: true },
+    select: { id: true, role: true, fullName: true, email: true, subscriptionStatus: true },
   });
 
   if (!user)                              redirect('/dashboard');
   if (user.role === 'PHYSICIAN_PENDING') redirect('/doctor/dashboard');
   if (user.role !== 'PHYSICIAN')         redirect('/dashboard');
+
+  // Subscription enforcement
+  if (user.subscriptionStatus !== 'ACTIVE') {
+    redirect('/doctor/billing?status=access_required');
+  }
 
   const navLinks = [
     { label: 'Dashboard',            href: '/doctor/dashboard' },

@@ -164,6 +164,26 @@ export default async function BillingPage({
           </p>
         </div>
 
+        {/* ── Subscription-required gate banner ────────────────────────────── */}
+        {returnStatus === 'access_required' && !isActive && (
+          <div style={{
+            background:    'rgba(45,212,191,0.06)',
+            border:        '1px solid rgba(45,212,191,0.22)',
+            borderRadius:  '16px',
+            padding:       '20px 24px',
+            marginBottom:  '32px',
+          }}>
+            <p style={{ fontSize: '13px', fontWeight: 600, color: '#2DD4BF', marginBottom: '4px' }}>
+              Clinical access requires an active subscription.
+            </p>
+            <p style={{ fontSize: '13px', color: '#94A3B8', lineHeight: 1.6 }}>
+              Choose a plan below to activate your Clinical Command Center. Founding Clinical Partners
+              may use promotion code <strong style={{ color: '#F1F5F9', fontFamily: 'monospace' }}>FOUNDER2026</strong> at
+              checkout for complimentary access.
+            </p>
+          </div>
+        )}
+
         {/* ── Post-checkout return banners ──────────────────────────────────── */}
         {returnStatus === 'success' && (
           <div style={{

@@ -27,10 +27,11 @@ import type { PhysicianExecutiveSummary } from '@/src/lib/insights/physician-sco
  */
 
 const PHYSICIAN_SELECT = {
-  id:       true,
-  role:     true,
-  fullName: true,
-  email:    true,
+  id:                 true,
+  role:               true,
+  fullName:           true,
+  email:              true,
+  subscriptionStatus: true,
   physicianOnboarding: {
     select: { country: true, specialty: true, submittedAt: true },
   },
@@ -94,6 +95,13 @@ export default async function DoctorDashboardPage() {
   // ── Role routing ──────────────────────────────────────────────────────────
   if (user.role === 'ADMIN')   redirect('/admin/physicians');
   if (user.role === 'PATIENT') redirect('/dashboard');
+
+  // ── Subscription enforcement (PHYSICIAN only) ────────────────────────────
+  // PHYSICIAN_PENDING users are NOT redirected here — they see the holding
+  // screen below. Subscription is only required for approved physicians.
+  if (user.role === 'PHYSICIAN' && user.subscriptionStatus !== 'ACTIVE') {
+    redirect('/doctor/billing?status=access_required');
+  }
 
   // For approved physicians, check for a stored pending patient invitation
   // (belt-and-suspenders for the /doctor/patients safety net)

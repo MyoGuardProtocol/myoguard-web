@@ -3,6 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   experimental: {
     turbopackUseSystemTlsCerts: true,
+    cpus: 2, // cap page-data workers for low-RAM local builds (Vercel ignores this)
   },
   images: {
     /**

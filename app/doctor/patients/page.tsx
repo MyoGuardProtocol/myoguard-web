@@ -134,12 +134,17 @@ export default async function PatientsPage() {
 
   const physician = await prisma.user.findUnique({
     where:  { clerkId },
-    select: { id: true, role: true, fullName: true, email: true, referralSlug: true, isVerified: true },
+    select: { id: true, role: true, fullName: true, email: true, referralSlug: true, isVerified: true, subscriptionStatus: true },
   });
 
-  if (!physician)                            redirect('/dashboard');
-  if (physician.role === 'PHYSICIAN_PENDING') redirect('/doctor/dashboard');
-  if (physician.role !== 'PHYSICIAN')         redirect('/dashboard');
+  if (!physician)                              redirect('/dashboard');
+  if (physician.role === 'PHYSICIAN_PENDING')  redirect('/doctor/dashboard');
+  if (physician.role !== 'PHYSICIAN')          redirect('/dashboard');
+
+  // Subscription enforcement — approved physicians require an active subscription
+  if (physician.subscriptionStatus !== 'ACTIVE') {
+    redirect('/doctor/billing?status=access_required');
+  }
 
   // Safety net: route to accept-patient if a pending invitation exists in DB
   // (catches newly-approved physicians who signed up from a patient report link)
