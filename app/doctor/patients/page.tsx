@@ -11,8 +11,9 @@ import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/src/lib/prisma';
 import { ensureReferralProfile } from '@/src/lib/physician/ensureReferralProfile';
-import Link from 'next/link';
-import PhysicianAvatar from '@/src/components/ui/PhysicianAvatar';
+import Link             from 'next/link';
+import PhysicianAvatar   from '@/src/components/ui/PhysicianAvatar';
+import PhysicianNavLinks from '@/src/components/doctor/PhysicianNavLinks';
 import PatientCommandCenter, { type PatientRow } from '@/src/components/ui/PatientCommandCenter';
 import PhysicianEmptyState from '@/src/components/ui/PhysicianEmptyState';
 import {
@@ -259,13 +260,6 @@ export default async function PatientsPage() {
     // Intelligence unavailable — cards display zero baseline
   }
 
-  const navLinks = [
-    { label: 'Dashboard',   href: '/doctor/dashboard' },
-    { label: 'Patients',    href: '/doctor/patients' },
-    { label: 'Start Sheet', href: '/doctor/start-sheet' },
-    { label: 'Invite',      href: '/doctor/start' },
-    { label: 'Billing',     href: '/doctor/billing' },
-  ];
 
   return (
     <main style={{ background: '#080C14', minHeight: '100vh' }}>
@@ -281,21 +275,7 @@ export default async function PatientsPage() {
             <span style={{ fontSize: '1.1rem', fontWeight: 900, color: '#ffffff', letterSpacing: '-0.02em' }}>Myo</span>
             <span style={{ fontSize: '1.1rem', fontWeight: 900, color: '#2DD4BF', letterSpacing: '-0.02em' }}>Guard</span>
           </Link>
-          <nav style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1, justifyContent: 'center' }}>
-            {navLinks.map(({ label, href }) => {
-              const active = href === '/doctor/patients';
-              return (
-                <Link key={href} href={href} style={{
-                  padding: '6px 14px', borderRadius: '8px', fontSize: '0.8125rem', fontWeight: 500, textDecoration: 'none',
-                  color:      active ? '#2DD4BF' : 'rgba(255,255,255,0.55)',
-                  background: active ? 'rgba(45,212,191,0.08)' : 'transparent',
-                  transition: 'color 0.15s, background 0.15s',
-                }}>
-                  {label}
-                </Link>
-              );
-            })}
-          </nav>
+          <PhysicianNavLinks />
           <PhysicianAvatar fullName={physician.fullName} email={physician.email} role={physician.role} />
         </div>
       </header>

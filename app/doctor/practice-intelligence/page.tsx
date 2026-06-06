@@ -1,8 +1,9 @@
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/src/lib/prisma';
-import Link from 'next/link';
-import PhysicianAvatar from '@/src/components/ui/PhysicianAvatar';
+import Link             from 'next/link';
+import PhysicianAvatar   from '@/src/components/ui/PhysicianAvatar';
+import PhysicianNavLinks from '@/src/components/doctor/PhysicianNavLinks';
 
 /**
  * /doctor/practice-intelligence — Physician knowledge and practice intelligence destination.
@@ -36,12 +37,6 @@ export default async function PracticeIntelligencePage() {
     redirect('/doctor/billing?status=access_required');
   }
 
-  const navLinks = [
-    { label: 'Dashboard',            href: '/doctor/dashboard' },
-    { label: 'My Patients',          href: '/doctor/patients' },
-    { label: 'Start Sheet',          href: '/doctor/start-sheet' },
-    { label: 'Practice Intelligence',href: '/doctor/practice-intelligence' },
-  ];
 
   return (
     <main style={{
@@ -73,24 +68,7 @@ export default async function PracticeIntelligencePage() {
             <span style={{ fontSize: '1.1rem', fontWeight: 900, color: '#2DD4BF', letterSpacing: '-0.02em' }}>Guard</span>
           </Link>
 
-          <nav style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1, justifyContent: 'center' }}>
-            {navLinks.map(({ label, href }) => {
-              const active = href === '/doctor/practice-intelligence';
-              return (
-                <Link key={href} href={href} style={{
-                  padding:        '6px 14px',
-                  borderRadius:   '8px',
-                  fontSize:       '0.8125rem',
-                  fontWeight:     500,
-                  textDecoration: 'none',
-                  color:          active ? '#2DD4BF' : 'rgba(255,255,255,0.55)',
-                  background:     active ? 'rgba(45,212,191,0.08)' : 'transparent',
-                }}>
-                  {label}
-                </Link>
-              );
-            })}
-          </nav>
+          <PhysicianNavLinks />
 
           <PhysicianAvatar fullName={user.fullName ?? ''} email={user.email} role={user.role} />
         </div>

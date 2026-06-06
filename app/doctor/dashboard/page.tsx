@@ -3,7 +3,8 @@ import { redirect } from 'next/navigation';
 import { prisma } from '@/src/lib/prisma';
 import Link from 'next/link';
 import { SignOutButton } from '@clerk/nextjs';
-import PhysicianAvatar from '@/src/components/ui/PhysicianAvatar';
+import PhysicianAvatar    from '@/src/components/ui/PhysicianAvatar';
+import PhysicianNavLinks  from '@/src/components/doctor/PhysicianNavLinks';
 import {
   computePhysicianScopedIntelligence,
 } from '@/src/lib/insights/physician-scoped';
@@ -149,12 +150,15 @@ export default async function DoctorDashboardPage() {
         background: '#060D1E',
         borderBottom: '1px solid rgba(255,255,255,0.07)',
         position: 'sticky', top: 0, zIndex: 50,
-        padding: '0 24px',
       }}>
-        <div style={{ maxWidth: '720px', margin: '0 auto',
+        <div style={{
+          maxWidth: '1200px', margin: '0 auto',
+          padding: '0 24px',
           display: 'flex', alignItems: 'center',
-          justifyContent: 'space-between', height: '60px' }}>
-          <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'baseline', gap: '2px' }}>
+          justifyContent: 'space-between', height: '56px',
+          gap: '24px',
+        }}>
+          <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'baseline', gap: '2px', flexShrink: 0 }}>
             <span style={{ fontSize: '20px', fontWeight: '900',
               letterSpacing: '-0.03em', color: '#F8FAFC' }}>
               Myo<span style={{ color: '#2DD4BF' }}>Guard</span>
@@ -162,7 +166,11 @@ export default async function DoctorDashboardPage() {
             <span style={{ color: '#475569', fontWeight: '300',
               fontSize: '13px', marginLeft: '2px' }}>Protocol</span>
           </Link>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+
+          {/* Unified physician nav — only for verified physicians */}
+          {user.role === 'PHYSICIAN' && <PhysicianNavLinks />}
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
             {user.role === 'PHYSICIAN_PENDING' && (
               <span style={{
                 fontSize: '11px', fontWeight: '600',
