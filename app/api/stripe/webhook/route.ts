@@ -92,21 +92,34 @@ export async function POST(req: NextRequest) {
 
       // ── checkout.session.completed ──────────────────────────────────────────
       // Primary activation event. Fires when the customer completes the Stripe
-      // hosted checkout. payment_status guard ensures we only activate on paid sessions.
+      // hosted checkout.
+      //
+      // payment_status values:
+      //   'paid'                 — card or other payment method charged
+      //   'no_payment_required'  — 100% coupon applied (e.g. FOUNDER2026); Stripe
+      //                            creates an active $0 subscription and sets this
+      //                            value instead of 'paid'. Both must activate.
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
         const userId  = session.metadata?.userId;
 
-        if (userId && session.customer && session.payment_status === 'paid') {
+        const isPaymentReceived =
+          session.payment_status === 'paid' ||
+          session.payment_status === 'no_payment_required';
+
+        if (userId && session.customer && isPaymentReceived) {
           await prisma.user.update({
             where: { id: userId },
             data: {
               subscriptionStatus: 'ACTIVE',
               stripeCustomerId:   session.customer as string,
-              stripeSubId:        session.subscription as string,
+              stripeSubId:        (session.subscription as string) ?? null,
             },
           });
-          console.log(`[stripe/webhook] checkout.session.completed userId=${userId} → ACTIVE`);
+          console.log(
+            `[stripe/webhook] checkout.session.completed userId=${userId} ` +
+            `payment_status=${session.payment_status} → ACTIVE`,
+          );
         }
         break;
       }

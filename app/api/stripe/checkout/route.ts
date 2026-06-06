@@ -92,10 +92,21 @@ export async function POST(req: NextRequest) {
       success_url:    `${appUrl}/doctor/billing?status=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url:     `${appUrl}/doctor/billing?status=cancelled`,
       allow_promotion_codes: true,
+      // Session-level metadata — available in checkout.session.completed
       metadata: {
         userId:   user.id,
         clerkId:  userId,
         planType,
+      },
+      // Propagate the same metadata to the Subscription object so that
+      // customer.subscription.created can resolve the userId even before
+      // checkout.session.completed fires (important for $0 / coupon flows).
+      subscription_data: {
+        metadata: {
+          userId:   user.id,
+          clerkId:  userId,
+          planType,
+        },
       },
     });
 
