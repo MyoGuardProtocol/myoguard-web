@@ -241,7 +241,7 @@ export async function POST(req: Request) {
     try {
     await resend.emails.send({
       from:    "MyoGuard Clinical <admin@myoguard.health>",
-      to:      "onyeka.okpala@myoguard.health",
+      to:      "admin@myoguard.health",
       replyTo: "admin@myoguard.health",
       subject: `Physician Credential Review — ${fullName}`,
       html: `
