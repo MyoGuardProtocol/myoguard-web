@@ -246,9 +246,8 @@ export default async function BillingPage({
               Clinical access requires an active subscription.
             </p>
             <p style={{ fontSize: '13px', color: '#94A3B8', lineHeight: 1.6 }}>
-              Choose a plan below to activate your Clinical Command Center. Founding Clinical Partners
-              may use promotion code <strong style={{ color: '#F1F5F9', fontFamily: 'monospace' }}>FOUNDER2026</strong> at
-              checkout for complimentary access.
+              Choose a plan below to activate your Clinical Command Center. Founding Clinical Partner
+              access is available by invitation only.
             </p>
           </div>
         )}
