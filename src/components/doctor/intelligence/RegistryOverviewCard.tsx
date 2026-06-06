@@ -60,16 +60,8 @@ export default async function RegistryOverviewCard() {
     return null;
   }
 
-  if (research.activeStudyCount === 0) {
-    return (
-      <div style={card}>
-        <p style={eyebrow}>Research Registry</p>
-        <p style={{ fontSize: '13px', color: '#64748B', fontStyle: 'italic' }}>
-          No active observational studies at this time.
-        </p>
-      </div>
-    );
-  }
+  // No active studies → suppress entirely; never show empty placeholder
+  if (research.activeStudyCount === 0) return null;
 
   return (
     <div style={card}>

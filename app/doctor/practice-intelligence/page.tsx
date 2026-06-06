@@ -37,6 +37,14 @@ export default async function PracticeIntelligencePage() {
     redirect('/doctor/billing?status=access_required');
   }
 
+  // Research visibility gate — Section E renders only when at least one Study is ACTIVE.
+  // Suppressed silently on DB error; physicians see no empty placeholder.
+  let activeStudyCount = 0;
+  try {
+    activeStudyCount = await prisma.study.count({ where: { status: 'ACTIVE' } });
+  } catch {
+    // Research infrastructure unavailable — Section E suppressed
+  }
 
   return (
     <main style={{
@@ -97,7 +105,7 @@ export default async function PracticeIntelligencePage() {
             Practice Intelligence
           </h1>
           <p style={{ fontSize: '14px', color: '#64748B', lineHeight: 1.6 }}>
-            Clinical updates, monitoring frameworks, and research resources for the MyoGuard physician community.
+            Clinical updates, monitoring frameworks, and practice resources for the MyoGuard physician community.
           </p>
         </div>
 
@@ -325,7 +333,7 @@ export default async function PracticeIntelligencePage() {
           </div>
         </section>
 
-        {/* ── Section C — Research Infrastructure ────────────────────────── */}
+        {/* ── Section C — Documentation & Reimbursement ──────────────────── */}
         <section>
           <div style={{
             background:    '#0D1421',
@@ -351,61 +359,21 @@ export default async function PracticeIntelligencePage() {
               color:         '#F1F5F9',
               marginBottom:  '8px',
             }}>
-              Research Infrastructure
+              Documentation &amp; Reimbursement
             </h2>
 
-            <p style={{ fontSize: '14px', color: '#94A3B8', lineHeight: 1.7, marginBottom: '24px' }}>
-              MyoGuard maintains an observational research infrastructure designed to support
-              evidence development in GLP-1 muscle preservation and sarcopenia risk detection.
+            <p style={{ fontSize: '14px', color: '#94A3B8', lineHeight: 1.7, marginBottom: '16px' }}>
+              Documentation standards and reimbursement guidance for physicians managing GLP-1 patients
+              under RPM, RTM, and Clinical Command Center monitoring frameworks.
             </p>
 
-            <Link href="/research" style={{
-              display:        'flex',
-              alignItems:     'center',
-              gap:            '14px',
-              background:     'rgba(255,255,255,0.02)',
-              border:         '1px solid #1A2744',
-              borderRadius:   '12px',
-              padding:        '18px 20px',
-              textDecoration: 'none',
-            }}>
-              <div style={{
-                width:          '36px',
-                height:         '36px',
-                borderRadius:   '8px',
-                background:     'rgba(45,212,191,0.08)',
-                border:         '1px solid rgba(45,212,191,0.18)',
-                display:        'flex',
-                alignItems:     'center',
-                justifyContent: 'center',
-                flexShrink:     0,
-              }}>
-                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#2DD4BF" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
-                </svg>
-              </div>
-              <div style={{ flex: 1 }}>
-                <p style={{
-                  fontSize:      '14px',
-                  fontWeight:    600,
-                  color:         '#F1F5F9',
-                  marginBottom:  '3px',
-                  fontFamily:    'Georgia, serif',
-                }}>
-                  MyoGuard Research
-                </p>
-                <p style={{ fontSize: '12px', color: '#64748B', lineHeight: 1.5 }}>
-                  Learn about the MyoGuard observational research infrastructure.
-                </p>
-              </div>
-              <svg style={{ flexShrink: 0 }} width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#94A3B8" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-              </svg>
-            </Link>
+            <p style={{ fontSize: '13px', color: '#475569', fontStyle: 'italic', lineHeight: 1.6 }}>
+              Documentation and reimbursement resources will be published here as they are confirmed.
+            </p>
           </div>
         </section>
 
-        {/* ── Section D — Practice Intelligence (placeholder) ─────────────── */}
+        {/* ── Section D — Practice Resources ──────────────────────────────── */}
         <section>
           <div style={{
             background:    '#0D1421',
@@ -431,19 +399,103 @@ export default async function PracticeIntelligencePage() {
               color:         '#F1F5F9',
               marginBottom:  '8px',
             }}>
-              Practice Intelligence
+              Practice Resources
             </h2>
 
             <p style={{ fontSize: '14px', color: '#94A3B8', lineHeight: 1.7, marginBottom: '16px' }}>
-              Documentation standards, monitoring guidance, and practice resources for physicians
-              managing patients on GLP-1 therapy.
+              Physician resources, patient guidance, and workflow support for managing
+              GLP-1 patients on the MyoGuard Protocol.
             </p>
 
             <p style={{ fontSize: '13px', color: '#475569', fontStyle: 'italic', lineHeight: 1.6 }}>
-              Practice intelligence resources will be expanded in future releases.
+              Practice resources will be expanded in future releases.
             </p>
           </div>
         </section>
+
+        {/* ── Section E — Research Network (conditional: active studies only) ─
+            Suppressed entirely when no ACTIVE studies exist.
+            Per design rule: no empty state, no "no studies" message.          */}
+        {activeStudyCount > 0 && (
+          <section>
+            <div style={{
+              background:    '#0D1421',
+              border:        '1px solid #1A2744',
+              borderRadius:  '16px',
+              padding:       '28px',
+            }}>
+              <p style={{
+                fontSize:      '10px',
+                fontWeight:    700,
+                color:         '#64748B',
+                textTransform: 'uppercase',
+                letterSpacing: '0.10em',
+                marginBottom:  '16px',
+              }}>
+                Section E
+              </p>
+
+              <h2 style={{
+                fontFamily:    'Georgia, serif',
+                fontSize:      '20px',
+                fontWeight:    '400',
+                color:         '#F1F5F9',
+                marginBottom:  '8px',
+              }}>
+                Research Network
+              </h2>
+
+              <p style={{ fontSize: '14px', color: '#94A3B8', lineHeight: 1.7, marginBottom: '24px' }}>
+                MyoGuard maintains an observational research infrastructure designed to support
+                evidence development in GLP-1 muscle preservation and sarcopenia risk detection.
+              </p>
+
+              <Link href="/research" style={{
+                display:        'flex',
+                alignItems:     'center',
+                gap:            '14px',
+                background:     'rgba(255,255,255,0.02)',
+                border:         '1px solid #1A2744',
+                borderRadius:   '12px',
+                padding:        '18px 20px',
+                textDecoration: 'none',
+              }}>
+                <div style={{
+                  width:          '36px',
+                  height:         '36px',
+                  borderRadius:   '8px',
+                  background:     'rgba(45,212,191,0.08)',
+                  border:         '1px solid rgba(45,212,191,0.18)',
+                  display:        'flex',
+                  alignItems:     'center',
+                  justifyContent: 'center',
+                  flexShrink:     0,
+                }}>
+                  <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#2DD4BF" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
+                  </svg>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <p style={{
+                    fontSize:      '14px',
+                    fontWeight:    600,
+                    color:         '#F1F5F9',
+                    marginBottom:  '3px',
+                    fontFamily:    'Georgia, serif',
+                  }}>
+                    MyoGuard Research
+                  </p>
+                  <p style={{ fontSize: '12px', color: '#64748B', lineHeight: 1.5 }}>
+                    Learn about the MyoGuard observational research infrastructure.
+                  </p>
+                </div>
+                <svg style={{ flexShrink: 0 }} width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#94A3B8" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+            </div>
+          </section>
+        )}
 
         {/* Footer note */}
         <p style={{
