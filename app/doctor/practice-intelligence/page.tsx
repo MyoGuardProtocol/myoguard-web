@@ -9,10 +9,11 @@ import PhysicianNavLinks from '@/src/components/doctor/PhysicianNavLinks';
  * /doctor/practice-intelligence — Physician knowledge and practice intelligence destination.
  *
  * Sections:
- *   A. Clinical Practice Updates — emerging developments in obesity medicine and longitudinal care
- *   B. Monitoring Frameworks    — RPM, RTM, CCC (placeholder descriptions; no CPT numbers)
- *   C. Research Infrastructure  — link to /research
- *   D. Practice Intelligence    — placeholder for future CMS / documentation resources
+ *   A. Clinical Practice Updates       — emerging developments in obesity medicine and longitudinal care
+ *   B. Monitoring Frameworks           — RPM, RTM, CCC educational descriptions
+ *   C. Documentation & Reimbursement   — 4 informational cards: RPM, RTM, Documentation, Reimbursement Ed.
+ *   D. Practice Resources              — links to Start Sheet, Patient Handout, Invite Patients
+ *   E. Research Network (conditional)  — suppressed when no ACTIVE studies exist (Build 7B)
  *
  * Access: PHYSICIAN role only.
  * PHYSICIAN_PENDING → /doctor/dashboard
@@ -362,14 +363,194 @@ export default async function PracticeIntelligencePage() {
               Documentation &amp; Reimbursement
             </h2>
 
-            <p style={{ fontSize: '14px', color: '#94A3B8', lineHeight: 1.7, marginBottom: '16px' }}>
-              Documentation standards and reimbursement guidance for physicians managing GLP-1 patients
-              under RPM, RTM, and Clinical Command Center monitoring frameworks.
+            <p style={{ fontSize: '14px', color: '#94A3B8', lineHeight: 1.7, marginBottom: '24px' }}>
+              Operational intelligence for physicians managing GLP-1 patients under RPM, RTM,
+              and Clinical Command Center monitoring frameworks.
+              Educational overview — not billing, coding, or compliance guidance.
             </p>
 
-            <p style={{ fontSize: '13px', color: '#475569', fontStyle: 'italic', lineHeight: 1.6 }}>
-              Documentation and reimbursement resources will be published here as they are confirmed.
-            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+
+              {/* Card 1 — RPM Monitoring Framework */}
+              <div style={{
+                background:  'rgba(255,255,255,0.02)',
+                border:      '1px solid #1A2744',
+                borderRadius:'12px',
+                padding:     '18px 20px',
+                display:     'flex',
+                gap:         '16px',
+                alignItems:  'flex-start',
+              }}>
+                <div style={{
+                  width:          '36px',
+                  height:         '36px',
+                  borderRadius:   '8px',
+                  background:     'rgba(45,212,191,0.08)',
+                  border:         '1px solid rgba(45,212,191,0.18)',
+                  display:        'flex',
+                  alignItems:     'center',
+                  justifyContent: 'center',
+                  flexShrink:     0,
+                }}>
+                  <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#2DD4BF" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+                  </svg>
+                </div>
+                <div>
+                  <p style={{
+                    fontSize:     '14px',
+                    fontWeight:   600,
+                    color:        '#F1F5F9',
+                    marginBottom: '4px',
+                    fontFamily:   'Georgia, serif',
+                  }}>
+                    RPM Monitoring Framework
+                  </p>
+                  <p style={{ fontSize: '12px', color: '#64748B', lineHeight: 1.6 }}>
+                    Remote Patient Monitoring within MyoGuard supports structured longitudinal observation
+                    of enrolled patients. Physicians review patient-reported physiological data — including
+                    weight trends, grip assessments, and recovery indicators — on a defined cadence.
+                    Consistent data collection enables meaningful trend analysis over time.
+                  </p>
+                </div>
+              </div>
+
+              {/* Card 2 — RTM Monitoring Framework */}
+              <div style={{
+                background:  'rgba(255,255,255,0.02)',
+                border:      '1px solid #1A2744',
+                borderRadius:'12px',
+                padding:     '18px 20px',
+                display:     'flex',
+                gap:         '16px',
+                alignItems:  'flex-start',
+              }}>
+                <div style={{
+                  width:          '36px',
+                  height:         '36px',
+                  borderRadius:   '8px',
+                  background:     'rgba(45,212,191,0.08)',
+                  border:         '1px solid rgba(45,212,191,0.18)',
+                  display:        'flex',
+                  alignItems:     'center',
+                  justifyContent: 'center',
+                  flexShrink:     0,
+                }}>
+                  <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#2DD4BF" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <p style={{
+                    fontSize:     '14px',
+                    fontWeight:   600,
+                    color:        '#F1F5F9',
+                    marginBottom: '4px',
+                    fontFamily:   'Georgia, serif',
+                  }}>
+                    RTM Monitoring Framework
+                  </p>
+                  <p style={{ fontSize: '12px', color: '#64748B', lineHeight: 1.6 }}>
+                    Remote Therapeutic Monitoring supports physician-led oversight of therapeutic adherence
+                    between in-person visits. MyoGuard tracks adherence to nutritional protocols, symptom
+                    reporting, and recovery engagement. RTM-style monitoring creates a documented record of
+                    ongoing clinical oversight across the enrolled patient panel.
+                  </p>
+                </div>
+              </div>
+
+              {/* Card 3 — Documentation Standards */}
+              <div style={{
+                background:  'rgba(255,255,255,0.02)',
+                border:      '1px solid #1A2744',
+                borderRadius:'12px',
+                padding:     '18px 20px',
+                display:     'flex',
+                gap:         '16px',
+                alignItems:  'flex-start',
+              }}>
+                <div style={{
+                  width:          '36px',
+                  height:         '36px',
+                  borderRadius:   '8px',
+                  background:     'rgba(45,212,191,0.08)',
+                  border:         '1px solid rgba(45,212,191,0.18)',
+                  display:        'flex',
+                  alignItems:     'center',
+                  justifyContent: 'center',
+                  flexShrink:     0,
+                }}>
+                  <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#2DD4BF" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                  </svg>
+                </div>
+                <div>
+                  <p style={{
+                    fontSize:     '14px',
+                    fontWeight:   600,
+                    color:        '#F1F5F9',
+                    marginBottom: '4px',
+                    fontFamily:   'Georgia, serif',
+                  }}>
+                    Documentation Standards
+                  </p>
+                  <p style={{ fontSize: '12px', color: '#64748B', lineHeight: 1.6 }}>
+                    Physician review and documented patient communication are the foundation of defensible
+                    longitudinal care. MyoGuard generates timestamped SRI assessments, recovery indicators,
+                    and panel-level continuity signals to support clinical records. Consistent documentation
+                    practices — including review notation and patient communication logs — support audit
+                    readiness and continuity across the care episode.
+                  </p>
+                </div>
+              </div>
+
+              {/* Card 4 — Reimbursement Education */}
+              <div style={{
+                background:  'rgba(255,255,255,0.02)',
+                border:      '1px solid #1A2744',
+                borderRadius:'12px',
+                padding:     '18px 20px',
+                display:     'flex',
+                gap:         '16px',
+                alignItems:  'flex-start',
+              }}>
+                <div style={{
+                  width:          '36px',
+                  height:         '36px',
+                  borderRadius:   '8px',
+                  background:     'rgba(45,212,191,0.08)',
+                  border:         '1px solid rgba(45,212,191,0.18)',
+                  display:        'flex',
+                  alignItems:     'center',
+                  justifyContent: 'center',
+                  flexShrink:     0,
+                }}>
+                  <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#2DD4BF" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" />
+                  </svg>
+                </div>
+                <div>
+                  <p style={{
+                    fontSize:     '14px',
+                    fontWeight:   600,
+                    color:        '#F1F5F9',
+                    marginBottom: '4px',
+                    fontFamily:   'Georgia, serif',
+                  }}>
+                    Reimbursement Education
+                  </p>
+                  <p style={{ fontSize: '12px', color: '#64748B', lineHeight: 1.6 }}>
+                    Reimbursement pathways for remote monitoring and chronic disease management continue
+                    to evolve as payer policies adapt to GLP-1 prescribing patterns. Requirements vary
+                    across payers and jurisdictions. Documentation quality is consistently the governing
+                    factor in reimbursement outcomes — structured, timestamped records of physician review
+                    and patient engagement represent the foundation of a defensible billing position.
+                    Consult your billing team or compliance advisor for coding guidance specific to your practice.
+                  </p>
+                </div>
+              </div>
+
+            </div>
           </div>
         </section>
 
@@ -402,14 +583,149 @@ export default async function PracticeIntelligencePage() {
               Practice Resources
             </h2>
 
-            <p style={{ fontSize: '14px', color: '#94A3B8', lineHeight: 1.7, marginBottom: '16px' }}>
-              Physician resources, patient guidance, and workflow support for managing
+            <p style={{ fontSize: '14px', color: '#94A3B8', lineHeight: 1.7, marginBottom: '24px' }}>
+              Physician tools, patient activation materials, and workflow resources for managing
               GLP-1 patients on the MyoGuard Protocol.
             </p>
 
-            <p style={{ fontSize: '13px', color: '#475569', fontStyle: 'italic', lineHeight: 1.6 }}>
-              Practice resources will be expanded in future releases.
-            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+
+              {/* Start Sheet */}
+              <Link href="/doctor/start-sheet" style={{
+                display:        'flex',
+                alignItems:     'center',
+                gap:            '14px',
+                background:     'rgba(255,255,255,0.02)',
+                border:         '1px solid #1A2744',
+                borderRadius:   '12px',
+                padding:        '16px 20px',
+                textDecoration: 'none',
+              }}>
+                <div style={{
+                  width:          '36px',
+                  height:         '36px',
+                  borderRadius:   '8px',
+                  background:     'rgba(45,212,191,0.08)',
+                  border:         '1px solid rgba(45,212,191,0.18)',
+                  display:        'flex',
+                  alignItems:     'center',
+                  justifyContent: 'center',
+                  flexShrink:     0,
+                }}>
+                  <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#2DD4BF" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
+                  </svg>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <p style={{
+                    fontSize:     '14px',
+                    fontWeight:   600,
+                    color:        '#F1F5F9',
+                    marginBottom: '3px',
+                    fontFamily:   'Georgia, serif',
+                  }}>
+                    Patient Activation Sheet
+                  </p>
+                  <p style={{ fontSize: '12px', color: '#64748B', lineHeight: 1.5 }}>
+                    Create a structured start sheet for new GLP-1 patients entering the MyoGuard Protocol.
+                  </p>
+                </div>
+                <svg style={{ flexShrink: 0 }} width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#94A3B8" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+
+              {/* Patient Handout */}
+              <Link href="/doctor/invite/print" style={{
+                display:        'flex',
+                alignItems:     'center',
+                gap:            '14px',
+                background:     'rgba(255,255,255,0.02)',
+                border:         '1px solid #1A2744',
+                borderRadius:   '12px',
+                padding:        '16px 20px',
+                textDecoration: 'none',
+              }}>
+                <div style={{
+                  width:          '36px',
+                  height:         '36px',
+                  borderRadius:   '8px',
+                  background:     'rgba(45,212,191,0.08)',
+                  border:         '1px solid rgba(45,212,191,0.18)',
+                  display:        'flex',
+                  alignItems:     'center',
+                  justifyContent: 'center',
+                  flexShrink:     0,
+                }}>
+                  <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#2DD4BF" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z" />
+                  </svg>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <p style={{
+                    fontSize:     '14px',
+                    fontWeight:   600,
+                    color:        '#F1F5F9',
+                    marginBottom: '3px',
+                    fontFamily:   'Georgia, serif',
+                  }}>
+                    Printable Patient Handout
+                  </p>
+                  <p style={{ fontSize: '12px', color: '#64748B', lineHeight: 1.5 }}>
+                    Generate a QR-code referral handout for distributing your enrollment link in clinic.
+                  </p>
+                </div>
+                <svg style={{ flexShrink: 0 }} width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#94A3B8" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+
+              {/* Invite Patients */}
+              <Link href="/doctor/start" style={{
+                display:        'flex',
+                alignItems:     'center',
+                gap:            '14px',
+                background:     'rgba(255,255,255,0.02)',
+                border:         '1px solid #1A2744',
+                borderRadius:   '12px',
+                padding:        '16px 20px',
+                textDecoration: 'none',
+              }}>
+                <div style={{
+                  width:          '36px',
+                  height:         '36px',
+                  borderRadius:   '8px',
+                  background:     'rgba(45,212,191,0.08)',
+                  border:         '1px solid rgba(45,212,191,0.18)',
+                  display:        'flex',
+                  alignItems:     'center',
+                  justifyContent: 'center',
+                  flexShrink:     0,
+                }}>
+                  <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#2DD4BF" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z" />
+                  </svg>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <p style={{
+                    fontSize:     '14px',
+                    fontWeight:   600,
+                    color:        '#F1F5F9',
+                    marginBottom: '3px',
+                    fontFamily:   'Georgia, serif',
+                  }}>
+                    Invite Patients
+                  </p>
+                  <p style={{ fontSize: '12px', color: '#64748B', lineHeight: 1.5 }}>
+                    Send a direct enrollment invitation to new patients via your referral link.
+                  </p>
+                </div>
+                <svg style={{ flexShrink: 0 }} width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#94A3B8" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+
+            </div>
           </div>
         </section>
 
