@@ -350,6 +350,58 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "Admin email failed", detail: String(e) }, { status: 500 });
     }
 
+    // ── Physician acknowledgement email (non-fatal) ──────────────────────────
+    // Confirm receipt of the application so the physician is not left in silence
+    // between registration and the activation email that arrives after approval.
+    try {
+      await resend.emails.send({
+        from:    "MyoGuard Clinical <admin@myoguard.health>",
+        to:      email,
+        subject: "Your MyoGuard Physician Application — Received",
+        html: `
+<div style="font-family:-apple-system,sans-serif;max-width:580px;margin:0 auto;background:#ffffff;">
+  <div style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);padding:32px 24px;border-radius:12px 12px 0 0;text-align:center;">
+    <h1 style="margin:0;font-size:24px;font-weight:700;letter-spacing:-0.5px;">
+      <span style="color:#ffffff;">Myo</span><span style="color:#2dd4bf;">Guard</span>
+      <span style="color:#94a3b8;font-size:14px;font-weight:400;display:block;margin-top:4px;">Protocol Platform</span>
+    </h1>
+  </div>
+  <div style="padding:32px 24px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 12px 12px;">
+    <h2 style="margin:0 0 8px;font-size:20px;color:#0f172a;">Application received, Dr. ${fullName.replace(/^Dr\.?\s*/i, '')}</h2>
+    <p style="color:#64748b;font-size:14px;line-height:1.6;margin:0 0 24px;">
+      Thank you for applying for credentialed access to the MyoGuard Protocol platform.
+      Our clinical team reviews all physician credentials individually.
+    </p>
+    <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:16px;margin-bottom:24px;">
+      <p style="margin:0;font-size:13px;color:#166534;font-weight:600;">Expected review time: 6–24 hours</p>
+      <p style="margin:4px 0 0;font-size:13px;color:#15803d;">You will receive a separate email once your account is activated.</p>
+    </div>
+    <div style="border:1px solid #e2e8f0;border-radius:10px;padding:16px;margin-bottom:24px;">
+      <p style="margin:0 0 12px;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;">Application Summary</p>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <tr><td style="padding:6px 0;color:#64748b;width:40%;">Full name</td><td style="padding:6px 0;font-weight:600;color:#0f172a;">${fullName}</td></tr>
+        <tr><td style="padding:6px 0;color:#64748b;">Country</td><td style="padding:6px 0;color:#0f172a;">${country}</td></tr>
+        <tr><td style="padding:6px 0;color:#64748b;">Specialty</td><td style="padding:6px 0;color:#0f172a;">${specialty}</td></tr>
+        <tr><td style="padding:6px 0;color:#64748b;">Licence / NPI</td><td style="padding:6px 0;color:#0f172a;">${licenseNumber ?? npiNumber ?? "Not provided"}</td></tr>
+      </table>
+    </div>
+    <p style="font-size:13px;color:#64748b;line-height:1.6;">
+      Questions? Contact us at
+      <a href="mailto:admin@myoguard.health" style="color:#0d9488;">admin@myoguard.health</a>
+    </p>
+  </div>
+  <p style="text-align:center;font-size:11px;color:#94a3b8;margin-top:16px;">
+    © 2026 Meridian Wellness Systems LLC · myoguard.health
+  </p>
+</div>
+        `,
+      });
+      console.log("[register] physician acknowledgement email sent to", email);
+    } catch (ackErr: unknown) {
+      // Non-fatal — admin notification already delivered; registration proceeds
+      console.error("[register] physician acknowledgement email failed (non-fatal):", ackErr);
+    }
+
     return NextResponse.json({ ok: true });
 
   } catch (error: unknown) {

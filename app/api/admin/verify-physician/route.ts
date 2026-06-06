@@ -126,6 +126,7 @@ export async function GET(req: Request) {
 
   // Auto-generate referral slug + PhysicianProfile so the physician can
   // invite patients immediately without waiting for admin to run upgrade-physician.
+  let approvedUserId: string | null = null;
   try {
     const approvedUser = await prisma.user.findFirst({
       where:  application.clerkUserId
@@ -134,10 +135,28 @@ export async function GET(req: Request) {
       select: { id: true, fullName: true, referralSlug: true },
     });
     if (approvedUser) {
+      approvedUserId = approvedUser.id;
       await ensureReferralProfile(approvedUser);
     }
   } catch (e) {
     console.error("[verify-physician] ensureReferralProfile failed:", e);
+  }
+
+  // Write AuditLog so the Founder Dashboard approval date populates.
+  // actorId = 'system' because this path is triggered by an email link,
+  // not an authenticated admin session.
+  if (approvedUserId) {
+    await prisma.auditLog.create({
+      data: {
+        actorId:    'system',
+        action:     'UPGRADE_PHYSICIAN',
+        targetType: 'User',
+        targetId:   approvedUserId,
+        metadata:   { previousRole: 'PHYSICIAN_PENDING', via: 'verify-physician-email-link' },
+      },
+    }).catch((e: unknown) => {
+      console.error("[verify-physician] AuditLog create failed:", e);
+    });
   }
 
   // Send activation email to physician

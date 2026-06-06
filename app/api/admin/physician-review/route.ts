@@ -6,7 +6,7 @@ import { Resend }       from "resend";
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(req: Request) {
-  const { error } = await requireAdmin();
+  const { user: adminUser, error } = await requireAdmin();
   if (error === 'UNAUTHENTICATED') {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -93,6 +93,30 @@ export async function POST(req: Request) {
       ).catch((e: unknown) => {
         console.error("[physician-review] Clerk metadata update failed:", e);
       });
+    }
+
+    // Write AuditLog so the Founder Dashboard approval date populates.
+    // Look up User.id (DB primary key) via clerkUserId or email fallback.
+    try {
+      const approvedUser = await prisma.user.findFirst({
+        where:  application.clerkUserId
+          ? { clerkId: application.clerkUserId }
+          : { email:   application.email },
+        select: { id: true },
+      });
+      if (approvedUser) {
+        await prisma.auditLog.create({
+          data: {
+            actorId:    adminUser?.clerkId ?? 'system',
+            action:     'UPGRADE_PHYSICIAN',
+            targetType: 'User',
+            targetId:   approvedUser.id,
+            metadata:   { previousRole: 'PHYSICIAN_PENDING', via: 'physician-review-admin-panel' },
+          },
+        });
+      }
+    } catch (e: unknown) {
+      console.error("[physician-review] AuditLog create failed:", e);
     }
 
     await resend.emails.send({
