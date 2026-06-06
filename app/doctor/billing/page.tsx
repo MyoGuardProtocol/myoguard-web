@@ -12,6 +12,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/src/lib/prisma';
+import { getStripeClient } from '@/src/lib/stripe';
 import Link from 'next/link';
 import PhysicianAvatar from '@/src/components/ui/PhysicianAvatar';
 import CheckoutButton from '@/src/components/billing/CheckoutButton';
@@ -46,7 +47,7 @@ const PRACTICE_FEATURES = [
 export default async function BillingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; session_id?: string }>;
 }) {
   const { userId: clerkId } = await auth();
   if (!clerkId) redirect('/sign-in-new');
@@ -68,7 +69,75 @@ export default async function BillingPage({
   if (user.role === 'PATIENT')           redirect('/dashboard');
   if (user.role !== 'PHYSICIAN' && user.role !== 'ADMIN') redirect('/doctor/dashboard');
 
-  const { status: returnStatus } = await searchParams;
+  const { status: returnStatus, session_id: sessionId } = await searchParams;
+
+  // ── Session recovery — activate subscription directly on success redirect ──
+  //
+  // Stripe redirects to /doctor/billing?status=success&session_id=cs_xxx before
+  // the webhook fires. Without session recovery, the physician sees "Payment
+  // received" but the DB still shows FREE, causing a redirect loop on the
+  // dashboard.
+  //
+  // On the success redirect, we retrieve the Stripe session server-side and
+  // activate immediately — no webhook dependency for the initial activation.
+  // The webhook remains authoritative for renewals, dunning, and cancellations.
+  //
+  // Security: session.metadata.userId is verified against the authenticated
+  // physician's DB id. A physician cannot activate another physician's account.
+  if (
+    returnStatus === 'success' &&
+    sessionId &&
+    user.subscriptionStatus !== 'ACTIVE'
+  ) {
+    const stripe = getStripeClient();
+    if (stripe) {
+      let shouldActivate = false;
+      let newCustomerId: string | null = null;
+      let newSubId: string | null = null;
+
+      try {
+        const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+        const isPaymentOk =
+          session.payment_status === 'paid' ||
+          session.payment_status === 'no_payment_required';
+
+        if (
+          session.status === 'complete' &&
+          isPaymentOk &&
+          session.metadata?.userId === user.id
+        ) {
+          shouldActivate  = true;
+          newCustomerId   = typeof session.customer     === 'string' ? session.customer     : null;
+          newSubId        = typeof session.subscription === 'string' ? session.subscription : null;
+        }
+      } catch (err) {
+        console.error('[billing/session-recovery] Stripe session retrieval failed', err);
+        // Fail silently — webhook will handle activation asynchronously
+      }
+
+      if (shouldActivate) {
+        try {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: {
+              subscriptionStatus: 'ACTIVE',
+              ...(newCustomerId ? { stripeCustomerId: newCustomerId } : {}),
+              ...(newSubId      ? { stripeSubId: newSubId }          : {}),
+            },
+          });
+          console.log(
+            `[billing/session-recovery] Activated userId=${user.id} ` +
+            `sessionId=${sessionId} subId=${newSubId ?? 'none'}`,
+          );
+        } catch (err) {
+          console.error('[billing/session-recovery] DB update failed', err);
+        }
+        // Redirect to clean URL — fresh DB read will reflect ACTIVE status
+        redirect('/doctor/billing?status=activated');
+      }
+    }
+  }
 
   const isActive    = user.subscriptionStatus === 'ACTIVE';
   const isPastDue   = user.subscriptionStatus === 'PAST_DUE';
@@ -203,6 +272,44 @@ export default async function BillingPage({
                 billing@myoguard.health
               </a>.
             </p>
+          </div>
+        )}
+
+        {/* activated — shown after inline session recovery; DB is now ACTIVE */}
+        {returnStatus === 'activated' && (
+          <div style={{
+            background:    'rgba(45,212,191,0.08)',
+            border:        '1px solid rgba(45,212,191,0.3)',
+            borderRadius:  '16px',
+            padding:       '20px 24px',
+            marginBottom:  '32px',
+            display:       'flex',
+            alignItems:    'center',
+            justifyContent: 'space-between',
+            gap:           '16px',
+            flexWrap:      'wrap',
+          }}>
+            <div>
+              <p style={{ fontSize: '14px', fontWeight: 600, color: '#2DD4BF', marginBottom: '4px' }}>
+                Subscription activated.
+              </p>
+              <p style={{ fontSize: '13px', color: '#94A3B8', lineHeight: 1.6 }}>
+                Your clinical access is now active. Welcome to the MyoGuard Protocol.
+              </p>
+            </div>
+            <Link href="/doctor/dashboard" style={{
+              display:        'inline-block',
+              padding:        '10px 20px',
+              background:     '#2DD4BF',
+              color:          '#080C14',
+              borderRadius:   '10px',
+              fontSize:       '13px',
+              fontWeight:     700,
+              textDecoration: 'none',
+              whiteSpace:     'nowrap',
+            }}>
+              Go to Dashboard →
+            </Link>
           </div>
         )}
 

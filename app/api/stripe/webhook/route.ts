@@ -51,6 +51,7 @@ function mapStripeStatus(
  *   customer.subscription.created  — sets status when subscription is created
  *   customer.subscription.updated  — syncs status on all lifecycle changes
  *   customer.subscription.deleted  — marks as CANCELLED
+ *   invoice.paid                   — belt-and-suspenders ACTIVE for $0 / coupon subscriptions
  *   invoice.payment_failed         — marks as PAST_DUE
  *
  * Webhook endpoint URL:
@@ -61,6 +62,7 @@ function mapStripeStatus(
  *   customer.subscription.created
  *   customer.subscription.updated
  *   customer.subscription.deleted
+ *   invoice.paid
  *   invoice.payment_failed
  */
 export async function POST(req: NextRequest) {
@@ -177,6 +179,41 @@ export async function POST(req: NextRequest) {
           data:  { subscriptionStatus: 'CANCELLED' },
         });
         console.log(`[stripe/webhook] subscription.deleted subId=${sub.id} → CANCELLED`);
+        break;
+      }
+
+      // ── invoice.paid ────────────────────────────────────────────────────────
+      // Belt-and-suspenders activation path, critical for $0 / coupon subscriptions.
+      //
+      // For a FOUNDER2026 (100% off, repeating) subscription, Stripe marks the
+      // first invoice as paid immediately with amount_paid=0. This event is a
+      // reliable activation signal even if checkout.session.completed or
+      // subscription.created were missed or processed out of order.
+      //
+      // Primary path:  match by stripeSubId (set by earlier events)
+      // Fallback path: match by stripeCustomerId when stripeSubId not yet written
+      //                (race condition: invoice.paid fired before session.completed)
+      case 'invoice.paid': {
+        const invoice   = event.data.object as Stripe.Invoice;
+        const subId     = typeof invoice.subscription === 'string' ? invoice.subscription : null;
+        const customerId = typeof invoice.customer    === 'string' ? invoice.customer    : null;
+
+        if (subId) {
+          // Primary — match by subscription ID
+          const { count } = await prisma.user.updateMany({
+            where: { stripeSubId: subId },
+            data:  { subscriptionStatus: 'ACTIVE' },
+          });
+
+          if (count === 0 && customerId) {
+            // Fallback — stripeSubId not yet written; match by customer
+            await prisma.user.updateMany({
+              where: { stripeCustomerId: customerId },
+              data:  { subscriptionStatus: 'ACTIVE', stripeSubId: subId },
+            });
+          }
+          console.log(`[stripe/webhook] invoice.paid subId=${subId} → ACTIVE`);
+        }
         break;
       }
 

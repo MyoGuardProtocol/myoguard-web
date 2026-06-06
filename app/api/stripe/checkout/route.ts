@@ -85,6 +85,9 @@ export async function POST(req: NextRequest) {
     const session = await stripe.checkout.sessions.create({
       mode:                 'subscription',
       payment_method_types: ['card'],
+      // For 100%-discounted (founder/coupon) subscriptions, do not require a card.
+      // Stripe will still collect one for paid subscriptions where a charge is needed.
+      payment_method_collection: 'if_required',
       // Use existing Stripe customer if one exists; otherwise pass email for new customer creation
       customer_email: user.stripeCustomerId ? undefined : user.email,
       customer:       user.stripeCustomerId ?? undefined,
