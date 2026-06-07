@@ -24,7 +24,7 @@ const SOLO_FEATURES = [
   'Clinical Command Center (CCC)',
   'Sarcopenia Risk Index generation',
   'Patient intelligence signals (4-axis)',
-  'Clinical evidence records (BUILD 5E)',
+  'Clinical evidence records and documentation support',
   'Physician priority review alerts',
   'Start Sheet workflow',
   'Patient referral engine + QR code',
@@ -267,8 +267,8 @@ export default async function BillingPage({
             <p style={{ fontSize: '13px', color: '#94A3B8', lineHeight: 1.6 }}>
               Your subscription is being activated. This page will reflect your updated access status
               within a few seconds. If your status does not update, contact{' '}
-              <a href="mailto:billing@myoguard.health" style={{ color: '#2DD4BF', textDecoration: 'none' }}>
-                billing@myoguard.health
+              <a href="mailto:admin@myoguard.health" style={{ color: '#2DD4BF', textDecoration: 'none' }}>
+                admin@myoguard.health
               </a>.
             </p>
           </div>
@@ -608,8 +608,8 @@ export default async function BillingPage({
             © 2026 Meridian Wellness Systems LLC · myoguard.health<br />
             Billing is for software access and clinical decision support infrastructure only.<br />
             Questions?{' '}
-            <a href="mailto:billing@myoguard.health" style={{ color: '#2DD4BF', textDecoration: 'none' }}>
-              billing@myoguard.health
+            <a href="mailto:admin@myoguard.health" style={{ color: '#2DD4BF', textDecoration: 'none' }}>
+              admin@myoguard.health
             </a>
           </p>
         </div>
