@@ -1,4 +1,5 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
+import { NextResponse } from 'next/server';
 
 /**
  * Route matchers
@@ -43,6 +44,16 @@ const isProtectedAdminRoute = createRouteMatcher([
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
+  // ── Stripe webhook bypass ────────────────────────────────────────────────────
+  // Stripe delivers server-to-server POSTs with no Clerk session tokens.
+  // Without this bypass, clerkMiddleware enters its auth-handshake state and
+  // issues a 307 redirect before the route handler executes.
+  // Security: HMAC signature verification (STRIPE_WEBHOOK_SECRET) inside the
+  // route handler is the sole and sufficient auth mechanism for this path.
+  if (req.nextUrl.pathname === '/api/stripe/webhook') {
+    return NextResponse.next();
+  }
+
   if (isProtectedPatientRoute(req)) {
     await auth.protect();
   }

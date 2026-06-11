@@ -3,6 +3,10 @@ import { getStripeClient } from '@/src/lib/stripe';
 import { prisma } from '@/src/lib/prisma';
 import type Stripe from 'stripe';
 
+// Force dynamic rendering — this route receives POST webhooks from Stripe and
+// must never be statically optimised or cached.
+export const dynamic = 'force-dynamic';
+
 // ─── Status mapping ────────────────────────────────────────────────────────────
 
 /**
