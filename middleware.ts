@@ -1,5 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
+import type { NextRequest, NextFetchEvent } from 'next/server';
 
 /**
  * Route matchers
@@ -43,27 +44,40 @@ const isProtectedAdminRoute = createRouteMatcher([
   '/admin/health(.*)',
 ]);
 
-export default clerkMiddleware(async (auth, req) => {
-  // ── Stripe webhook bypass ────────────────────────────────────────────────────
-  // Stripe delivers server-to-server POSTs with no Clerk session tokens.
-  // Without this bypass, clerkMiddleware enters its auth-handshake state and
-  // issues a 307 redirect before the route handler executes.
-  // Security: HMAC signature verification (STRIPE_WEBHOOK_SECRET) inside the
-  // route handler is the sole and sufficient auth mechanism for this path.
-  if (req.nextUrl.pathname === '/api/stripe/webhook') {
+// ── Clerk handler ────────────────────────────────────────────────────────────
+// Stored as a constant so the outer middleware wrapper can invoke it
+// selectively — only for routes not in CLERK_BYPASS_PATHS.
+const clerkHandler = clerkMiddleware(async (auth, req) => {
+  if (isProtectedPatientRoute(req)) { await auth.protect(); }
+  if (isProtectedDoctorRoute(req))  { await auth.protect(); }
+  if (isProtectedAdminRoute(req))   { await auth.protect(); }
+});
+
+// ── Routes that bypass Clerk entirely ───────────────────────────────────────
+//
+// These paths receive server-to-server POST requests (Stripe, etc.) with no
+// Clerk session tokens.
+//
+// WHY this must be OUTSIDE clerkMiddleware:
+//   Clerk v6 runs its internal auth-handshake resolution — including any 307
+//   redirect it may emit — before the user handler function is called.
+//   A bypass placed inside clerkMiddleware() executes too late: Clerk's wrapper
+//   has already evaluated auth state and may have issued a redirect before the
+//   handler body runs.
+//   By intercepting here, clerkMiddleware never starts for these paths.
+//
+// Security for /api/stripe/webhook:
+//   HMAC signature verification via stripe.webhooks.constructEvent(rawBody,
+//   sig, STRIPE_WEBHOOK_SECRET) inside the route handler is the sole and
+//   sufficient authentication mechanism. No Clerk session is expected or needed.
+const CLERK_BYPASS_PATHS = ['/api/stripe/webhook'];
+
+export default function middleware(req: NextRequest, event: NextFetchEvent) {
+  if (CLERK_BYPASS_PATHS.includes(req.nextUrl.pathname)) {
     return NextResponse.next();
   }
-
-  if (isProtectedPatientRoute(req)) {
-    await auth.protect();
-  }
-  if (isProtectedDoctorRoute(req)) {
-    await auth.protect();
-  }
-  if (isProtectedAdminRoute(req)) {
-    await auth.protect();
-  }
-});
+  return clerkHandler(req, event);
+}
 
 export const config = {
   matcher: [
