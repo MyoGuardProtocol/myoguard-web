@@ -13,6 +13,7 @@ import AccountGate from '../ui/AccountGate';
 import EmailCapture from '../ui/EmailCapture';
 import SupplementCTA from '../ui/SupplementCTA';
 import RecoverySignalCard from '../ui/RecoverySignalCard';
+import EverydayProteinReference from '../protein/EverydayProteinReference';
 
 type ProtocolResultsProps = {
   results:       ProtocolResult;
@@ -110,6 +111,11 @@ export default function ProtocolResults({
           <ProteinCard
             proteinStandard={results.proteinStandard}
             proteinAggressive={results.proteinAggressive}
+          />
+          {/* ── Everyday Protein Reference — educational, collapsed by default ── */}
+          <EverydayProteinReference
+            proteinTargetG={results.proteinAggressive}
+            variant="clinical"
           />
           <FibreCard fiber={results.fiber} hasConstipation={hasConstipation} />
           <HydrationCard hydration={results.hydration} />
