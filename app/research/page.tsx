@@ -1,9 +1,9 @@
 /**
- * /research — Observational Research Infrastructure
+ * /research — Evidence Base for MyoGuard Protocol
  *
- * Public institutional page presenting the MyoGuard Protocol
- * observational registry to physicians, academic researchers,
- * and institutional collaborators.
+ * Canonical Research Hub connecting physicians and researchers to the
+ * clinical evidence library, individual topic pages, and the observational
+ * registry infrastructure.
  *
  * POSITIONING CONSTRAINTS (non-negotiable):
  * - No enrollment numbers, cohort counts, or metrics of any kind.
@@ -20,11 +20,12 @@
 import Link from 'next/link';
 import type { CSSProperties } from 'react';
 import type { Metadata } from 'next';
+import { ResearchGovernanceNotice } from '@/components/research/ResearchGovernanceNotice';
 
 export const metadata: Metadata = {
-  title: 'Research Infrastructure | MyoGuard Protocol',
+  title: 'Evidence Base | MyoGuard Protocol',
   description:
-    'Longitudinal observational infrastructure for physician-led sarcopenia and GLP-1 metabolic data collection. Designed to support prospective evaluation of the Sarcopenia Risk Index (SRI).',
+    'Curated clinical evidence and research infrastructure supporting physician-led muscle preservation monitoring during GLP-1 and incretin-based weight-loss therapy.',
 };
 
 // ── Shared style tokens ───────────────────────────────────────────────────────
@@ -45,11 +46,81 @@ const CARD_STYLE: CSSProperties = {
   padding: '28px',
 };
 
+const ICON_BOX_STYLE: CSSProperties = {
+  width: '40px',
+  height: '40px',
+  background: 'rgba(45,212,191,0.08)',
+  border: '1px solid rgba(45,212,191,0.15)',
+  borderRadius: '10px',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  flexShrink: 0,
+};
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ResearchPage() {
   return (
     <main style={{ background: '#080C14', minHeight: '100vh' }}>
+
+      {/* ── JSON-LD: CollectionPage ─────────────────────────────────────────── */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'CollectionPage',
+            name: 'Evidence Base | MyoGuard Protocol',
+            description:
+              'Curated clinical evidence and research infrastructure supporting physician-led muscle preservation monitoring during GLP-1 and incretin-based weight-loss therapy.',
+            url: 'https://myoguard.health/research',
+            publisher: {
+              '@type': 'Organization',
+              name: 'Meridian Wellness Systems LLC',
+              url: 'https://myoguard.health',
+            },
+            isPartOf: {
+              '@type': 'WebSite',
+              name: 'MyoGuard Protocol',
+              url: 'https://myoguard.health',
+            },
+            hasPart: [
+              {
+                '@type': 'WebPage',
+                name: 'Clinical Evidence Library',
+                url: 'https://myoguard.health/research/library',
+              },
+              {
+                '@type': 'MedicalWebPage',
+                name: 'GLP-1 and Incretin-Based Therapy',
+                url: 'https://myoguard.health/research/glp1-therapy',
+              },
+              {
+                '@type': 'MedicalWebPage',
+                name: 'Sarcopenia Risk Assessment',
+                url: 'https://myoguard.health/research/sarcopenia-risk',
+              },
+              {
+                '@type': 'MedicalWebPage',
+                name: 'Protein Requirements',
+                url: 'https://myoguard.health/research/protein-requirements',
+              },
+              {
+                '@type': 'MedicalWebPage',
+                name: 'Muscle Preservation',
+                url: 'https://myoguard.health/research/muscle-preservation',
+              },
+              {
+                '@type': 'WebPage',
+                name: 'Research Participation',
+                url: 'https://myoguard.health/research/participate',
+              },
+            ],
+          }),
+        }}
+      />
+
       <div
         style={{
           maxWidth: '800px',
@@ -61,7 +132,7 @@ export default function ResearchPage() {
         }}
       >
 
-        {/* ── A: Header ──────────────────────────────────────────────────────── */}
+        {/* ── A: Hero Header ─────────────────────────────────────────────────── */}
         <header>
           <p style={LABEL_STYLE}>Meridian Wellness Systems LLC &middot; myoguard.health</p>
           <h1
@@ -74,7 +145,7 @@ export default function ResearchPage() {
               margin: '0 0 16px 0',
             }}
           >
-            Observational Research<br />Infrastructure
+            Evidence Base for GLP-1<br />Muscle Preservation
           </h1>
           <p
             style={{
@@ -85,14 +156,426 @@ export default function ResearchPage() {
               margin: 0,
             }}
           >
-            A longitudinal observational registry for physician-led data collection
-            at the intersection of GLP-1 receptor agonist therapy and skeletal
-            muscle preservation. Designed to support prospective evaluation of
-            the Sarcopenia Risk Index (SRI) framework.
+            Curated clinical evidence, research infrastructure, and physician-led
+            monitoring context for muscle preservation during GLP-1 and
+            incretin-based weight-loss therapy.
           </p>
         </header>
 
-        {/* ── B: Registry Description ────────────────────────────────────────── */}
+        {/* ── Governance Notice ──────────────────────────────────────────────── */}
+        <ResearchGovernanceNotice />
+
+        {/* ── B: Research Navigation Cards ───────────────────────────────────── */}
+        <section>
+          <p style={{ ...LABEL_STYLE, marginBottom: '20px' }}>Research Topics</p>
+          <div
+            className="grid grid-cols-1 sm:grid-cols-2"
+            style={{ gap: '16px' }}
+          >
+
+            {/* Card 1 — Clinical Evidence Library */}
+            <Link
+              href="/research/library"
+              style={{
+                background: '#0D1421',
+                border: '1px solid #1A2744',
+                borderRadius: '16px',
+                padding: '24px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '14px',
+                textDecoration: 'none',
+                transition: 'border-color 0.15s ease',
+              }}
+            >
+              <div style={ICON_BOX_STYLE}>
+                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#2DD4BF" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+              </div>
+              <div style={{ flex: 1 }}>
+                <p
+                  style={{
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    color: '#2DD4BF',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.14em',
+                    margin: '0 0 6px 0',
+                  }}
+                >
+                  Evidence Library
+                </p>
+                <p
+                  style={{
+                    fontSize: '0.9375rem',
+                    fontWeight: 600,
+                    color: '#F1F5F9',
+                    margin: '0 0 8px 0',
+                    fontFamily: 'Georgia, serif',
+                  }}
+                >
+                  Clinical Evidence Library
+                </p>
+                <p
+                  style={{
+                    fontSize: '0.8125rem',
+                    color: '#94A3B8',
+                    lineHeight: 1.65,
+                    margin: 0,
+                  }}
+                >
+                  Curated peer-reviewed literature across GLP-1 therapy, sarcopenia
+                  risk, protein requirements, and muscle preservation.
+                </p>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#2DD4BF" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </Link>
+
+            {/* Card 2 — GLP-1 and Incretin-Based Therapy */}
+            <Link
+              href="/research/glp1-therapy"
+              style={{
+                background: '#0D1421',
+                border: '1px solid #1A2744',
+                borderRadius: '16px',
+                padding: '24px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '14px',
+                textDecoration: 'none',
+                transition: 'border-color 0.15s ease',
+              }}
+            >
+              <div style={ICON_BOX_STYLE}>
+                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#2DD4BF" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                </svg>
+              </div>
+              <div style={{ flex: 1 }}>
+                <p
+                  style={{
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    color: '#2DD4BF',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.14em',
+                    margin: '0 0 6px 0',
+                  }}
+                >
+                  Pharmacology
+                </p>
+                <p
+                  style={{
+                    fontSize: '0.9375rem',
+                    fontWeight: 600,
+                    color: '#F1F5F9',
+                    margin: '0 0 8px 0',
+                    fontFamily: 'Georgia, serif',
+                  }}
+                >
+                  GLP-1 and Incretin-Based Therapy
+                </p>
+                <p
+                  style={{
+                    fontSize: '0.8125rem',
+                    color: '#94A3B8',
+                    lineHeight: 1.65,
+                    margin: 0,
+                  }}
+                >
+                  Evidence on incretin-based weight-loss therapy, body composition,
+                  and lean mass considerations.
+                </p>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#2DD4BF" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </Link>
+
+            {/* Card 3 — Sarcopenia Risk Assessment */}
+            <Link
+              href="/research/sarcopenia-risk"
+              style={{
+                background: '#0D1421',
+                border: '1px solid #1A2744',
+                borderRadius: '16px',
+                padding: '24px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '14px',
+                textDecoration: 'none',
+                transition: 'border-color 0.15s ease',
+              }}
+            >
+              <div style={ICON_BOX_STYLE}>
+                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#2DD4BF" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              </div>
+              <div style={{ flex: 1 }}>
+                <p
+                  style={{
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    color: '#2DD4BF',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.14em',
+                    margin: '0 0 6px 0',
+                  }}
+                >
+                  Risk Assessment
+                </p>
+                <p
+                  style={{
+                    fontSize: '0.9375rem',
+                    fontWeight: 600,
+                    color: '#F1F5F9',
+                    margin: '0 0 8px 0',
+                    fontFamily: 'Georgia, serif',
+                  }}
+                >
+                  Sarcopenia Risk Assessment
+                </p>
+                <p
+                  style={{
+                    fontSize: '0.8125rem',
+                    color: '#94A3B8',
+                    lineHeight: 1.65,
+                    margin: 0,
+                  }}
+                >
+                  Consensus frameworks and clinical literature supporting longitudinal
+                  sarcopenia risk monitoring.
+                </p>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#2DD4BF" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </Link>
+
+            {/* Card 4 — Protein Requirements */}
+            <Link
+              href="/research/protein-requirements"
+              style={{
+                background: '#0D1421',
+                border: '1px solid #1A2744',
+                borderRadius: '16px',
+                padding: '24px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '14px',
+                textDecoration: 'none',
+                transition: 'border-color 0.15s ease',
+              }}
+            >
+              <div style={ICON_BOX_STYLE}>
+                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#2DD4BF" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
+                </svg>
+              </div>
+              <div style={{ flex: 1 }}>
+                <p
+                  style={{
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    color: '#2DD4BF',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.14em',
+                    margin: '0 0 6px 0',
+                  }}
+                >
+                  Nutrition
+                </p>
+                <p
+                  style={{
+                    fontSize: '0.9375rem',
+                    fontWeight: 600,
+                    color: '#F1F5F9',
+                    margin: '0 0 8px 0',
+                    fontFamily: 'Georgia, serif',
+                  }}
+                >
+                  Protein Requirements
+                </p>
+                <p
+                  style={{
+                    fontSize: '0.8125rem',
+                    color: '#94A3B8',
+                    lineHeight: 1.65,
+                    margin: 0,
+                  }}
+                >
+                  Guideline-based literature on protein adequacy, anabolic resistance,
+                  and muscle preservation context.
+                </p>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#2DD4BF" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </Link>
+
+            {/* Card 5 — Muscle Preservation */}
+            <Link
+              href="/research/muscle-preservation"
+              style={{
+                background: '#0D1421',
+                border: '1px solid #1A2744',
+                borderRadius: '16px',
+                padding: '24px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '14px',
+                textDecoration: 'none',
+                transition: 'border-color 0.15s ease',
+              }}
+            >
+              <div style={ICON_BOX_STYLE}>
+                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#2DD4BF" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                </svg>
+              </div>
+              <div style={{ flex: 1 }}>
+                <p
+                  style={{
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    color: '#2DD4BF',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.14em',
+                    margin: '0 0 6px 0',
+                  }}
+                >
+                  Lean Mass
+                </p>
+                <p
+                  style={{
+                    fontSize: '0.9375rem',
+                    fontWeight: 600,
+                    color: '#F1F5F9',
+                    margin: '0 0 8px 0',
+                    fontFamily: 'Georgia, serif',
+                  }}
+                >
+                  Muscle Preservation
+                </p>
+                <p
+                  style={{
+                    fontSize: '0.8125rem',
+                    color: '#94A3B8',
+                    lineHeight: 1.65,
+                    margin: 0,
+                  }}
+                >
+                  Evidence on lean mass preservation, protein adequacy, resistance
+                  training context, and longitudinal monitoring.
+                </p>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#2DD4BF" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </Link>
+
+            {/* Card 6 — Research Participation */}
+            <Link
+              href="/research/participate"
+              style={{
+                background: '#0D1421',
+                border: '1px solid #1A2744',
+                borderRadius: '16px',
+                padding: '24px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '14px',
+                textDecoration: 'none',
+                transition: 'border-color 0.15s ease',
+              }}
+            >
+              <div style={ICON_BOX_STYLE}>
+                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#2DD4BF" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+              <div style={{ flex: 1 }}>
+                <p
+                  style={{
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    color: '#2DD4BF',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.14em',
+                    margin: '0 0 6px 0',
+                  }}
+                >
+                  Physician Programme
+                </p>
+                <p
+                  style={{
+                    fontSize: '0.9375rem',
+                    fontWeight: 600,
+                    color: '#F1F5F9',
+                    margin: '0 0 8px 0',
+                    fontFamily: 'Georgia, serif',
+                  }}
+                >
+                  Research Participation
+                </p>
+                <p
+                  style={{
+                    fontSize: '0.8125rem',
+                    color: '#94A3B8',
+                    lineHeight: 1.65,
+                    margin: 0,
+                  }}
+                >
+                  Physician participation pathway for observational research
+                  infrastructure.
+                </p>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#2DD4BF" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </Link>
+
+          </div>
+        </section>
+
+        {/* ── Section Divider ────────────────────────────────────────────────── */}
+        <div
+          style={{
+            borderTop: '1px solid #1A2744',
+            paddingTop: '8px',
+          }}
+        >
+          <p
+            style={{
+              fontSize: '10px',
+              fontWeight: 700,
+              color: '#475569',
+              textTransform: 'uppercase',
+              letterSpacing: '0.15em',
+              margin: 0,
+            }}
+          >
+            Research Infrastructure &amp; Observational Registry
+          </p>
+        </div>
+
+        {/* ── C: Registry Description ────────────────────────────────────────── */}
         <section style={CARD_STYLE}>
           <p style={LABEL_STYLE}>Observational Registry</p>
           <h2
@@ -135,7 +618,7 @@ export default function ResearchPage() {
           </p>
         </section>
 
-        {/* ── C: Evidence Gaps ───────────────────────────────────────────────── */}
+        {/* ── D: Evidence Gaps ───────────────────────────────────────────────── */}
         <section style={CARD_STYLE}>
           <p style={LABEL_STYLE}>Evidence Context</p>
           <h2
@@ -246,7 +729,7 @@ export default function ResearchPage() {
           </div>
         </section>
 
-        {/* ── D: Infrastructure Architecture — Three Cards ───────────────────── */}
+        {/* ── E: Infrastructure Architecture — Three Cards ───────────────────── */}
         <section>
           <p style={{ ...LABEL_STYLE, marginBottom: '20px' }}>Infrastructure Architecture</p>
           <div
@@ -266,19 +749,7 @@ export default function ResearchPage() {
                 gap: '12px',
               }}
             >
-              <div
-                style={{
-                  width: '40px',
-                  height: '40px',
-                  background: 'rgba(45,212,191,0.08)',
-                  border: '1px solid rgba(45,212,191,0.15)',
-                  borderRadius: '10px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                }}
-              >
+              <div style={ICON_BOX_STYLE}>
                 <svg
                   width="22"
                   height="22"
@@ -330,19 +801,7 @@ export default function ResearchPage() {
                 gap: '12px',
               }}
             >
-              <div
-                style={{
-                  width: '40px',
-                  height: '40px',
-                  background: 'rgba(45,212,191,0.08)',
-                  border: '1px solid rgba(45,212,191,0.15)',
-                  borderRadius: '10px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                }}
-              >
+              <div style={ICON_BOX_STYLE}>
                 <svg
                   width="22"
                   height="22"
@@ -394,19 +853,7 @@ export default function ResearchPage() {
                 gap: '12px',
               }}
             >
-              <div
-                style={{
-                  width: '40px',
-                  height: '40px',
-                  background: 'rgba(45,212,191,0.08)',
-                  border: '1px solid rgba(45,212,191,0.15)',
-                  borderRadius: '10px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                }}
-              >
+              <div style={ICON_BOX_STYLE}>
                 <svg
                   width="22"
                   height="22"
@@ -449,7 +896,7 @@ export default function ResearchPage() {
           </div>
         </section>
 
-        {/* ── E: Positioning Statement ───────────────────────────────────────── */}
+        {/* ── F: Positioning Statement ───────────────────────────────────────── */}
         <section
           style={{
             ...CARD_STYLE,
@@ -500,7 +947,7 @@ export default function ResearchPage() {
           </div>
         </section>
 
-        {/* ── F: Physician CTA ───────────────────────────────────────────────── */}
+        {/* ── G: Physician CTA ───────────────────────────────────────────────── */}
         <section style={CARD_STYLE}>
           <p style={LABEL_STYLE}>Physician Participation</p>
           <h2
@@ -567,7 +1014,7 @@ export default function ResearchPage() {
           </div>
         </section>
 
-        {/* ── G: Ethics & Governance ─────────────────────────────────────────── */}
+        {/* ── H: Ethics & Governance ─────────────────────────────────────────── */}
         <section style={CARD_STYLE}>
           <p style={LABEL_STYLE}>Ethics &amp; Governance</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -723,7 +1170,7 @@ export default function ResearchPage() {
           </div>
         </section>
 
-        {/* ── H: Compliance Positioning ──────────────────────────────────────── */}
+        {/* ── I: Compliance Positioning ──────────────────────────────────────── */}
         <section
           style={{
             borderTop: '1px solid #1A2744',
@@ -750,6 +1197,30 @@ export default function ResearchPage() {
             MyoGuard Protocol is a trading name of Meridian Wellness Systems LLC.
           </p>
         </section>
+
+        {/* ── Inline Footer ──────────────────────────────────────────────────── */}
+        <footer
+          style={{
+            borderTop: '1px solid #1A2744',
+            paddingTop: '24px',
+            textAlign: 'center',
+          }}
+        >
+          <p
+            style={{
+              fontSize: '0.75rem',
+              color: '#475569',
+              lineHeight: 1.8,
+              margin: 0,
+            }}
+          >
+            MyoGuard Protocol &middot; Physician-led Clinical Decision Support
+            <br />
+            &copy; 2026 Meridian Wellness Systems LLC &middot; myoguard.health
+            <br />
+            Built for the global GLP-1 prescribing community
+          </p>
+        </footer>
 
       </div>
     </main>
