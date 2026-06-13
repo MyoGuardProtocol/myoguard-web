@@ -251,59 +251,41 @@ export default function HomePage() {
       </nav>
 
       {/* Hero */}
-      <section className="max-w-6xl mx-auto px-6 py-16 grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+      <section className="max-w-6xl mx-auto px-6 py-8 lg:py-14 grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-12 items-start">
 
         {/* LEFT */}
-        <div className="flex flex-col gap-6 pt-4">
+        <div className="flex flex-col gap-5 pt-2 lg:pt-4">
           <div className="inline-flex items-center gap-2 bg-teal-50 text-teal-700 text-xs font-medium px-3 py-1.5 rounded-full w-fit border border-teal-100">
-            Physician-Formulated · Evidence-Based
+            Physician-Led&nbsp;•&nbsp;Evidence-Based&nbsp;•&nbsp;Clinical Decision Support
           </div>
           <h1 className="text-4xl lg:text-5xl font-bold text-slate-900 leading-tight">
-            The Clinical Standard for Muscle Protection during GLP-1 Therapy
+            Protect Muscle While Losing Weight on GLP-1 Therapy
           </h1>
-          <p className="text-lg text-slate-500 leading-relaxed max-w-md">
-            Weight loss should not come at the expense of muscle. MyoGuard converts everyday
-            treatment inputs into physician-guided insights that support lean-tissue preservation.
+          <p className="text-base text-slate-400 leading-relaxed max-w-md">
+            For patients using GLP-1 and incretin-based weight-loss therapy.
           </p>
-          <div className="flex flex-col gap-3 pt-2">
-            {[
-              "Real-time sarcopenia risk scoring",
-              "Personalised protein & fiber targets",
-              "Evidence-based supplement guidance",
-              "Continuous adherence monitoring",
-            ].map((f) => (
-              <div key={f} className="flex items-center gap-2 text-slate-600 text-sm">
-                <div className="w-4 h-4 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0">
-                  <div className="w-2 h-2 rounded-full bg-teal-600" />
-                </div>
-                {f}
-              </div>
-            ))}
-          </div>
-          <div className="flex flex-col items-center text-center pt-2">
+          <p className="text-sm text-slate-500 leading-relaxed max-w-md">
+            Weight loss should not come at the expense of lean tissue. MyoGuard provides
+            physician-guided muscle preservation support through the Sarcopenia Risk Index (SRI).
+          </p>
+          <div className="flex flex-col items-start gap-3 pt-1">
             <a
               href="#sri-form"
               onClick={(e) => {
                 e.preventDefault();
                 document.getElementById("sri-form")?.scrollIntoView({ behavior: "smooth" });
+                if (isAnalyticsEnabled) posthog.capture(AnalyticsEvents.GET_STARTED_CLICKED, { location: "hero" });
               }}
-              className="bg-teal-600 text-white px-6 py-3 rounded-xl text-sm font-medium hover:bg-teal-700 transition-colors cursor-pointer"
+              className="bg-teal-600 text-white px-6 py-3.5 rounded-xl text-sm font-semibold hover:bg-teal-700 transition-colors cursor-pointer"
             >
-              Generate Preliminary SRI →
+              Generate My Preliminary SRI →
             </a>
-            <p className="text-[13px] text-slate-400 text-center mt-2">
-              New to MyoGuard?{" "}
-              <a
-                href="/sign-up"
-                className="text-teal-400 font-medium underline underline-offset-2"
-                onClick={() => { if (isAnalyticsEnabled) posthog.capture(AnalyticsEvents.GET_STARTED_CLICKED, { location: "hero" }); }}
-              >
-                Create your free account →
-              </a>
+            <p className="text-xs text-slate-400">
+              No account required&nbsp;•&nbsp;Takes about 60 seconds
             </p>
-            <a href="/doctor/sign-up" className="text-sm text-slate-500 hover:text-teal-600 transition-colors mt-1.5">
-              Clinician? <span className="text-teal-600">Register your practice →</span>
-            </a>
+            <p className="text-xs text-slate-500 border-t border-slate-100 pt-3 leading-relaxed">
+              Built on:&nbsp;<span className="font-medium text-slate-600">STEP Trials</span>&nbsp;•&nbsp;<span className="font-medium text-slate-600">EWGSOP2</span>&nbsp;•&nbsp;<span className="font-medium text-slate-600">PROT-AGE</span>&nbsp;•&nbsp;<span className="font-medium text-slate-600">Peer-Reviewed Evidence</span>
+            </p>
           </div>
 
           {/* Social proof / credibility block */}
@@ -313,8 +295,8 @@ export default function HomePage() {
             </p>
             <div className="flex flex-col gap-2">
               {[
-                "A global clinical response to the GLP-1 muscle loss crisis",
-                "Grounded in NEJM, EWGSOP2, and 2026 clinical literature",
+                "Grounded in NEJM, EWGSOP2, and peer-reviewed clinical literature",
+                "A physician-led response to muscle loss during modern weight-loss therapy",
                 "GDPR and HIPAA-aligned data handling",
               ].map((t) => (
                 <div key={t} className="flex items-start gap-2">
@@ -332,8 +314,8 @@ export default function HomePage() {
         <div id="sri-form" className="flex flex-col gap-4">
           <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 flex flex-col gap-5">
             <div>
-              <h2 className="text-base font-semibold text-slate-900">Preliminary Sarcopenia Risk Index (SRI)</h2>
-              <p className="text-xs text-slate-400 mt-0.5">No account required · Clinical parameters · Results in seconds</p>
+              <h2 className="text-base font-semibold text-slate-900">Sarcopenia Risk Index (SRI)</h2>
+              <p className="text-xs text-slate-400 mt-0.5">Physician-guided muscle preservation assessment</p>
 
               {/* Progress indicator */}
               <div className="flex items-center gap-2 mt-3">
@@ -673,7 +655,7 @@ export default function HomePage() {
               }}
             >
               {canCalculate
-                ? "Generate Preliminary SRI →"
+                ? "Generate My Preliminary SRI →"
                 : "Complete all fields to generate Preliminary SRI"}
             </button>
 
@@ -684,7 +666,7 @@ export default function HomePage() {
                 {/* Composite score — dramatic card */}
                 <div className="bg-slate-50 rounded-2xl p-4 flex items-center justify-between">
                   <div>
-                    <p className="text-xs text-slate-500 mb-1">MyoGuard Composite Score</p>
+                    <p className="text-xs text-slate-500 mb-1">MyoGuard Composite Index</p>
                     <div className="flex items-baseline gap-2">
                       <span className={`text-6xl font-bold tracking-tight ${
                         result.risk === "LOW" ? "text-teal-600" :
@@ -783,7 +765,7 @@ export default function HomePage() {
                 {/* Sub-scores */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-slate-50 rounded-xl p-3 flex flex-col gap-1">
-                    <p className="text-xs text-slate-500">Lean Mass Risk Score</p>
+                    <p className="text-xs text-slate-500">Lean Mass Risk Index</p>
                     <div className="flex items-baseline gap-1">
                       <span className={`text-xl font-bold ${
                         result.leanScore >= 70 ? "text-teal-600" :
@@ -994,6 +976,45 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* How MyoGuard Helps — features moved below fold */}
+      <section className="border-t border-slate-100 py-10">
+        <div className="max-w-6xl mx-auto px-6">
+          <p className="text-xs text-slate-400 uppercase tracking-widest font-medium mb-6 text-center">
+            How MyoGuard Helps
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+            {[
+              {
+                title: "Real-time sarcopenia risk",
+                desc: "SRI generated against your GLP-1 dose stage and clinical protein floor",
+              },
+              {
+                title: "Personalised protein targets",
+                desc: "Protein and fibre guidance calibrated to your weight, dose, and GI burden",
+              },
+              {
+                title: "Evidence-based supplement guidance",
+                desc: "Protocol stack grounded in peer-reviewed nutrition science",
+              },
+              {
+                title: "Continuous adherence monitoring",
+                desc: "Weekly check-ins with longitudinal tracking of your muscle preservation indicators",
+              },
+            ].map((item) => (
+              <div key={item.title} className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0">
+                    <div className="w-2 h-2 rounded-full bg-teal-600" />
+                  </div>
+                  <p className="text-sm font-semibold text-slate-700">{item.title}</p>
+                </div>
+                <p className="text-xs text-slate-500 leading-relaxed pl-6">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Evidence strip */}
       <section className="border-t border-slate-100 bg-slate-50 py-10">
         <div className="max-w-6xl mx-auto px-6 text-center flex flex-col gap-3">
@@ -1012,24 +1033,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-100 py-8 px-6">
-        <div className="max-w-6xl mx-auto flex flex-col items-center gap-2 text-center">
-          <p className="text-xs font-semibold text-slate-700">
-            MyoGuard Protocol · Physician-led Clinical Decision Support
-          </p>
-          <p className="text-xs text-slate-400">
-            © 2026 Meridian Wellness Systems LLC · myoguard.health
-          </p>
-          <p className="text-xs text-slate-400 italic">
-            Built for the global GLP-1 prescribing community
-          </p>
-          <div className="flex gap-4 pt-1">
-            <a href="/privacy" className="text-xs text-slate-400 hover:text-slate-600 transition-colors">Privacy Policy</a>
-            <a href="/terms" className="text-xs text-slate-400 hover:text-slate-600 transition-colors">Terms of Use</a>
-          </div>
-        </div>
-      </footer>
     </main>
   );
 }

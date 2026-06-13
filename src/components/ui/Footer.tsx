@@ -42,6 +42,13 @@ export default function Footer() {
           </a>
           <span className="text-slate-200 select-none">|</span>
           <a
+            href="/terms"
+            className="text-xs text-slate-400 hover:text-teal-600 transition-colors"
+          >
+            Terms of Use
+          </a>
+          <span className="text-slate-200 select-none">|</span>
+          <a
             href="/research"
             className="text-xs text-slate-400 hover:text-teal-600 transition-colors"
           >
