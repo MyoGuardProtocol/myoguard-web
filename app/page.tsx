@@ -288,34 +288,14 @@ export default function HomePage() {
             </p>
           </div>
 
-          {/* Social proof / credibility block */}
-          <div className="border-t border-slate-100 pt-6 flex flex-col gap-3">
-            <p className="text-xs text-slate-400 uppercase tracking-widest font-medium">
-              Trusted by clinicians
-            </p>
-            <div className="flex flex-col gap-2">
-              {[
-                "Grounded in NEJM, EWGSOP2, and peer-reviewed clinical literature",
-                "A physician-led response to muscle loss during modern weight-loss therapy",
-                "GDPR and HIPAA-aligned data handling",
-              ].map((t) => (
-                <div key={t} className="flex items-start gap-2">
-                  <div className="w-4 h-4 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <div className="w-2 h-2 rounded-full bg-teal-600" />
-                  </div>
-                  <p className="text-xs text-slate-500">{t}</p>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
 
         {/* RIGHT — Calculator */}
         <div id="sri-form" className="flex flex-col gap-4">
           <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 flex flex-col gap-5">
             <div>
-              <h2 className="text-base font-semibold text-slate-900">Sarcopenia Risk Index (SRI)</h2>
-              <p className="text-xs text-slate-400 mt-0.5">Physician-guided muscle preservation assessment</p>
+              <h2 className="text-base font-semibold text-slate-900">Muscle Protection Assessment</h2>
+              <p className="text-xs text-slate-400 mt-0.5">Powered by the Sarcopenia Risk Index (SRI)</p>
 
               {/* Progress indicator */}
               <div className="flex items-center gap-2 mt-3">
@@ -1015,23 +995,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Evidence strip */}
-      <section className="border-t border-slate-100 bg-slate-50 py-10">
-        <div className="max-w-6xl mx-auto px-6 text-center flex flex-col gap-3">
-          <p className="text-xs text-slate-400 uppercase tracking-widest font-medium">Built on peer-reviewed evidence</p>
-          <div className="flex flex-wrap justify-center gap-6 text-xs text-slate-500">
-            {[
-              "NEJM · STEP 1 Trial",
-              "Diabetes & Metabolism 2026",
-              "Clinical Obesity · Urbina et al.",
-              "EWGSOP2 Sarcopenia Criteria",
-              "Joint GLP-1 Advisory 2025",
-            ].map((s) => (
-              <span key={s} className="font-medium">{s}</span>
-            ))}
-          </div>
-        </div>
-      </section>
 
     </main>
   );
