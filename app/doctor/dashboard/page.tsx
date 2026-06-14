@@ -10,6 +10,7 @@ import {
 } from '@/src/lib/insights/physician-scoped';
 import CCCExecutiveOverviewCard from '@/src/components/doctor/intelligence/CCCExecutiveOverviewCard';
 import RegistryOverviewCard     from '@/src/components/doctor/intelligence/RegistryOverviewCard';
+import PhysicianGuidanceCard    from '@/src/components/doctor/PhysicianGuidanceCard';
 import type { PhysicianExecutiveSummary } from '@/src/lib/insights/physician-scoped';
 
 /**
@@ -220,6 +221,12 @@ export default async function DoctorDashboardPage() {
               Physician-led Clinical Decision Support · All clinical decisions remain with the treating physician.
             </p>
           </div>
+
+          {/* ── First-session guidance — dismissible, localStorage-persisted ── */}
+          <PhysicianGuidanceCard
+            invitePatientsHref="/doctor/start"
+            viewPatientsHref="/doctor/patients"
+          />
 
           {executiveSummary && (
             <CCCExecutiveOverviewCard data={executiveSummary} />
