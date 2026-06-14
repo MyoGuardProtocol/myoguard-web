@@ -78,9 +78,14 @@ export default function OnboardingPage() {
         }),
       })
       if (!res.ok) throw new Error("Failed")
+      // Read the server-determined redirect destination.
+      // /api/user/onboard returns '/dashboard' when an mgPreloadId cookie is
+      // present (preload flow) so PreloadSync can fire, or '/dashboard/assessment'
+      // for the standard referral flow. Falls back to assessment if absent.
+      const data = await res.json() as { redirect?: string }
       // Clear stored physician code after successful onboarding
       sessionStorage.removeItem('myoguard_physician_code')
-      router.push("/dashboard/assessment")
+      router.push(data.redirect ?? '/dashboard/assessment')
     } catch {
       setError("Something went wrong. Please try again.")
     } finally {

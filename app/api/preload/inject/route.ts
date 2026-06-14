@@ -45,6 +45,29 @@ export async function POST(req: NextRequest) {
     return clearCookie(NextResponse.json({ ok: false, reason: 'expired' }));
   }
 
+  // Duplicate-assessment guard ──────────────────────────────────────────────
+  // If the patient already has a saved assessment (e.g. they completed the
+  // manual form before PreloadSync could fire), retire the preload without
+  // injecting a second assessment. The existing assessment takes precedence.
+  const existingUser = await prisma.user.findUnique({
+    where:  { clerkId: clerkId },
+    select: {
+      assessments: {
+        select:  { id: true },
+        orderBy: { assessmentDate: 'desc' },
+        take:    1,
+      },
+    },
+  }).catch(() => null);
+
+  if (existingUser?.assessments?.length) {
+    await prisma.preloadedAssessment.update({
+      where: { id: preloadId },
+      data:  { used: true },
+    }).catch((err) => console.error('[preload/inject] mark-used on already_assessed bail failed', err));
+    return clearCookie(NextResponse.json({ ok: false, reason: 'already_assessed' }));
+  }
+
   // Forward the stored payload to /api/assessment, carrying the patient's
   // Clerk session cookies so existing auth + user-provisioning logic fires.
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? `http://${req.headers.get('host')}`;

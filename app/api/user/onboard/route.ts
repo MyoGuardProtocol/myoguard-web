@@ -161,7 +161,18 @@ export async function POST(req: NextRequest) {
     // ── Welcome email (fire-and-forget — never blocks the response) ──────────
     sendWelcomeEmail({ email, firstName: body.fullName.split(" ")[0] }).catch(() => {})
 
-    return NextResponse.json({ success: true, userId: user.id, physicianLinked: !!physicianId })
+    // If the patient arrived via a preloaded Start Sheet QR, direct them to
+    // /dashboard so PreloadSync can fire and inject the physician's pre-filled
+    // assessment data. Otherwise send them to the manual assessment form.
+    // The mgPreloadId cookie is httpOnly and not readable in client JS — we
+    // detect it here, server-side, and encode the destination in the response.
+    const hasPreload = !!req.cookies.get('mgPreloadId')?.value;
+    return NextResponse.json({
+      success:        true,
+      userId:         user.id,
+      physicianLinked: !!physicianId,
+      redirect:       hasPreload ? '/dashboard' : '/dashboard/assessment',
+    })
 
   } catch (e: unknown) {
     console.error('[onboard] Unexpected error', e)

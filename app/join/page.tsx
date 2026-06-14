@@ -128,10 +128,13 @@ export default async function JoinPage({
 
               <p className="text-center text-xs text-slate-400">
                 Already have an account?{' '}
-                <Link href="/sign-in" className="text-teal-400 font-medium hover:underline">
+                {/* redirect_url=/onboarding ensures the referral code stored
+                    in sessionStorage by JoinButton is consumed after sign-in,
+                    attributing the patient to the inviting physician. */}
+                <Link href="/sign-in-new?redirect_url=/onboarding" className="text-teal-400 font-medium hover:underline">
                   Sign in
                 </Link>
-                {' '}and enter your code during setup.
+                {' '}and your code will be pre-filled automatically.
               </p>
 
               <p className="text-center text-xs text-slate-400">
