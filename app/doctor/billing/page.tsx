@@ -147,6 +147,51 @@ export default async function BillingPage({
   const soloConfigured     = !!(process.env.STRIPE_PHYSICIAN_PRICE_ID ?? process.env.STRIPE_PRICE_ID);
   const practiceConfigured = !!process.env.STRIPE_PRACTICE_PRICE_ID;
 
+  // ── Stripe price display — server-side read from configured price IDs ─────────
+  //
+  // Prices are fetched at render time so the billing page always reflects the
+  // authoritative Stripe configuration without any hardcoded values.
+  // Non-fatal: if Stripe is unavailable or the lookup fails, plan cards render
+  // correctly without a price line. Stripe Checkout remains the source of truth.
+  let soloPriceDisplay:     string | null = null;
+  let practicePriceDisplay: string | null = null;
+
+  if (!isActive || isPastDue || isCancelled) {
+    const stripeForPricing = getStripeClient();
+    if (stripeForPricing) {
+      const soloPriceId     = process.env.STRIPE_PHYSICIAN_PRICE_ID ?? process.env.STRIPE_PRICE_ID;
+      const practicePriceId = process.env.STRIPE_PRACTICE_PRICE_ID;
+
+      const [soloResult, practiceResult] = await Promise.allSettled([
+        soloPriceId
+          ? stripeForPricing.prices.retrieve(soloPriceId)
+          : Promise.resolve(null),
+        practicePriceId
+          ? stripeForPricing.prices.retrieve(practicePriceId)
+          : Promise.resolve(null),
+      ]);
+
+      if (
+        soloResult.status === 'fulfilled' &&
+        soloResult.value?.unit_amount &&
+        soloResult.value?.recurring
+      ) {
+        const dollars  = (soloResult.value.unit_amount / 100).toFixed(0);
+        const interval = soloResult.value.recurring.interval;
+        soloPriceDisplay = `$${dollars}/${interval}`;
+      }
+      if (
+        practiceResult.status === 'fulfilled' &&
+        practiceResult.value?.unit_amount &&
+        practiceResult.value?.recurring
+      ) {
+        const dollars  = (practiceResult.value.unit_amount / 100).toFixed(0);
+        const interval = practiceResult.value.recurring.interval;
+        practicePriceDisplay = `$${dollars}/${interval}`;
+      }
+    }
+  }
+
   const navLinks = [
     { label: 'Dashboard',   href: '/doctor/dashboard' },
     { label: 'Patients',    href: '/doctor/patients' },
@@ -233,21 +278,39 @@ export default async function BillingPage({
           </p>
         </div>
 
-        {/* ── Subscription-required gate banner ────────────────────────────── */}
+        {/* ── Approval-to-billing welcome banner ───────────────────────────── */}
         {returnStatus === 'access_required' && !isActive && (
           <div style={{
             background:    'rgba(45,212,191,0.06)',
             border:        '1px solid rgba(45,212,191,0.22)',
             borderRadius:  '16px',
-            padding:       '20px 24px',
+            padding:       '24px 28px',
             marginBottom:  '32px',
           }}>
-            <p style={{ fontSize: '13px', fontWeight: 600, color: '#2DD4BF', marginBottom: '4px' }}>
-              Clinical access requires an active subscription.
+            <p style={{
+              fontSize:      '10px',
+              fontWeight:    700,
+              color:         '#2DD4BF',
+              textTransform: 'uppercase',
+              letterSpacing: '0.14em',
+              marginBottom:  '10px',
+            }}>
+              Credentials Verified
             </p>
-            <p style={{ fontSize: '13px', color: '#94A3B8', lineHeight: 1.6 }}>
-              Choose a plan below to activate your Clinical Command Center. Founding Clinical Partner
-              access is available by invitation only.
+            <h2 style={{
+              fontFamily:   'Georgia, serif',
+              fontSize:     '20px',
+              fontWeight:   400,
+              color:        '#F1F5F9',
+              marginBottom: '10px',
+              lineHeight:   1.4,
+            }}>
+              Welcome to the MyoGuard Protocol.
+            </h2>
+            <p style={{ fontSize: '13px', color: '#94A3B8', lineHeight: 1.7, margin: 0 }}>
+              Your physician credentials have been reviewed and verified. Activate your
+              Clinical Command Center below to begin patient onboarding, longitudinal
+              muscle risk monitoring, and physician-guided GLP-1 protocol support.
             </p>
           </div>
         )}
@@ -327,7 +390,7 @@ export default async function BillingPage({
         )}
 
         {/* ── Subscription status banners ───────────────────────────────────── */}
-        {isActive && returnStatus !== 'success' && (
+        {isActive && returnStatus !== 'success' && returnStatus !== 'activated' && (
           <div style={{
             background:    'rgba(45,212,191,0.06)',
             border:        '1px solid rgba(45,212,191,0.18)',
@@ -411,6 +474,34 @@ export default async function BillingPage({
               {isCancelled ? 'Reactivate Access' : 'Choose a Plan'}
             </h2>
 
+            {/* ── Founder information card ──────────────────────────────────── */}
+            <div style={{
+              background:   'rgba(45,212,191,0.03)',
+              border:       '1px solid rgba(45,212,191,0.14)',
+              borderRadius: '14px',
+              padding:      '14px 18px',
+              marginBottom: '24px',
+            }}>
+              <p style={{
+                fontSize:     '12px',
+                fontWeight:   700,
+                color:        '#2DD4BF',
+                marginBottom: '5px',
+              }}>
+                Founding Clinical Partner?
+              </p>
+              <p style={{ fontSize: '12px', color: '#64748B', lineHeight: 1.65, margin: 0 }}>
+                Founder access is available by invitation. If you received a Founder invitation
+                and have questions regarding activation, contact{' '}
+                <a
+                  href="mailto:billing@myoguard.health"
+                  style={{ color: '#2DD4BF', textDecoration: 'none' }}
+                >
+                  billing@myoguard.health
+                </a>.
+              </p>
+            </div>
+
             <div style={{
               display:             'grid',
               gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
@@ -444,10 +535,22 @@ export default async function BillingPage({
                     fontSize:     '22px',
                     fontWeight:   400,
                     color:        '#F1F5F9',
-                    marginBottom: '8px',
+                    marginBottom: soloPriceDisplay ? '6px' : '8px',
                   }}>
                     CDS Solo
                   </h3>
+                  {soloPriceDisplay && (
+                    <p style={{
+                      fontSize:      '26px',
+                      fontWeight:    700,
+                      color:         '#F1F5F9',
+                      letterSpacing: '-0.02em',
+                      lineHeight:    1,
+                      marginBottom:  '8px',
+                    }}>
+                      {soloPriceDisplay}
+                    </p>
+                  )}
                   <p style={{ fontSize: '13px', color: '#64748B', lineHeight: 1.6 }}>
                     Full clinical decision support access for individual physician practices.
                   </p>
@@ -517,10 +620,22 @@ export default async function BillingPage({
                     fontSize:     '22px',
                     fontWeight:   400,
                     color:        '#F1F5F9',
-                    marginBottom: '8px',
+                    marginBottom: practicePriceDisplay ? '6px' : '8px',
                   }}>
                     CDS Practice
                   </h3>
+                  {practicePriceDisplay && (
+                    <p style={{
+                      fontSize:      '26px',
+                      fontWeight:    700,
+                      color:         '#F1F5F9',
+                      letterSpacing: '-0.02em',
+                      lineHeight:    1,
+                      marginBottom:  '8px',
+                    }}>
+                      {practicePriceDisplay}
+                    </p>
+                  )}
                   <p style={{ fontSize: '13px', color: '#64748B', lineHeight: 1.6 }}>
                     Expanded access for group practices and multi-physician clinical teams.
                   </p>
@@ -566,7 +681,7 @@ export default async function BillingPage({
         )}
 
         {/* ── Active subscription management panel ──────────────────────────── */}
-        {isActive && !isPastDue && returnStatus !== 'success' && (
+        {isActive && !isPastDue && returnStatus !== 'success' && returnStatus !== 'activated' && (
           <div style={{
             background:    '#0D1421',
             border:        '1px solid #1A2744',

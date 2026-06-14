@@ -15,6 +15,7 @@
  * Actions:
  *   approve → sets PhysicianApplication.status = APPROVED
  *             updates User.role = PHYSICIAN
+ *             sets User.isVerified = true
  *             sets Clerk publicMetadata.role = "PHYSICIAN"
  *             sends activation email to physician
  *             redirects to /admin/physician-approved
@@ -92,7 +93,7 @@ export async function GET(req: Request) {
   if (application.clerkUserId) {
     await prisma.user.update({
       where: { clerkId: application.clerkUserId },
-      data:  { role: "PHYSICIAN" },
+      data:  { role: "PHYSICIAN", isVerified: true },
     }).catch((e: unknown) => {
       console.error("[verify-physician] DB role update failed:", e);
     });
@@ -118,7 +119,7 @@ export async function GET(req: Request) {
     // No clerkUserId stored — try to find User by email
     await prisma.user.updateMany({
       where: { email: application.email },
-      data:  { role: "PHYSICIAN" },
+      data:  { role: "PHYSICIAN", isVerified: true },
     }).catch((e: unknown) => {
       console.error("[verify-physician] fallback email role update failed:", e);
     });
