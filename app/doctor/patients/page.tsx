@@ -127,6 +127,88 @@ function getFlags(
   return [...priority, ...flags].slice(0, 3);
 }
 
+// ─── Awaiting Card ────────────────────────────────────────────────────────────
+//
+// Server-component helper — renders the "Patients Awaiting First Assessment"
+// panel. Used in two branches of the rendering conditional:
+//   (1) No patients have completed an assessment yet — shown below the Task 5
+//       empty-state copy so the physician sees who they're waiting on.
+//   (2) Mixed state: some patients have assessments, some do not — shown above
+//       PatientCommandCenter so awaiting patients are never invisible.
+//
+// Pure render function: no hooks, no client-side logic.
+
+function AwaitingCard({
+  patients,
+}: {
+  patients: Array<{ id: string; fullName: string; createdAt: Date }>;
+}) {
+  if (patients.length === 0) return null;
+
+  return (
+    <div style={{
+      background:   '#0D1421',
+      border:       '1px solid #1A2744',
+      borderRadius: '12px',
+      padding:      '20px 24px',
+    }}>
+      <h3 style={{
+        fontFamily: 'Georgia, serif',
+        fontSize:   '13px',
+        fontWeight: 600,
+        color:      '#F1F5F9',
+        margin:     '0 0 4px 0',
+      }}>
+        Patients Awaiting First Assessment
+      </h3>
+      <p style={{ fontSize: '12px', color: '#94A3B8', margin: '0 0 16px 0' }}>
+        {patients.length} patient{patients.length !== 1 ? 's' : ''} linked — awaiting SRI completion.
+      </p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        {patients.map(p => (
+          <div
+            key={p.id}
+            style={{
+              display:        'flex',
+              alignItems:     'center',
+              justifyContent: 'space-between',
+              padding:        '10px 14px',
+              background:     '#080C14',
+              borderRadius:   '8px',
+              border:         '1px solid #1A2744',
+            }}
+          >
+            <div>
+              <p style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: '#F1F5F9' }}>
+                {p.fullName}
+              </p>
+              <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#94A3B8' }}>
+                Linked {p.createdAt.toLocaleDateString('en-US', {
+                  month: 'short', day: 'numeric', year: 'numeric',
+                })}
+              </p>
+            </div>
+            <span style={{
+              fontSize:      '10px',
+              fontWeight:    700,
+              color:         '#94A3B8',
+              background:    'rgba(148,163,184,0.1)',
+              border:        '1px solid rgba(148,163,184,0.2)',
+              borderRadius:  '99px',
+              padding:       '3px 10px',
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
+              whiteSpace:    'nowrap',
+            }}>
+              Awaiting Assessment
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function PatientsPage() {
@@ -167,9 +249,10 @@ export default async function PatientsPage() {
   const rawPatients = await prisma.user.findMany({
     where: { role: 'PATIENT', OR: orClauses },
     select: {
-      id:       true,
-      fullName: true,
-      email:    true,
+      id:        true,
+      fullName:  true,
+      email:     true,
+      createdAt: true,
       assessments: {
         orderBy: { assessmentDate: 'desc' },
         take:    10,
@@ -249,6 +332,10 @@ export default async function PatientsPage() {
     return (a.score ?? 100) - (b.score ?? 100);
   });
 
+  // Task 4 — Awaiting patients: linked to this physician, no assessment yet.
+  // Derived from rawPatients — no additional DB query needed.
+  const awaitingPatients = rawPatients.filter(p => p.assessments.length === 0);
+
   // Physician-scoped intelligence — computed for all enrolled patients
   // (rawPatients includes those without assessments; they return insufficient_data)
   let physicianIntelligence = emptyPhysicianScopedIntelligence();
@@ -280,18 +367,84 @@ export default async function PatientsPage() {
         </div>
       </header>
 
-      {patients.length === 0 ? (
+      {rawPatients.length === 0 ? (
+
+        /* ── No linked patients at all — invite flow ──────────────────────────── */
         <PhysicianEmptyState
           doctorId={physician.id}
           doctorName={physician.fullName}
           referralCode={physicianReferralCode}
         />
+
+      ) : patients.length === 0 ? (
+
+        /* ── Linked patients exist but none have completed an assessment yet ───── */
+        /* Task 5 empty-state copy + Task 4 awaiting list                          */
+        <div style={{ maxWidth: '720px', margin: '0 auto', padding: '48px 24px' }}>
+
+          {/* Task 5 — No-assessment empty state */}
+          <div style={{
+            background:   '#0D1421',
+            border:       '1px solid #1A2744',
+            borderRadius: '16px',
+            padding:      '40px 32px',
+            textAlign:    'center',
+            marginBottom: '28px',
+          }}>
+            <h2 style={{
+              fontFamily: 'Georgia, serif',
+              fontSize:   '20px',
+              fontWeight: 600,
+              color:      '#F1F5F9',
+              margin:     '0 0 12px 0',
+            }}>
+              Assessment Pending
+            </h2>
+            <p style={{ fontSize: '14px', color: '#94A3B8', lineHeight: 1.6, margin: '0 0 8px 0' }}>
+              You have not received your first patient assessment yet.
+            </p>
+            <p style={{ fontSize: '14px', color: '#94A3B8', lineHeight: 1.6, margin: '0 0 28px 0' }}>
+              Patients who activate through your referral link will appear here automatically.
+            </p>
+            <Link
+              href="/doctor/start"
+              style={{
+                display:        'inline-flex',
+                alignItems:     'center',
+                height:         '44px',
+                padding:        '0 24px',
+                background:     '#2DD4BF',
+                color:          '#080C14',
+                fontWeight:     700,
+                fontSize:       '14px',
+                borderRadius:   '99px',
+                textDecoration: 'none',
+              }}
+            >
+              Invite Another Patient →
+            </Link>
+          </div>
+
+          {/* Task 4 — Awaiting list: who is the physician waiting on */}
+          <AwaitingCard patients={awaitingPatients} />
+        </div>
+
       ) : (
-        <PatientCommandCenter
-          patients={patients}
-          isVerified={physician.isVerified}
-          physicianIntelligence={physicianIntelligence}
-        />
+
+        /* ── Has completed patients — Clinical Command Center ─────────────────── */
+        <>
+          {/* Task 4 — Awaiting section above Command Center (mixed state) */}
+          {awaitingPatients.length > 0 && (
+            <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px 24px 0' }}>
+              <AwaitingCard patients={awaitingPatients} />
+            </div>
+          )}
+          <PatientCommandCenter
+            patients={patients}
+            isVerified={physician.isVerified}
+            physicianIntelligence={physicianIntelligence}
+          />
+        </>
       )}
     </main>
   );

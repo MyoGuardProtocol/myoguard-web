@@ -8,6 +8,7 @@ import {
   triggerPhysicianPriorityReview,
   type LeanVelocityFlag,
 } from '@/src/lib/email/categories/PhysicianPriorityReview';
+import { triggerPhysicianFirstAssessmentNotification } from '@/src/lib/email/categories/PhysicianFirstAssessment';
 
 /**
  * POST /api/assessment
@@ -385,6 +386,21 @@ export async function POST(req: NextRequest) {
         leanLossEstPct:   protocol.leanLossEstPct,
         leanVelocityPct:  leanVelocityPct ?? 0,
       }).catch((err) => console.error('[assessment] Physician priority review trigger failed:', err));
+    }
+
+    // Fire-and-forget: First Assessment physician notification (Task 2/3).
+    // Fires only when priorAssessment === null — this patient's first ever assessment.
+    // Non-blocking — assessment persistence and HTTP response are already guaranteed.
+    // De-duplication (REPORT_READY, 24h window) and Notification write are handled
+    // inside the trigger. Mutually exclusive with priority review: first assessments
+    // always yield leanVelocityFlag = 'insufficient_data' (no prior data to compare),
+    // so the two notification paths cannot fire simultaneously for the same assessment.
+    if (priorAssessment === null) {
+      triggerPhysicianFirstAssessmentNotification({
+        patientId:      user.id,
+        assessmentId:   result.assessment.id,
+        assessmentDate: result.assessment.assessmentDate.toISOString(),
+      }).catch((err) => console.error('[assessment] Physician first-assessment notification failed:', err));
     }
 
     return NextResponse.json({
