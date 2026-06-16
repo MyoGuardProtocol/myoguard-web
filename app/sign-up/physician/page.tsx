@@ -1,5 +1,5 @@
-import OnboardingForm from "@/app/doctor/onboarding/OnboardingForm";
+import { redirect } from 'next/navigation';
 
-export default function PhysicianSignUpPage() {
-  return <OnboardingForm />;
+export default function PhysicianSignUpLegacyPage() {
+  redirect('/doctor/sign-up');
 }

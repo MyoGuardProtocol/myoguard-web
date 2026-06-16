@@ -363,7 +363,7 @@ export default function PhysicianSignUpPage() {
                 }`}
               />
               {isPreAuth && (
-                <p className="text-xs text-slate-500">From your verified sign-in account</p>
+                <p className="text-xs text-slate-500">This email is attached to your secure sign-in session.</p>
               )}
             </label>
 

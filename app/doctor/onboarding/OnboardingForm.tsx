@@ -283,6 +283,24 @@ export default function OnboardingForm() {
               />
             </label>
 
+            {/* Professional email — read-only from Clerk session */}
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs font-medium text-slate-300">
+                Professional email
+              </span>
+              <input
+                name="email"
+                type="email"
+                value={isLoaded ? (user?.primaryEmailAddress?.emailAddress ?? "") : ""}
+                readOnly
+                disabled
+                autoComplete="email"
+                className={`${inputCls} opacity-70 cursor-not-allowed`}
+                style={{ color: '#94A3B8' }}
+              />
+              <p className="text-xs text-slate-500">This email is attached to your secure sign-in session.</p>
+            </label>
+
             {/* Country */}
             <label className="flex flex-col gap-1.5">
               <span className="text-xs font-medium text-slate-300">

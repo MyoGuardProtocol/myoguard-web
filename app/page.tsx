@@ -237,15 +237,15 @@ export default function HomePage() {
   const canCalculate = !!(weight && protein && selectedDrug && activityLevel);
 
   return (
-    <main className="min-h-screen bg-white text-slate-900">
+    <main className="form-dark min-h-screen" style={{ background: '#080C14', color: '#F1F5F9' }}>
 
       {/* Nav */}
-      <nav className="border-b border-slate-100 max-w-6xl mx-auto flex justify-between items-center px-5 min-h-[56px]">
+      <nav className="border-b border-[#1A2744] max-w-6xl mx-auto flex justify-between items-center px-5 min-h-[56px]">
         <div className="flex items-center gap-1">
-          <span className="text-xl font-bold text-slate-900">Myo</span>
-          <span className="text-xl font-bold text-teal-600">Guard</span>
+          <span className="text-xl font-bold text-slate-100">Myo</span>
+          <span className="text-xl font-bold text-teal-400">Guard</span>
         </div>
-        <a href="/sign-in" className="text-sm text-slate-600 hover:text-slate-900 transition-colors flex-shrink-0 whitespace-nowrap">
+        <a href="/sign-in" className="text-sm text-slate-400 hover:text-white transition-colors flex-shrink-0 whitespace-nowrap">
           Sign in
         </a>
       </nav>
@@ -255,16 +255,16 @@ export default function HomePage() {
 
         {/* LEFT */}
         <div className="flex flex-col gap-5 pt-2 lg:pt-4">
-          <div className="inline-flex items-center gap-2 bg-teal-50 text-teal-700 text-xs font-medium px-3 py-1.5 rounded-full w-fit border border-teal-100">
+          <div className="inline-flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-full w-fit" style={{ background: 'rgba(45,212,191,0.08)', border: '1px solid rgba(45,212,191,0.2)', color: '#2DD4BF' }}>
             Physician-Led&nbsp;•&nbsp;Evidence-Based&nbsp;•&nbsp;Clinical Decision Support
           </div>
-          <h1 className="text-4xl lg:text-5xl font-bold text-slate-900 leading-tight">
+          <h1 className="text-4xl lg:text-5xl font-bold leading-tight" style={{ color: '#F1F5F9' }}>
             Protect Muscle While Losing Weight on GLP-1 Therapy
           </h1>
           <p className="text-base text-slate-400 leading-relaxed max-w-md">
             For patients using GLP-1 and incretin-based weight-loss therapy.
           </p>
-          <p className="text-sm text-slate-500 leading-relaxed max-w-md">
+          <p className="text-sm text-slate-400 leading-relaxed max-w-md">
             Weight loss should not come at the expense of lean tissue. MyoGuard provides
             physician-guided muscle preservation support through the Sarcopenia Risk Index (SRI).
           </p>
@@ -283,8 +283,8 @@ export default function HomePage() {
             <p className="text-xs text-slate-400">
               No account required&nbsp;•&nbsp;Takes about 60 seconds
             </p>
-            <p className="text-xs text-slate-500 border-t border-slate-100 pt-3 leading-relaxed">
-              Built on:&nbsp;<span className="font-medium text-slate-600">STEP Trials</span>&nbsp;•&nbsp;<span className="font-medium text-slate-600">EWGSOP2</span>&nbsp;•&nbsp;<span className="font-medium text-slate-600">PROT-AGE</span>&nbsp;•&nbsp;<span className="font-medium text-slate-600">Peer-Reviewed Evidence</span>
+            <p className="text-xs text-slate-400 border-t border-[#1A2744] pt-3 leading-relaxed">
+              Built on:&nbsp;<span className="font-medium text-slate-300">STEP Trials</span>&nbsp;•&nbsp;<span className="font-medium text-slate-300">EWGSOP2</span>&nbsp;•&nbsp;<span className="font-medium text-slate-300">PROT-AGE</span>&nbsp;•&nbsp;<span className="font-medium text-slate-300">Peer-Reviewed Evidence</span>
             </p>
           </div>
 
@@ -292,9 +292,9 @@ export default function HomePage() {
 
         {/* RIGHT — Calculator */}
         <div id="sri-form" className="flex flex-col gap-4">
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 flex flex-col gap-5">
+          <div className="rounded-2xl p-6 flex flex-col gap-5" style={{ background: '#0D1421', border: '1px solid #1A2744' }}>
             <div>
-              <h2 className="text-base font-semibold text-slate-900">Muscle Protection Assessment</h2>
+              <h2 className="text-base font-semibold" style={{ color: '#F1F5F9' }}>Muscle Protection Assessment</h2>
               <p className="text-xs text-slate-400 mt-0.5">Powered by the Sarcopenia Risk Index (SRI)</p>
 
               {/* Progress indicator */}
@@ -304,7 +304,7 @@ export default function HomePage() {
                     <div
                       key={i}
                       className={`h-1 w-6 rounded-full transition-all ${
-                        i < fieldsComplete ? "bg-teal-500" : "bg-slate-100"
+                        i < fieldsComplete ? "bg-teal-500" : "bg-[#1A2744]"
                       }`}
                     />
                   ))}
@@ -327,7 +327,7 @@ export default function HomePage() {
               {/* Weight */}
               <div className="flex flex-col gap-1.5">
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <label htmlFor="sri-weight" className="text-xs font-medium text-slate-600">
+                  <label htmlFor="sri-weight" className="text-xs font-medium text-slate-400">
                     Body weight ({weightUnit})
                   </label>
                   {/* kg / lbs toggle */}
@@ -369,17 +369,17 @@ export default function HomePage() {
                   placeholder={weightUnit === 'kg' ? 'e.g. 85' : 'e.g. 187'}
                   value={weight}
                   onChange={(e) => setWeight(e.target.value)}
-                  className="border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  className="border border-[#1A2744] rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
               </div>
 
               {/* Protein */}
               <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-medium text-slate-600">Daily protein intake (current)</span>
+                <span className="text-xs font-medium text-slate-400">Daily protein intake (current)</span>
                 <input
                   type="number" min={0} max={350} step={1} placeholder="e.g. 80"
                   value={protein} onChange={(e) => setProtein(e.target.value)}
-                  className="border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  className="border border-[#1A2744] rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
                 <span className="text-xs text-slate-400 leading-relaxed">
                   Enter your current average daily intake. Used to estimate adequacy against your clinical protein floor.
@@ -393,10 +393,10 @@ export default function HomePage() {
 
               {/* GLP-1 dropdown */}
               <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-medium text-slate-600">Current GLP-1 agent & dose</span>
+                <span className="text-xs font-medium text-slate-400">Current GLP-1 agent & dose</span>
                 <select
                   value={selectedDrug} onChange={(e) => setSelectedDrug(e.target.value)}
-                  className="border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+                  className="border border-[#1A2744] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-teal-500" style={{ background: '#1e293b' }}
                 >
                   <option value="">Select agent and dose</option>
                   <optgroup label="Semaglutide">
@@ -429,7 +429,7 @@ export default function HomePage() {
 
               {/* GI symptoms — multi-select grid */}
               <div className="flex flex-col gap-2">
-                <span className="text-xs font-medium text-slate-600">GI symptoms on current dose</span>
+                <span className="text-xs font-medium text-slate-400">GI symptoms on current dose</span>
                 <div className="grid grid-cols-2 gap-2">
                   {SYMPTOM_OPTIONS.map((s) => {
                     const selected = symptoms.includes(s.label);
@@ -472,7 +472,7 @@ export default function HomePage() {
 
               {/* Activity level cards */}
               <div className="flex flex-col gap-2">
-                <span className="text-xs font-medium text-slate-600">Activity level <span className="text-red-400">*</span></span>
+                <span className="text-xs font-medium text-slate-400">Activity level <span className="text-red-400">*</span></span>
                 <div className="grid grid-cols-3 gap-2">
                   {ACTIVITY_OPTIONS.map((a) => {
                     const selected = activityLevel === a.label;
@@ -523,11 +523,11 @@ export default function HomePage() {
               {/* Sleep SLIDER */}
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-slate-600">
+                  <span className="text-xs font-medium text-slate-400">
                     Recovery Environment Indicator (informational)
                   </span>
                   <div className="flex items-center gap-1.5">
-                    <span className="text-sm font-bold text-slate-900">{sleepHours}h</span>
+                    <span className="text-sm font-bold text-white">{sleepHours}h</span>
                     <span className={`text-xs font-medium ${sleepColor}`}>{sleepLabel}</span>
                   </div>
                 </div>
@@ -544,7 +544,7 @@ export default function HomePage() {
                   <span>9h</span>
                   <span>14h</span>
                 </div>
-                <p className="text-xs text-slate-500">Typical adult range: 5–9 hours</p>
+                <p className="text-xs text-slate-400">Typical adult range: 5–9 hours</p>
                 <p className="text-xs text-slate-400 leading-relaxed">
                   Sleep duration is displayed as a recovery context indicator. Nocturnal GH and IGF-1 secretion support muscle protein synthesis — adequate sleep optimises your protocol outcomes. This parameter is not incorporated into the sarcopenia risk score.
                 </p>
@@ -641,12 +641,12 @@ export default function HomePage() {
 
             {/* Results */}
             {result && (
-              <div className="flex flex-col gap-4 border-t border-slate-100 pt-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+              <div className="flex flex-col gap-4 border-t border-[#1A2744] pt-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
 
                 {/* Composite score — dramatic card */}
-                <div className="bg-slate-50 rounded-2xl p-4 flex items-center justify-between">
+                <div className="rounded-2xl p-4 flex items-center justify-between" style={{ background: '#0D1421' }}>
                   <div>
-                    <p className="text-xs text-slate-500 mb-1">MyoGuard Composite Index</p>
+                    <p className="text-xs text-slate-400 mb-1">MyoGuard Composite Index</p>
                     <div className="flex items-baseline gap-2">
                       <span className={`text-6xl font-bold tracking-tight ${
                         result.risk === "LOW" ? "text-teal-600" :
@@ -671,7 +671,7 @@ export default function HomePage() {
 
                 {/* Gradient risk bar */}
                 <div className="flex flex-col gap-1">
-                  <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden relative">
+                  <div className="w-full h-3 rounded-full overflow-hidden relative" style={{ background: '#1A2744' }}>
                     <div
                       className="absolute inset-0 rounded-full"
                       style={{
@@ -679,8 +679,8 @@ export default function HomePage() {
                       }}
                     />
                     <div
-                      className="absolute top-0 right-0 h-full bg-slate-100 rounded-r-full transition-all duration-700"
-                      style={{ width: `${100 - result.composite}%` }}
+                      className="absolute top-0 right-0 h-full rounded-r-full transition-all duration-700"
+                      style={{ width: `${100 - result.composite}%`, background: '#080C14' }}
                     />
                   </div>
                   <div className="flex items-center justify-between text-xs text-slate-400">
@@ -744,8 +744,8 @@ export default function HomePage() {
 
                 {/* Sub-scores */}
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-slate-50 rounded-xl p-3 flex flex-col gap-1">
-                    <p className="text-xs text-slate-500">Lean Mass Risk Index</p>
+                  <div className="rounded-xl p-3 flex flex-col gap-1" style={{ background: '#0D1421' }}>
+                    <p className="text-xs text-slate-400">Lean Mass Risk Index</p>
                     <div className="flex items-baseline gap-1">
                       <span className={`text-xl font-bold ${
                         result.leanScore >= 70 ? "text-teal-600" :
@@ -755,8 +755,8 @@ export default function HomePage() {
                     </div>
                     <p className="text-xs text-slate-400">Protein + dose + GI</p>
                   </div>
-                  <div className="bg-slate-50 rounded-xl p-3 flex flex-col gap-1">
-                    <p className="text-xs text-slate-500">Recovery Indicator</p>
+                  <div className="rounded-xl p-3 flex flex-col gap-1" style={{ background: '#0D1421' }}>
+                    <p className="text-xs text-slate-400">Recovery Indicator</p>
                     <div className="flex items-baseline gap-1">
                       <span className={`text-xl font-bold ${sleepColor}`}>{sleepHours}h</span>
                     </div>
@@ -826,9 +826,9 @@ export default function HomePage() {
                 )}
 
                 {/* Blurred protocol */}
-                <div className="relative rounded-xl border border-slate-200 overflow-hidden">
+                <div className="relative rounded-xl overflow-hidden" style={{ border: '1px solid #1A2744' }}>
                   <div className="p-4 flex flex-col gap-2 select-none pointer-events-none">
-                    <p className="text-xs font-semibold text-slate-700">Clinical Protocol — Full Report</p>
+                    <p className="text-xs font-semibold text-slate-300">Clinical Protocol — Full Report</p>
                     {[
                       "Protein target: __ g/day (1.6 g/kg adjusted for dose stage)",
                       "Fibre target: __ g/day (GI-symptom staged)",
@@ -842,14 +842,14 @@ export default function HomePage() {
                       <p key={line} className="text-xs text-slate-400">{line}</p>
                     ))}
                   </div>
-                  <div className="absolute inset-0 backdrop-blur-sm bg-white/60 flex flex-col items-center justify-center gap-2 p-4">
-                    <div className="w-8 h-8 rounded-full bg-teal-50 border border-teal-100 flex items-center justify-center">
-                      <svg className="w-4 h-4 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <div className="absolute inset-0 backdrop-blur-sm flex flex-col items-center justify-center gap-2 p-4" style={{ background: 'rgba(8,12,20,0.85)' }}>
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'rgba(45,212,191,0.08)', border: '1px solid rgba(45,212,191,0.2)' }}>
+                      <svg className="w-4 h-4" style={{ color: '#2DD4BF' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                       </svg>
                     </div>
-                    <p className="text-xs font-semibold text-slate-800 text-center">Full protocol locked</p>
-                    <p className="text-xs text-slate-500 text-center">Enter your email to unlock the complete clinical report.</p>
+                    <p className="text-xs font-semibold text-white text-center">Full protocol locked</p>
+                    <p className="text-xs text-slate-400 text-center">Enter your email to unlock the complete clinical report.</p>
                   </div>
                 </div>
 
@@ -870,7 +870,7 @@ export default function HomePage() {
                     </a>
                   </div>
                 ) : !submitted ? (
-                  <div className="flex flex-col gap-3 bg-slate-900 rounded-2xl p-5">
+                  <div className="flex flex-col gap-3 rounded-2xl p-5" style={{ background: '#0D1421' }}>
                     <div>
                       <p className="text-sm font-semibold text-white">
                         Unlock your full MyoGuard Protocol
@@ -921,7 +921,7 @@ export default function HomePage() {
                         Create free account instead →
                       </a>
                       <span className="text-slate-600 text-xs">·</span>
-                      <span className="text-xs text-slate-500">No spam. Unsubscribe anytime.</span>
+                      <span className="text-xs text-slate-400">No spam. Unsubscribe anytime.</span>
                     </div>
                   </div>
                 ) : (
@@ -957,7 +957,7 @@ export default function HomePage() {
       </section>
 
       {/* How MyoGuard Helps — features moved below fold */}
-      <section className="border-t border-slate-100 py-10">
+      <section className="border-t border-[#1A2744] py-10">
         <div className="max-w-6xl mx-auto px-6">
           <p className="text-xs text-slate-400 uppercase tracking-widest font-medium mb-6 text-center">
             How MyoGuard Helps
@@ -986,9 +986,9 @@ export default function HomePage() {
                   <div className="w-4 h-4 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0">
                     <div className="w-2 h-2 rounded-full bg-teal-600" />
                   </div>
-                  <p className="text-sm font-semibold text-slate-700">{item.title}</p>
+                  <p className="text-sm font-semibold text-slate-200">{item.title}</p>
                 </div>
-                <p className="text-xs text-slate-500 leading-relaxed pl-6">{item.desc}</p>
+                <p className="text-xs text-slate-400 leading-relaxed pl-6">{item.desc}</p>
               </div>
             ))}
           </div>
