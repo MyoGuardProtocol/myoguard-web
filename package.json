@@ -16,7 +16,8 @@
     "test:css": "node tests/otp-css-audit.mjs",
     "preflight": "node scripts/preflight.mjs",
     "preflight:strict": "node scripts/preflight.mjs --strict",
-    "preflight:ci": "node scripts/preflight.mjs --ci"
+    "preflight:ci": "node scripts/preflight.mjs --ci",
+    "smoke": "node scripts/smoke-routes.mjs"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.12.12",

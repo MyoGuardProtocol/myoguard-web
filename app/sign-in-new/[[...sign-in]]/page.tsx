@@ -29,7 +29,7 @@ export default function SignInPage() {
           <p className="text-xs text-slate-400">Physician registration includes credential review.</p>
         </div>
         <a
-          href="/sign-up/physician"
+          href="/doctor/sign-up"
           className="text-xs bg-teal-400 text-[#080C14] px-3 py-1.5 rounded-full font-semibold whitespace-nowrap"
         >
           Register your practice →

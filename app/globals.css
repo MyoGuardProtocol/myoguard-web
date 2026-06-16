@@ -479,6 +479,63 @@ textarea:-webkit-autofill:active {
 
 }
 
+/* ─── Dark form inputs (.form-dark) ─────────────────────────────────────────
+   The iOS input fix above forces white backgrounds on all non-Clerk inputs to
+   prevent WebKit dark-mode auto-styling on patient-facing light forms.
+   Physician-facing forms that intentionally use dark input surfaces (Midnight
+   Silk palette) wrap their outer container with .form-dark to opt out.
+
+   Specificity rationale:
+     .form-dark input[type="text"]:not([class*="cl-"]) = (0,3,1)
+     beats the global rule input[type="text"]:not([class*="cl-"]) = (0,2,1) ✓
+     .form-dark input:not([class*="cl-"]) = (0,2,1) ties global (0,2,1) —
+     wins on source order because this block appears after the global rule ✓
+   ─────────────────────────────────────────────────────────────────────────── */
+.form-dark input:not([class*="cl-"]),
+.form-dark input[type="text"]:not([class*="cl-"]),
+.form-dark input[type="number"]:not([class*="cl-"]),
+.form-dark input[type="email"]:not([class*="cl-"]),
+.form-dark input[type="tel"]:not([class*="cl-"]),
+.form-dark input[type="password"]:not([class*="cl-"]),
+.form-dark input[type="search"]:not([class*="cl-"]),
+.form-dark input[type="url"]:not([class*="cl-"]),
+.form-dark select:not([class*="cl-"]),
+.form-dark textarea:not([class*="cl-"]) {
+  background-color: #1e293b !important; /* slate-800 — Midnight Silk input surface */
+  color:            #f1f5f9 !important; /* slate-100 */
+  -webkit-text-fill-color: #f1f5f9 !important;
+}
+
+.form-dark input:not([class*="cl-"])::placeholder,
+.form-dark textarea:not([class*="cl-"])::placeholder {
+  color:                   #64748b !important; /* slate-500 */
+  -webkit-text-fill-color: #64748b !important;
+  opacity: 1;
+}
+
+.form-dark input:-webkit-autofill,
+.form-dark input:-webkit-autofill:hover,
+.form-dark input:-webkit-autofill:focus,
+.form-dark input:-webkit-autofill:active {
+  -webkit-box-shadow:      0 0 0px 1000px #1e293b inset !important;
+  -webkit-text-fill-color: #f1f5f9 !important;
+  caret-color:             #2dd4bf;
+  transition:              background-color 5000s ease-in-out 0s;
+}
+
+@media (max-width: 768px) {
+  .form-dark input:not([class*="cl-"]),
+  .form-dark input[type="text"]:not([class*="cl-"]),
+  .form-dark input[type="number"]:not([class*="cl-"]),
+  .form-dark input[type="email"]:not([class*="cl-"]),
+  .form-dark input[type="tel"]:not([class*="cl-"]),
+  .form-dark input[type="password"]:not([class*="cl-"]),
+  .form-dark select:not([class*="cl-"]),
+  .form-dark textarea:not([class*="cl-"]) {
+    font-size: 16px !important; /* prevent iOS auto-zoom */
+  }
+}
+
 /* ─── Physician Report — print optimisation ─────────────────────────────────
    Ensures coloured elements (risk badges, score bars) reproduce correctly
    when the user prints or saves as PDF from any browser.

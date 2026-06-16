@@ -291,7 +291,7 @@ export default function PhysicianSignUpPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-12" style={{ background: '#080C14' }}>
+    <div className="form-dark min-h-screen flex items-center justify-center px-4 py-12" style={{ background: '#080C14' }}>
       <div className="w-full max-w-lg">
 
         {/* Logo + badge */}

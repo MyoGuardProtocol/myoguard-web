@@ -79,16 +79,29 @@ const COUNTRIES = [
 type NpiStatus = "idle" | "loading" | "verified" | "not_found";
 
 export default function OnboardingForm() {
-  const { user } = useUser();
+  const { user, isLoaded } = useUser();
   const router = useRouter();
   const [form, setForm] = useState({
-    country: "", specialty: "", npi: "", license: "",
+    fullName: "",
+    country: "",
+    specialty: "",
+    npi: "",
+    license: "",
   });
   const [internationalProvider, setInternationalProvider] = useState(false);
   const [npiStatus, setNpiStatus] = useState<NpiStatus>("idle");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const npiLookupRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Pre-fill full name from Clerk when it becomes available.
+  // Non-blocking — form renders immediately; name fills in when Clerk hydrates.
+  // Does not overwrite if the physician has already started typing.
+  useEffect(() => {
+    if (isLoaded && user?.fullName && !form.fullName) {
+      setForm(prev => ({ ...prev, fullName: user.fullName! }));
+    }
+  }, [isLoaded, user?.fullName]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // NPPES auto-lookup when NPI reaches 10 digits
   useEffect(() => {
@@ -138,7 +151,6 @@ export default function OnboardingForm() {
   ) {
     const { name, value } = e.target;
     if (name === "npi") {
-      // Digits only, max 10
       const digits = value.replace(/\D/g, "").slice(0, 10);
       setForm((prev) => ({ ...prev, npi: digits }));
       if (digits.length < 10) setNpiStatus("idle");
@@ -149,10 +161,16 @@ export default function OnboardingForm() {
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+
+    if (!form.fullName.trim() || form.fullName.trim().length < 2) {
+      setError("Full name is required.");
+      return;
+    }
     if (!form.country || !form.specialty) {
       setError("Please complete all required fields.");
       return;
     }
+
     setError("");
     setLoading(true);
     try {
@@ -160,12 +178,12 @@ export default function OnboardingForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          fullName: user?.fullName ?? "",
-          email: user?.primaryEmailAddress?.emailAddress ?? "",
-          country: form.country,
-          specialty: form.specialty,
-          npiNumber: !internationalProvider && form.npi ? form.npi : undefined,
-          licenseNumber: internationalProvider && form.license ? form.license : undefined,
+          fullName:      form.fullName.trim(),
+          email:         user?.primaryEmailAddress?.emailAddress ?? "",
+          country:       form.country,
+          specialty:     form.specialty,
+          npiNumber:     !internationalProvider && form.npi     ? form.npi     : undefined,
+          licenseNumber: internationalProvider  && form.license ? form.license : undefined,
         }),
       });
       if (!res.ok) throw new Error("Submission failed");
@@ -178,204 +196,264 @@ export default function OnboardingForm() {
     }
   }
 
+  const inputCls = "bg-slate-800 border border-slate-600 rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-colors";
+
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center px-4 py-12">
+    <div
+      className="form-dark min-h-screen flex items-center justify-center px-4 py-12"
+      style={{ background: '#080C14' }}
+    >
       <div className="max-w-md w-full flex flex-col gap-6">
 
-        <div className="text-center flex flex-col gap-2">
-          <div className="flex items-center justify-center gap-1 mb-2">
-            <span className="text-xl font-bold text-slate-900">Myo</span>
-            <span className="text-xl font-bold text-teal-600">Guard</span>
+        {/* Logo + badge */}
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex items-center gap-0">
+            <span style={{ fontSize: '22px', fontWeight: 900, letterSpacing: '-0.03em', color: '#F8FAFC' }}>Myo</span>
+            <span style={{ fontSize: '22px', fontWeight: 900, letterSpacing: '-0.03em', color: '#2DD4BF' }}>Guard</span>
+            <span style={{ color: '#475569', fontWeight: 300, fontSize: '13px', marginLeft: '4px' }}>Protocol</span>
           </div>
-          <div className="inline-flex items-center justify-center gap-2 bg-slate-900 text-teal-400 text-xs font-medium px-4 py-1.5 rounded-full mx-auto border border-slate-700">
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: '6px',
+            background: 'rgba(45,212,191,0.08)', border: '1px solid rgba(45,212,191,0.2)',
+            color: '#2DD4BF', fontSize: '11px', fontWeight: 600,
+            padding: '4px 12px', borderRadius: '99px', letterSpacing: '0.08em', textTransform: 'uppercase',
+          }}>
             Physician Registration
-          </div>
-          <h1 className="text-xl font-semibold text-slate-900 mt-1">Clinical team access</h1>
-          <p className="text-sm text-slate-500">
-            MyoGuard is a credentialed clinical platform. All physician accounts are individually reviewed before activation.
-          </p>
+          </span>
         </div>
 
-        <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex gap-3 items-start">
-          <div className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-            <svg className="w-3 h-3 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        {/* Info banner */}
+        <div style={{
+          background: 'rgba(45,212,191,0.06)',
+          border: '1px solid rgba(45,212,191,0.18)',
+          borderRadius: '12px',
+          padding: '14px 16px',
+          display: 'flex',
+          gap: '12px',
+          alignItems: 'flex-start',
+        }}>
+          <div style={{
+            width: '20px', height: '20px', borderRadius: '50%', flexShrink: 0, marginTop: '1px',
+            background: 'rgba(45,212,191,0.12)', border: '1px solid rgba(45,212,191,0.2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="#2DD4BF" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
           <div>
-            <p className="text-xs font-semibold text-blue-700 mb-0.5">Credentialed access only</p>
-            <p className="text-xs text-blue-600 leading-relaxed">
-              Account pending. Our clinical team reviews all credentials within <strong>24 hours</strong> before activation.
+            <p style={{ fontSize: '11px', fontWeight: 700, color: '#2DD4BF', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>
+              Credentialed access only
+            </p>
+            <p style={{ fontSize: '12px', color: '#64748B', lineHeight: '1.6', margin: 0 }}>
+              All physician accounts are individually reviewed within <strong style={{ color: '#94A3B8' }}>24 hours</strong> before activation.
             </p>
           </div>
         </div>
 
-        <form
-          onSubmit={handleSubmit}
-          className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 flex flex-col gap-5"
-        >
-          {/* Name — read-only from Clerk session */}
-          <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium text-slate-700">Full name</span>
-            <div className="border border-slate-100 rounded-lg px-3 py-2.5 text-sm text-slate-500 bg-slate-50">
-              {user?.fullName ?? "Loading…"}
-            </div>
+        {/* Card */}
+        <div className="rounded-2xl p-8" style={{ background: '#0D1421', border: '1px solid #1A2744' }}>
+          <div className="mb-6">
+            <h1 style={{ fontFamily: 'Georgia, serif', fontSize: '20px', fontWeight: 400, color: '#F1F5F9', marginBottom: '6px' }}>
+              Physician Credential Registration
+            </h1>
+            <p style={{ fontSize: '13px', color: '#64748B', lineHeight: '1.6' }}>
+              Complete your credentials below to submit for clinical review.
+              MyoGuard Protocol is a Clinical Decision Support (CDS) platform.
+              All clinical decisions remain with the treating physician.
+            </p>
           </div>
 
-          <label className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium text-slate-700">
-              Country <span className="text-red-500">*</span>
-            </span>
-            <select
-              name="country"
-              value={form.country}
-              onChange={handleChange}
-              required
-              className="border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
-            >
-              <option value="">Select country</option>
-              {COUNTRIES.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </label>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
 
-          {/* NPI field — hidden when internationalProvider is ON */}
-          {!internationalProvider && (
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-slate-700">
-                  NPI number{" "}
-                  <span className="text-slate-400 font-normal">(optional — US physicians)</span>
-                </span>
-                {npiStatus === "verified" && (
-                  <span className="text-xs font-semibold text-emerald-600 flex items-center gap-1">
-                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                    Verified via NPPES
-                  </span>
-                )}
-                {npiStatus === "not_found" && (
-                  <span className="text-xs font-semibold text-red-500">NPI not found</span>
-                )}
-                {npiStatus === "loading" && (
-                  <span className="text-xs text-slate-400">Looking up…</span>
-                )}
-              </div>
-              <input
-                name="npi"
-                type="text"
-                inputMode="numeric"
-                placeholder="10-digit NPI number"
-                value={form.npi}
-                onChange={handleChange}
-                maxLength={10}
-                className={`border rounded-lg px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 transition-colors ${
-                  npiStatus === "verified"
-                    ? "border-emerald-300 focus:ring-emerald-400 bg-emerald-50"
-                    : npiStatus === "not_found"
-                    ? "border-red-300 focus:ring-red-400"
-                    : "border-slate-200 focus:ring-teal-500"
-                }`}
-              />
-            </div>
-          )}
-
-          {/* International Provider toggle */}
-          <div className="flex items-center justify-between py-1">
-            <div>
-              <p className="text-xs font-medium text-slate-700">International provider</p>
-              <p className="text-xs text-slate-400 mt-0.5">Outside the US — use licence number instead of NPI</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setInternationalProvider((v) => !v);
-                setNpiStatus("idle");
-                setForm((prev) => ({ ...prev, npi: "" }));
-              }}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
-                internationalProvider ? "bg-teal-600" : "bg-slate-200"
-              }`}
-              aria-pressed={internationalProvider}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                  internationalProvider ? "translate-x-6" : "translate-x-1"
-                }`}
-              />
-            </button>
-          </div>
-
-          {/* Licence number — shown when internationalProvider is ON */}
-          {internationalProvider && (
+            {/* Full name — editable; pre-fills from Clerk when available */}
             <label className="flex flex-col gap-1.5">
-              <span className="text-xs font-medium text-slate-700">
-                National licence number{" "}
-                <span className="text-slate-400 font-normal">(optional)</span>
+              <span className="text-xs font-medium text-slate-300">
+                Full name <span className="text-red-400">*</span>
               </span>
               <input
-                name="license"
+                name="fullName"
                 type="text"
-                placeholder="e.g. TT-MED-12345"
-                value={form.license}
+                placeholder="Dr. Jane Smith"
+                value={form.fullName}
                 onChange={handleChange}
-                className="border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                required
+                autoComplete="name"
+                className={inputCls}
               />
             </label>
-          )}
 
-          {/* Specialty — text input with datalist for NPPES auto-fill */}
-          <label className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium text-slate-700">
-              Specialty <span className="text-red-500">*</span>
-            </span>
-            <input
-              name="specialty"
-              type="text"
-              list="specialty-suggestions"
-              placeholder="e.g. Internal Medicine"
-              value={form.specialty}
-              onChange={handleChange}
-              required
-              className="border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
-            />
-            <datalist id="specialty-suggestions">
-              {SPECIALTY_SUGGESTIONS.map((s) => (
-                <option key={s} value={s} />
-              ))}
-            </datalist>
-            {npiStatus === "verified" && (
-              <p className="text-xs text-emerald-600">Auto-filled from NPI registry</p>
+            {/* Country */}
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs font-medium text-slate-300">
+                Country <span className="text-red-400">*</span>
+              </span>
+              <select
+                name="country"
+                value={form.country}
+                onChange={handleChange}
+                required
+                className={inputCls}
+              >
+                <option value="">Select country</option>
+                {COUNTRIES.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </label>
+
+            {/* International provider toggle */}
+            <div className="flex items-center justify-between py-1">
+              <div>
+                <p className="text-xs font-medium text-slate-300">International provider</p>
+                <p className="text-xs text-slate-500 mt-0.5">Outside the US — use licence number instead of NPI</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setInternationalProvider((v) => !v);
+                  setNpiStatus("idle");
+                  setForm((prev) => ({ ...prev, npi: "" }));
+                }}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none flex-shrink-0 ${
+                  internationalProvider ? "bg-teal-600" : "bg-slate-600"
+                }`}
+                aria-pressed={internationalProvider}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                    internationalProvider ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* NPI — shown when not international */}
+            {!internationalProvider && (
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-slate-300">
+                    NPI number <span className="text-slate-500 font-normal">(optional — US physicians)</span>
+                  </span>
+                  {npiStatus === "verified" && (
+                    <span className="text-xs font-semibold text-emerald-400 flex items-center gap-1">
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      Verified via NPPES
+                    </span>
+                  )}
+                  {npiStatus === "not_found" && (
+                    <span className="text-xs font-semibold text-red-400">NPI not found</span>
+                  )}
+                  {npiStatus === "loading" && (
+                    <span className="text-xs text-slate-400">Looking up…</span>
+                  )}
+                </div>
+                <input
+                  name="npi"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="10-digit NPI number"
+                  value={form.npi}
+                  onChange={handleChange}
+                  maxLength={10}
+                  className={`${inputCls} ${
+                    npiStatus === "verified"
+                      ? "!border-emerald-500 !bg-emerald-950"
+                      : npiStatus === "not_found"
+                      ? "!border-red-500"
+                      : ""
+                  }`}
+                />
+              </div>
             )}
-          </label>
 
-          {error && (
-            <p className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
-              {error}
-            </p>
-          )}
+            {/* Licence number — shown when international */}
+            {internationalProvider && (
+              <label className="flex flex-col gap-1.5">
+                <span className="text-xs font-medium text-slate-300">
+                  National licence number <span className="text-slate-500 font-normal">(optional)</span>
+                </span>
+                <input
+                  name="license"
+                  type="text"
+                  placeholder="e.g. TT-MED-12345"
+                  value={form.license}
+                  onChange={handleChange}
+                  className={inputCls}
+                />
+              </label>
+            )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-teal-600 text-white py-3 rounded-xl text-sm font-medium hover:bg-teal-700 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? "Submitting…" : "Submit for clinical review"}
-          </button>
+            {/* Specialty */}
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs font-medium text-slate-300">
+                Specialty <span className="text-red-400">*</span>
+              </span>
+              <input
+                name="specialty"
+                type="text"
+                list="specialty-suggestions"
+                placeholder="e.g. Internal Medicine"
+                value={form.specialty}
+                onChange={handleChange}
+                required
+                className={inputCls}
+              />
+              <datalist id="specialty-suggestions">
+                {SPECIALTY_SUGGESTIONS.map((s) => (
+                  <option key={s} value={s} />
+                ))}
+              </datalist>
+              {npiStatus === "verified" && (
+                <p className="text-xs text-emerald-400">Auto-filled from NPI registry</p>
+              )}
+            </label>
 
-          <p className="text-xs text-slate-400 text-center">
-            Already approved?{" "}
-            <a href="/doctor/sign-in" className="text-teal-600 hover:underline">
-              Sign in here
+            {/* Error */}
+            {error && (
+              <div className="bg-red-950 border border-red-800 rounded-lg px-4 py-3">
+                <p className="text-sm text-red-300">{error}</p>
+              </div>
+            )}
+
+            {/* Submit */}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-teal-500 hover:bg-teal-400 text-white py-3 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-1"
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Submitting…
+                </span>
+              ) : (
+                "Submit for clinical review"
+              )}
+            </button>
+
+          </form>
+
+          {/* Footer links */}
+          <div className="mt-6 pt-5 flex flex-col items-center gap-2" style={{ borderTop: '1px solid #1A2744' }}>
+            <a href="/doctor/sign-in" style={{ fontSize: '13px', color: '#64748B', textDecoration: 'none' }}>
+              Already approved? Sign in →
             </a>
-          </p>
-        </form>
+            <a href="/" style={{ fontSize: '13px', color: '#475569', textDecoration: 'none' }}>
+              Patient? Start your free assessment →
+            </a>
+          </div>
+        </div>
 
-        <p className="text-xs text-slate-400 text-center">
-          MyoGuard Clinical Oversight · © 2026 Meridian Wellness Systems LLC
+        <p style={{ fontSize: '12px', color: '#334155', textAlign: 'center' }}>
+          MyoGuard Protocol · Physician-led Clinical Decision Support
         </p>
+
       </div>
     </div>
   );
