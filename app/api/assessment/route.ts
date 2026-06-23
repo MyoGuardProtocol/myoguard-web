@@ -364,12 +364,17 @@ export async function POST(req: NextRequest) {
       return { assessment, muscleScore, protocolPlan };
     });
 
+    // Analytics governance:
+    // Do not store SRI values, risk bands,
+    // symptoms, protein inputs, weight,
+    // or any clinical assessment outputs
+    // in analytics metadata.
     // Fire-and-forget — analytics failure must never block the assessment response
     prisma.analyticsEvent.create({
       data: {
         userId:    user.id,
         eventType: 'ASSESSMENT_COMPLETE',
-        metadata:  { score: protocol.myoguardScore, band: protocol.riskBand },
+        metadata:  { eventSource: 'assessment_route', completed: true },
       },
     }).catch((err) => console.error('[analytics] ASSESSMENT_COMPLETE failed', err));
 
