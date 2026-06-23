@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { z } from 'zod';
+import posthog from 'posthog-js';
+import { isAnalyticsEnabled, AnalyticsEvents } from '@/src/lib/posthog';
 
 // ─── Symptoms list ───────────────────────────────────────────────────────────
 const SYMPTOMS = [
@@ -114,6 +116,17 @@ function daysToActivity(days: number): 'sedentary' | 'moderate' | 'active' {
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function AssessmentPage() {
   const router = useRouter();
+
+  // Never track: names, emails, SRI values,
+  // symptoms, protein inputs, weight,
+  // medical values, or any patient clinical data.
+  // Only track platform usage events.
+  const assessmentStartedRef = useRef(false);
+  useEffect(() => {
+    if (assessmentStartedRef.current || !isAnalyticsEnabled) return;
+    assessmentStartedRef.current = true;
+    posthog.capture(AnalyticsEvents.PATIENT_ASSESSMENT_STARTED, { flow: 'authenticated_assessment' });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [form, setFormState] = useState<FormData>({
     weightKg:        '',

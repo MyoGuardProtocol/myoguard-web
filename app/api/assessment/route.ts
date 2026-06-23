@@ -1,9 +1,11 @@
+import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/src/lib/prisma';
 import { calculateProtocol, type AssessmentInput, type ProtocolResult } from '@/src/lib/protocolEngine';
 import { AssessmentInputSchema } from '@/src/schemas/assessment';
+import { POSTHOG_KEY, POSTHOG_HOST, AnalyticsEvents } from '@/src/lib/posthog';
 import {
   triggerPhysicianPriorityReview,
   type LeanVelocityFlag,
@@ -377,6 +379,25 @@ export async function POST(req: NextRequest) {
         metadata:  { eventSource: 'assessment_route', completed: true },
       },
     }).catch((err) => console.error('[analytics] ASSESSMENT_COMPLETE failed', err));
+
+    // Never track: names, emails, SRI values,
+    // symptoms, protein inputs, weight,
+    // medical values, or any patient clinical data.
+    // Only track platform usage events.
+    if (POSTHOG_KEY) {
+      // distinct_id is a SHA-256 hash of the internal user ID — never send raw DB IDs
+      const distinctId = crypto.createHash('sha256').update(user.id).digest('hex');
+      void fetch(`${POSTHOG_HOST}/capture/`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          api_key:     POSTHOG_KEY,
+          event:       AnalyticsEvents.PATIENT_ASSESSMENT_COMPLETED,
+          distinct_id: distinctId,
+          properties:  { flow: 'authenticated_assessment', completed: true },
+        }),
+      }).catch(() => {});
+    }
 
     // Fire-and-forget: Physician Priority Review trigger.
     // Non-blocking — assessment persistence and response completion are already guaranteed.

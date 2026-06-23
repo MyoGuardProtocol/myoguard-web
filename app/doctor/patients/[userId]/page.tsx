@@ -6,6 +6,8 @@ import ContributingFactors, { type Factor, type ImpactLevel } from '@/src/compon
 import PhysicianNav from '@/src/components/ui/PhysicianNav';
 import PhysicianReviewPanel from '@/src/components/ui/PhysicianReviewPanel';
 import ClinicalCockpit from '@/src/components/ui/ClinicalCockpit';
+import AnalyticsMount from '@/src/components/analytics/AnalyticsMount';
+import { AnalyticsEvents } from '@/src/lib/posthog';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -273,7 +275,8 @@ export default async function PatientDetailPage({
 
   return (
     <main className="min-h-screen bg-slate-50 font-sans">
-
+      {/* Never track: names, emails, SRI values, symptoms, protein inputs, weight, medical values, or any patient clinical data. Only track platform usage events. */}
+      <AnalyticsMount event={AnalyticsEvents.PHYSICIAN_PATIENT_VIEWED} />
       <PhysicianNav activePath="/doctor/patients" displayName={displayName} />
 
       <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">

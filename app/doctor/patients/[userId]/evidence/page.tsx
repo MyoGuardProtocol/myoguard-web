@@ -31,6 +31,8 @@ import { auth }               from '@clerk/nextjs/server';
 import { redirect, notFound } from 'next/navigation';
 import Link                   from 'next/link';
 import { prisma }                        from '@/src/lib/prisma';
+import AnalyticsMount from '@/src/components/analytics/AnalyticsMount';
+import { AnalyticsEvents } from '@/src/lib/posthog';
 import { generateClinicalEvidenceRecord } from '@/src/lib/evidence/evidencePacket';
 import { generatePhysicianReviewSummary } from '@/src/lib/evidence/physicianReviewSummary';
 import PhysicianNav                        from '@/src/components/ui/PhysicianNav';
@@ -232,7 +234,8 @@ export default async function PatientEvidencePage({
   // ── Page render ────────────────────────────────────────────────────────
   return (
     <main style={{ minHeight: '100vh', background: '#080C14' }}>
-
+      {/* Never track: names, emails, SRI values, symptoms, protein inputs, weight, medical values, or any patient clinical data. Only track platform usage events. */}
+      <AnalyticsMount event={AnalyticsEvents.PHYSICIAN_EVIDENCE_VIEWED} />
       <PhysicianNav activePath="/doctor/patients" displayName={displayName} />
 
       <div style={{ maxWidth: '720px', margin: '0 auto', padding: '32px 24px' }}>

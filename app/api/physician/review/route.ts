@@ -1,9 +1,11 @@
 export const dynamic = 'force-dynamic';
 
+import crypto from 'crypto';
 import { auth } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/src/lib/prisma';
+import { POSTHOG_KEY, POSTHOG_HOST, AnalyticsEvents } from '@/src/lib/posthog';
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
@@ -100,6 +102,25 @@ export async function POST(req: NextRequest) {
         reviewedAt:    new Date(),
       },
     });
+
+    // Never track: names, emails, SRI values,
+    // symptoms, protein inputs, weight,
+    // medical values, or any patient clinical data.
+    // Only track platform usage events.
+    if (POSTHOG_KEY) {
+      // distinct_id is a SHA-256 hash of the physician's internal ID — never send raw DB IDs
+      const distinctId = crypto.createHash('sha256').update(physician.id).digest('hex');
+      void fetch(`${POSTHOG_HOST}/capture/`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          api_key:     POSTHOG_KEY,
+          event:       AnalyticsEvents.PHYSICIAN_SRI_REVIEWED,
+          distinct_id: distinctId,
+          properties:  { flow: 'physician_review', completed: true },
+        }),
+      }).catch(() => {});
+    }
 
     return NextResponse.json({ success: true, reviewId: review.id });
   } catch (err) {

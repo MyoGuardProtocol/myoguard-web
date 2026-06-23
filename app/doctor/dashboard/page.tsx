@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { SignOutButton } from '@clerk/nextjs';
 import PhysicianAvatar    from '@/src/components/ui/PhysicianAvatar';
 import PhysicianNavLinks  from '@/src/components/doctor/PhysicianNavLinks';
+import AnalyticsMount from '@/src/components/analytics/AnalyticsMount';
+import { AnalyticsEvents } from '@/src/lib/posthog';
 import {
   computePhysicianScopedIntelligence,
 } from '@/src/lib/insights/physician-scoped';
@@ -205,6 +207,8 @@ export default async function DoctorDashboardPage() {
 
       {user.role === 'PHYSICIAN' && (
         <div style={{ maxWidth: '720px', margin: '0 auto', padding: '48px 24px' }}>
+          {/* Never track: names, emails, SRI values, symptoms, protein inputs, weight, medical values, or any patient clinical data. Only track platform usage events. */}
+          <AnalyticsMount event={AnalyticsEvents.DOCTOR_DASHBOARD_OPENED} />
           <div style={{ marginBottom: '40px' }}>
             <h1 style={{
               fontFamily: 'Georgia, serif',

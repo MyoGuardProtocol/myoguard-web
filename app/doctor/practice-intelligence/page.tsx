@@ -4,6 +4,8 @@ import { prisma } from '@/src/lib/prisma';
 import Link             from 'next/link';
 import PhysicianAvatar   from '@/src/components/ui/PhysicianAvatar';
 import PhysicianNavLinks from '@/src/components/doctor/PhysicianNavLinks';
+import AnalyticsMount from '@/src/components/analytics/AnalyticsMount';
+import { AnalyticsEvents } from '@/src/lib/posthog';
 
 /**
  * /doctor/practice-intelligence — Physician knowledge and practice intelligence destination.
@@ -53,6 +55,8 @@ export default async function PracticeIntelligencePage() {
       minHeight:   '100vh',
       fontFamily:  "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     }}>
+      {/* Never track: names, emails, SRI values, symptoms, protein inputs, weight, medical values, or any patient clinical data. Only track platform usage events. */}
+      <AnalyticsMount event={AnalyticsEvents.PRACTICE_INTELLIGENCE_OPENED} />
 
       {/* ── Sticky nav ─────────────────────────────────────────────────────── */}
       <header style={{

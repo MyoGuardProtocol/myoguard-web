@@ -1,7 +1,9 @@
+import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin }              from '@/src/lib/requireAdmin';
 import { prisma }                    from '@/src/lib/prisma';
 import { z }                         from 'zod';
+import { POSTHOG_KEY, POSTHOG_HOST, AnalyticsEvents } from '@/src/lib/posthog';
 
 /**
  * Generates a unique human-readable physician referral code.
@@ -146,6 +148,25 @@ export async function POST(req: NextRequest) {
         metadata:   { slug: derivedSlug, referralCode, previousRole: 'PHYSICIAN_PENDING' },
       },
     });
+
+    // Never track: names, emails, SRI values,
+    // symptoms, protein inputs, weight,
+    // medical values, or any patient clinical data.
+    // Only track platform usage events.
+    if (POSTHOG_KEY) {
+      // distinct_id is a SHA-256 hash of the promoted user's internal ID — never send raw DB IDs
+      const distinctId = crypto.createHash('sha256').update(userId).digest('hex');
+      void fetch(`${POSTHOG_HOST}/capture/`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          api_key:     POSTHOG_KEY,
+          event:       AnalyticsEvents.DOCTOR_SIGNUP_COMPLETED,
+          distinct_id: distinctId,
+          properties:  { flow: 'physician_approval', completed: true },
+        }),
+      }).catch(() => {});
+    }
 
     return NextResponse.json({ ok: true, slug: derivedSlug, referralCode });
   } catch (err) {

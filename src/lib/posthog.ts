@@ -13,6 +13,11 @@ export const isAnalyticsEnabled =
   (process.env.NODE_ENV === 'production' ||
     process.env.NEXT_PUBLIC_POSTHOG_ENABLED === 'true');
 
+// Never track: names, emails, SRI values,
+// symptoms, protein inputs, weight,
+// medical values, or any patient clinical data.
+// Only track platform usage events.
+
 /**
  * Centralised event name registry.
  * Changing a string here propagates everywhere automatically.
@@ -31,6 +36,16 @@ export const AnalyticsEvents = {
   REPORT_VIEWED:                   'report_viewed',
   REFERRAL_LINK_OPENED:            'referral_link_opened',
   QR_REFERRAL_OPENED:              'qr_referral_opened',
+  PATIENT_ASSESSMENT_STARTED:      'patient_assessment_started',
+  EMAIL_CAPTURE_SUBMITTED:         'email_capture_submitted',
+  DOCTOR_SIGNUP_STARTED:           'doctor_signup_started',
+  PHYSICIAN_PATIENT_VIEWED:        'physician_patient_viewed',
+  PHYSICIAN_EVIDENCE_VIEWED:       'physician_evidence_viewed',
+  PATIENT_ASSESSMENT_COMPLETED:    'patient_assessment_completed',
+  DOCTOR_SIGNUP_COMPLETED:         'doctor_signup_completed',
+  PHYSICIAN_SRI_REVIEWED:          'physician_sri_reviewed',
+  DOCTOR_DASHBOARD_OPENED:         'doctor_dashboard_opened',
+  PRACTICE_INTELLIGENCE_OPENED:    'practice_intelligence_opened',
 } as const;
 
 export type AnalyticsEvent = (typeof AnalyticsEvents)[keyof typeof AnalyticsEvents];

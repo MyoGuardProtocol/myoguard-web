@@ -120,6 +120,10 @@ export default function HomePage() {
   const [submitted, setSubmitted] = useState(false);
   const [formError, setFormError] = useState("");
 
+  // Never track: names, emails, SRI values,
+  // symptoms, protein inputs, weight,
+  // medical values, or any patient clinical data.
+  // Only track platform usage events.
   useEffect(() => {
     if (isAnalyticsEnabled) posthog.capture(AnalyticsEvents.LANDING_PAGE_VIEWED);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -206,6 +210,7 @@ export default function HomePage() {
       });
       if (res.ok) {
         setSubmitted(true);
+        if (isAnalyticsEnabled) posthog.capture(AnalyticsEvents.EMAIL_CAPTURE_SUBMITTED, { source: 'landing_results_gate' });
       } else {
         setFormError("Failed to send. Please try again.");
       }

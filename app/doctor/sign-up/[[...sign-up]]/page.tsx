@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useAuth, useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import PhysicianBoundary from "@/src/components/ui/PhysicianBoundary";
+import posthog from "posthog-js";
+import { isAnalyticsEnabled, AnalyticsEvents } from "@/src/lib/posthog";
 
 const SPECIALTIES = [
   "Internal Medicine",
@@ -132,6 +134,7 @@ export default function PhysicianSignUpPage() {
   const [loading, setLoading]                              = useState(false);
   const [error, setError]                                  = useState("");
   const npiLookupRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const doctorSignupAnalyticsRef = useRef(false);
 
   // Pre-fill email from Clerk session — only for non-patient pre-auth sessions
   useEffect(() => {
@@ -176,6 +179,18 @@ export default function PhysicianSignUpPage() {
       if (npiLookupRef.current) clearTimeout(npiLookupRef.current);
     };
   }, [form.npi, internationalProvider]);
+
+  // Never track: names, emails, SRI values,
+  // symptoms, protein inputs, weight,
+  // medical values, or any patient clinical data.
+  // Only track platform usage events.
+  useEffect(() => {
+    if (doctorSignupAnalyticsRef.current || !isAnalyticsEnabled) return;
+    if (!clerkLoaded || (userId && sessionRole === undefined)) return;
+    if (isPatientSession) return;
+    doctorSignupAnalyticsRef.current = true;
+    posthog.capture(AnalyticsEvents.DOCTOR_SIGNUP_STARTED, { flow: 'physician_registration' });
+  }, [clerkLoaded, userId, sessionRole, isPatientSession]);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     const { name, value } = e.target;
