@@ -38,6 +38,7 @@ import { generatePhysicianReviewSummary } from '@/src/lib/evidence/physicianRevi
 import PhysicianNav                        from '@/src/components/ui/PhysicianNav';
 import PhysicianReviewSummaryCollapsible   from '@/src/components/doctor/evidence/PhysicianReviewSummaryCollapsible';
 import DocumentationTimelineToggle         from '@/src/components/doctor/evidence/DocumentationTimelineToggle';
+import ExportPanel                         from '@/src/components/doctor/evidence/ExportPanel';
 
 // ─── Readiness label map ──────────────────────────────────────────────────────
 //
@@ -284,6 +285,9 @@ export default async function PatientEvidencePage({
             {patientName} · {windowLabel} · Generated {generatedAt}
           </p>
         </div>
+
+        {/* ── Export panel — below header, above Documentation Status ─────── */}
+        <ExportPanel packet={record} />
 
         {/* ──────────────────────────────────────────────────────────────── */}
         {/* EVIDENCE SUMMARY BAR                                            */}

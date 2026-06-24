@@ -46,6 +46,10 @@ export const AnalyticsEvents = {
   PHYSICIAN_SRI_REVIEWED:          'physician_sri_reviewed',
   DOCTOR_DASHBOARD_OPENED:         'doctor_dashboard_opened',
   PRACTICE_INTELLIGENCE_OPENED:    'practice_intelligence_opened',
+  PHYSICIAN_SUMMARY_COPIED:        'physician_summary_copied',
+  SOAP_NOTE_COPIED:                'soap_note_copied',
+  TIMELINE_COPIED:                 'timeline_copied',
+  EVIDENCE_PRINTED:                'evidence_printed',
 } as const;
 
 export type AnalyticsEvent = (typeof AnalyticsEvents)[keyof typeof AnalyticsEvents];
