@@ -94,7 +94,10 @@ export default function RootLayout({
             padding: "0",
             boxSizing: "border-box",
             borderRadius: "8px",
-            border: "1px solid #cbd5e1",
+            background: "#060D1E",
+            border: "1px solid #1A2744",
+            color: "#F1F5F9",
+            caretColor: "#2DD4BF",
           },
           otpCodeFieldInputs: {
             gap: "8px",

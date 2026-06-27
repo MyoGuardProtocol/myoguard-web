@@ -379,6 +379,15 @@ textarea:not([class*="cl-"])::placeholder {
   }
 }
 
+/* ─── Clerk OTP — Midnight Silk focus state ──────────────────────────────── */
+.cl-otpCodeFieldInput:focus,
+.cl-otpCodeField input:focus,
+.cl-otpCodeFieldInputs input:focus {
+  border-color: #2DD4BF !important;
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.20) !important;
+}
+
 /* ─── Autofill override ─────────────────────────────────────────────────────
    iOS Safari and Chrome replace the background with a coloured tint when
    autofill activates. The inset box-shadow trick is the only cross-browser

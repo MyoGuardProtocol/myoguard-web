@@ -4,6 +4,7 @@ import { prisma } from '@/src/lib/prisma';
 import { SignIn } from '@clerk/nextjs';
 import Link from 'next/link';
 import PhysicianBoundary from '@/src/components/ui/PhysicianBoundary';
+import OtpFocusHelper from '@/src/components/auth/OtpFocusHelper';
 
 /**
  * /doctor/sign-in — Physician-specific sign-in surface.
@@ -105,6 +106,7 @@ export default async function PhysicianSignInPage({
     >
       {/* Client-side safeguard for PATIENT sessions that slip past server routing */}
       <PhysicianBoundary redirectTo={signInDest} />
+      <OtpFocusHelper />
 
       {/* Logo */}
       <div style={{ marginBottom: '32px', textAlign: 'center' }}>

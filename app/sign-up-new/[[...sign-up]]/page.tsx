@@ -1,4 +1,5 @@
 import { SignUp } from '@clerk/nextjs';
+import OtpFocusHelper from '@/src/components/auth/OtpFocusHelper';
 
 export default function SignUpPage() {
   return (
@@ -36,13 +37,15 @@ export default function SignUpPage() {
         </a>
       </div>
 
+      <OtpFocusHelper />
+
       <SignUp
         signInUrl="/sign-in-new"
         fallbackRedirectUrl="/dashboard"
         appearance={{
           variables: {
             colorBackground: "#0D1421",
-            colorInputBackground: "#0D1421",
+            colorInputBackground: "#060D1E",
             colorInputText: "#F1F5F9",
             colorText: "#F1F5F9",
             colorTextSecondary: "#94A3B8",
@@ -62,6 +65,12 @@ export default function SignUpPage() {
             },
             footerActionLink: {
               color: "#2DD4BF",
+            },
+            otpCodeFieldInput: {
+              background: "#060D1E",
+              border: "1px solid #1A2744",
+              color: "#F1F5F9",
+              caretColor: "#2DD4BF",
             },
           },
         }}

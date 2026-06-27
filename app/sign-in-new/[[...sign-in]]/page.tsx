@@ -1,4 +1,5 @@
 import { SignIn } from '@clerk/nextjs';
+import OtpFocusHelper from '@/src/components/auth/OtpFocusHelper';
 
 export default function SignInPage() {
   return (
@@ -16,10 +17,10 @@ export default function SignInPage() {
           </div>
         </a>
         <p className="text-base font-semibold text-slate-100">
-          Welcome back to MyoGuard Protocol
+          Continue to MyoGuard
         </p>
         <p className="text-sm text-slate-400">
-          Secure access to your SRI dashboard and muscle protection pathway.
+          Secure access to your MyoGuard account.
         </p>
       </div>
 
@@ -36,13 +37,22 @@ export default function SignInPage() {
         </a>
       </div>
 
+      <p style={{ fontSize: '13px', color: '#94A3B8', margin: '0', textAlign: 'center' }}>
+        New here?{' '}
+        <a href="/sign-up-new" style={{ color: '#2DD4BF', fontWeight: 600, textDecoration: 'none' }}>
+          Create your account →
+        </a>
+      </p>
+
+      <OtpFocusHelper />
+
       <SignIn
         signUpUrl="/sign-up-new"
         fallbackRedirectUrl="/dashboard"
         appearance={{
           variables: {
             colorBackground: "#0D1421",
-            colorInputBackground: "#0D1421",
+            colorInputBackground: "#060D1E",
             colorInputText: "#F1F5F9",
             colorText: "#F1F5F9",
             colorTextSecondary: "#94A3B8",
@@ -62,6 +72,12 @@ export default function SignInPage() {
             },
             footerActionLink: {
               color: "#2DD4BF",
+            },
+            otpCodeFieldInput: {
+              background: "#060D1E",
+              border: "1px solid #1A2744",
+              color: "#F1F5F9",
+              caretColor: "#2DD4BF",
             },
           },
         }}
