@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/src/lib/prisma';
 import { POSTHOG_KEY, POSTHOG_HOST, AnalyticsEvents } from '@/src/lib/posthog';
@@ -43,6 +44,10 @@ export async function GET(
   if (POSTHOG_KEY) {
     const via = _req.nextUrl.searchParams.get('via');
     const event = via === 'qr' ? AnalyticsEvents.QR_REFERRAL_OPENED : AnalyticsEvents.REFERRAL_LINK_OPENED;
+    // doctor_id is a SHA-256 hash of the physician's internal ID — never send
+    // raw DB IDs. Referral volume stays comparable per physician because the
+    // hash is stable, but the identifier itself is not usable outside the app.
+    const doctorIdHash = crypto.createHash('sha256').update(doctor.id).digest('hex');
     void fetch(`${POSTHOG_HOST}/capture/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -50,7 +55,7 @@ export async function GET(
         api_key:     POSTHOG_KEY,
         event,
         distinct_id: 'anonymous',
-        properties:  { doctor_id: doctor.id },
+        properties:  { doctor_id: doctorIdHash },
       }),
     }).catch(() => {});
   }

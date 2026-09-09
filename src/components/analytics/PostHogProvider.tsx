@@ -4,7 +4,12 @@ import posthog from "posthog-js";
 import { PostHogProvider as PHProvider } from "posthog-js/react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useEffect } from "react";
-import { POSTHOG_KEY, POSTHOG_HOST, isAnalyticsEnabled } from "@/src/lib/posthog";
+import {
+  POSTHOG_KEY,
+  POSTHOG_HOST,
+  isAnalyticsEnabled,
+  sanitizeAnalyticsProperties,
+} from "@/src/lib/posthog";
 
 /**
  * Fires a PostHog $pageview on every client-side navigation.
@@ -45,6 +50,22 @@ export default function PostHogProvider({
       capture_pageleave: true,
       autocapture: false,        // explicit events only — no accidental PHI capture
       persistence: "localStorage+cookie",
+
+      // Anonymous-only. No posthog.identify() call exists anywhere in the app,
+      // so no person profile is ever created for a patient or physician.
+      person_profiles: "identified_only",
+
+      // Session recording is refused in code, not merely left off in the
+      // PostHog dashboard — a dashboard toggle must never be able to start
+      // recording clinical forms (/dashboard/assessment, /doctor/start-sheet)
+      // or credential fields (NPI, licence number) on a health platform.
+      disable_session_recording: true,
+      mask_all_text: true,
+      mask_all_element_attributes: true,
+
+      // Strips report share tokens and patient/assessment/physician IDs out of
+      // $current_url, $pathname and $referrer on every event. See src/lib/posthog.ts.
+      sanitize_properties: sanitizeAnalyticsProperties,
     });
   }, []);
 

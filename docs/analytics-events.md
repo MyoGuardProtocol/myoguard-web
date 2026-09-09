@@ -14,7 +14,7 @@ Analytics are **disabled in development** unless `NEXT_PUBLIC_POSTHOG_ENABLED=tr
 | No PHI | Patient names, email addresses, DOB, weight, and clinical inputs are **never** sent to PostHog |
 | No raw SRI values | SRI composite output is not transmitted. Only `risk_band` (LOW / MODERATE / HIGH) is captured on `sri_generated` |
 | No assessment payloads | Form field values from the SRI form, protocol details, and drug dosage data are excluded |
-| No identifiers in URLs | Patient IDs are never placed in event properties derived from URL parameters |
+| No identifiers in URLs | Enforced by `sanitize_properties` — see **URL Redaction** below. `$current_url`, `$pathname` and `$referrer` are rewritten to Next.js route patterns before any event leaves the browser |
 | No autocapture | PostHog `autocapture: false` — all events are explicit and reviewed |
 | Server-side only where possible | Referral events are captured via server-side PostHog HTTP API, not the browser SDK |
 
@@ -101,7 +101,7 @@ Analytics are **disabled in development** unless `NEXT_PUBLIC_POSTHOG_ENABLED=tr
 
 ### `referral_link_opened`
 - **Trigger:** `GET /invite/[doctorId]` route handler — fired server-side via PostHog HTTP API before the referral cookie is set and the redirect fires
-- **Properties:** `doctor_id` — the internal physician User.id (not PHI; no PII)
+- **Properties:** `doctor_id` — a **SHA-256 hash** of the physician's internal `User.id`. The raw database ID is never transmitted. The hash is stable, so referral volume remains comparable per physician, but the value is not usable outside the application.
 - **Business meaning:** Referral funnel — a patient followed a physician's invite link
 - **PHI exclusions:** Patient identity is unknown at this point; no patient data sent
 
@@ -109,7 +109,7 @@ Analytics are **disabled in development** unless `NEXT_PUBLIC_POSTHOG_ENABLED=tr
 
 ### `qr_referral_opened`
 - **Trigger:** Same route as `referral_link_opened` but with `?via=qr` query parameter present
-- **Properties:** `doctor_id`
+- **Properties:** `doctor_id` — SHA-256 hashed, as above
 - **Business meaning:** Referral channel attribution — distinguishes QR code scans from manual link sharing
 - **Implementation note:** Physician-generated QR codes must append `?via=qr` to the invite URL for this event to fire
 
@@ -141,3 +141,58 @@ Analytics are **disabled in development** unless `NEXT_PUBLIC_POSTHOG_ENABLED=tr
 - **Server component events** use `AnalyticsMount` — a thin `"use client"` component that fires once on mount without converting the parent server component
 - **`autocapture: false`** prevents PostHog from capturing click text, input values, or form data automatically
 - **`isAnalyticsEnabled`** guard in `src/lib/posthog.ts` ensures zero events leave the browser in development unless explicitly opted in
+- **`disable_session_recording: true`** is set in code, not merely left off in the PostHog dashboard — a dashboard toggle must never be able to start recording clinical forms or credential fields. `mask_all_text` and `mask_all_element_attributes` are set as a second layer.
+- **`person_profiles: 'identified_only'`** with no `posthog.identify()` call anywhere — no person profile is ever created for a patient or physician
+
+---
+
+## URL Redaction (Build 8C-1)
+
+MyoGuard uses dynamic routes whose segments are bearer tokens or database
+identifiers. PostHog attaches the full URL to every event as `$current_url`, and
+carries the previous page forward as `$referrer`. Without redaction, a single
+pageview would transmit a report share token or a patient ID to a third party.
+
+`sanitize_properties` — wired in `PostHogProvider.tsx`, implemented in
+`src/lib/posthog.ts` — runs against the final property bag of **every** event
+(`$pageview`, `$pageleave`, and all custom events alike). It is the single choke
+point for this class of leak.
+
+**Properties rewritten:** `$current_url`, `$initial_current_url`, `$referrer`,
+`$initial_referrer`, `$referring_domain`, `$pathname`, `$initial_pathname`.
+
+| Actual route | Transmitted as |
+|---|---|
+| `/report/<share-token>` | `/report/[token]` |
+| `/doctor/patients/<userId>` | `/doctor/patients/[userId]` |
+| `/doctor/patients/<userId>/evidence` | `/doctor/patients/[userId]/evidence` |
+| `/doctor/patients/<userId>/print` | `/doctor/patients/[userId]/print` |
+| `/doctor/patients/<userId>/results/<assessmentId>` | `/doctor/patients/[userId]/results/[assessmentId]` |
+| `/dashboard/results/<id>` | `/dashboard/results/[id]` |
+| `/doctor/start-sheet/<id>` | `/doctor/start-sheet/[id]` |
+| `/invite/<doctorId>` | `/invite/[doctorId]` |
+
+Query strings are reduced to a **minimum-necessary acquisition allowlist** —
+`utm_*`, `gclid`, `fbclid`. All other parameters and the URL fragment are
+dropped, so a future token-bearing query parameter cannot leak. A catch-all also
+rewrites any UUID-shaped or long identifier-shaped segment to `[id]`, so routes
+added after this build are covered by default.
+
+Two parameters the app itself uses are **deliberately excluded**, because
+neither has a closed, non-identifying value space:
+
+| Parameter | Why excluded |
+|---|---|
+| `ref` | The physician referral code (`/join?ref=DR-OKPALA-472`). Format is `DR-LASTNAME-NNN`, so the value **embeds a physician's surname** — a direct personal identifier. |
+| `via` | Read only as `via === 'qr'` in `app/invite/[doctorId]/route.ts`, but nothing constrains the value: any visitor can supply arbitrary text. Referral channel is already captured by the event **name** (`qr_referral_opened` vs `referral_link_opened`), so no analytic value is lost. |
+
+Adding a parameter to the allowlist requires first establishing that its value
+space is closed and non-identifying.
+
+Public content slugs are deliberately **not** redacted — `/research/muscle-preservation`
+and similar must survive intact or SEO landing-page reporting is destroyed.
+
+**Regression guard:** `npm run audit:analytics` (`scripts/analytics-url-audit.mjs`)
+asserts every row above, plus the preservation of public routes. It requires no
+PostHog key, no network, and no database. Run it before enabling analytics and
+after adding any dynamic route.

@@ -18,6 +18,151 @@ export const isAnalyticsEnabled =
 // medical values, or any patient clinical data.
 // Only track platform usage events.
 
+// ─── URL / path redaction ─────────────────────────────────────────────────────
+//
+// MyoGuard uses dynamic routes whose segments are bearer tokens or database
+// identifiers. PostHog attaches the full URL to every event as $current_url,
+// and carries the previous page forward as $referrer — so without redaction a
+// single pageview would transmit a report share token or a patient ID.
+//
+// Every analytics property that can contain a URL or path is rewritten here to
+// its literal Next.js route pattern. This is the single choke point: it applies
+// to $pageview, $pageleave, and all custom events alike.
+//
+// Side benefit: analytics reports show one row per ROUTE instead of one row per
+// patient, so "top pages" stays legible instead of exploding in cardinality.
+
+/**
+ * Non-`utm_` acquisition parameters preserved on analytics URLs.
+ * Everything not matched by `isAllowedQueryParam` is dropped.
+ *
+ * This is a minimum-necessary acquisition allowlist. Two parameters that the
+ * app does use are deliberately EXCLUDED, because neither is categorical:
+ *
+ *   ref — the physician referral code (`/join?ref=DR-OKPALA-472`). The format is
+ *         DR-LASTNAME-NNN, so the value embeds a physician's surname. It is a
+ *         direct personal identifier and must never reach analytics.
+ *
+ *   via — read only as `via === 'qr'` in app/invite/[doctorId]/route.ts, but the
+ *         value space is unconstrained: any visitor can put arbitrary text in it.
+ *         Referral channel is already captured by the event NAME
+ *         (qr_referral_opened vs referral_link_opened), so nothing is lost.
+ *
+ * Adding a parameter here requires establishing that its value space is closed
+ * and non-identifying.
+ */
+const QUERY_ALLOWLIST = new Set(['gclid', 'fbclid']);
+
+/** Campaign attribution parameters that are safe to retain. */
+function isAllowedQueryParam(key: string): boolean {
+  const k = key.toLowerCase();
+  return k.startsWith('utm_') || QUERY_ALLOWLIST.has(k);
+}
+
+/**
+ * Ordered most-specific first. The first matching rule wins, so nested routes
+ * must precede their parents — otherwise `/doctor/patients/<id>/results/<id>`
+ * would have only its first segment redacted.
+ */
+const REDACTION_RULES: ReadonlyArray<readonly [RegExp, string]> = [
+  [/^\/doctor\/patients\/[^/]+\/results\/[^/]+/, '/doctor/patients/[userId]/results/[assessmentId]'],
+  [/^\/doctor\/patients\/[^/]+\/evidence/,       '/doctor/patients/[userId]/evidence'],
+  [/^\/doctor\/patients\/[^/]+\/print/,          '/doctor/patients/[userId]/print'],
+  [/^\/doctor\/patients\/[^/]+/,                 '/doctor/patients/[userId]'],
+  [/^\/doctor\/start-sheet\/[^/]+/,              '/doctor/start-sheet/[id]'],
+  [/^\/dashboard\/results\/[^/]+/,               '/dashboard/results/[id]'],
+  [/^\/report\/[^/]+/,                           '/report/[token]'],
+  [/^\/invite\/[^/]+/,                           '/invite/[doctorId]'],
+  [/^\/api\/physician\/patients\/[^/]+/,         '/api/physician/patients/[userId]'],
+  [/^\/api\/preload\/[^/]+/,                     '/api/preload/[id]'],
+];
+
+/**
+ * Catch-all for dynamic routes added after this file was written.
+ *
+ * Matches a UUID, or any long segment containing a digit — the shape of a cuid,
+ * hex token, or nanoid. The digit requirement is what protects real content
+ * slugs: "muscle-preservation" and "protein-requirements" have none, so they
+ * survive intact and SEO landing-page reporting still works.
+ */
+const OPAQUE_SEGMENT =
+  /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|(?=[A-Za-z0-9_-]*\d)[A-Za-z0-9_-]{16,})$/i;
+
+/** Rewrites a URL path so no identifier or token survives. Never throws. */
+export function redactAnalyticsPath(pathname: string): string {
+  if (!pathname) return pathname;
+
+  let path = pathname;
+  for (const [pattern, replacement] of REDACTION_RULES) {
+    if (pattern.test(path)) {
+      path = path.replace(pattern, replacement);
+      break;
+    }
+  }
+
+  // Safety net — scrub any remaining identifier-shaped segment.
+  return path
+    .split('/')
+    .map(segment => (OPAQUE_SEGMENT.test(segment) ? '[id]' : segment))
+    .join('/');
+}
+
+/** Redacts a full URL: path segments rewritten, query reduced to the allowlist. */
+function redactAnalyticsUrl(rawUrl: string): string {
+  // posthog-js uses the sentinel "$direct" when there is no referrer.
+  if (!rawUrl || rawUrl.startsWith('$')) return rawUrl;
+
+  try {
+    const url = new URL(rawUrl);
+    url.pathname = redactAnalyticsPath(url.pathname);
+
+    for (const key of [...url.searchParams.keys()]) {
+      if (!isAllowedQueryParam(key)) url.searchParams.delete(key);
+    }
+
+    url.hash = ''; // fragments are never needed and may carry tokens
+    return url.toString();
+  } catch {
+    // Not a parseable absolute URL — treat it as a bare path.
+    return redactAnalyticsPath(rawUrl);
+  }
+}
+
+/** Analytics properties that carry a full URL. */
+const URL_PROPERTIES = [
+  '$current_url', '$initial_current_url',
+  '$referrer',    '$initial_referrer',
+  '$referring_domain',
+] as const;
+
+/** Analytics properties that carry a bare path. */
+const PATH_PROPERTIES = ['$pathname', '$initial_pathname'] as const;
+
+/**
+ * Wired into `posthog.init({ sanitize_properties })` — runs against the final
+ * property bag of EVERY event before it leaves the browser.
+ *
+ * `$referring_domain` is a hostname and needs no redaction, but is listed so a
+ * future PostHog change that widens it cannot silently reintroduce a leak.
+ */
+export function sanitizeAnalyticsProperties(
+  properties: Record<string, unknown>,
+): Record<string, unknown> {
+  if (!properties) return properties;
+
+  for (const key of URL_PROPERTIES) {
+    const value = properties[key];
+    if (typeof value === 'string') properties[key] = redactAnalyticsUrl(value);
+  }
+
+  for (const key of PATH_PROPERTIES) {
+    const value = properties[key];
+    if (typeof value === 'string') properties[key] = redactAnalyticsPath(value);
+  }
+
+  return properties;
+}
+
 /**
  * Centralised event name registry.
  * Changing a string here propagates everywhere automatically.
