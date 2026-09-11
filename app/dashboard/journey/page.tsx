@@ -19,8 +19,8 @@ const BAND_META: Record<Band, {
   bg:         string;
   border:     string;
 }> = {
-  CRITICAL: { label: 'Elevated SRI Risk', threshold: 0,  next: 'HIGH',     nextThr: 40,  colour: 'text-red-400',     dimColour: 'text-red-500/70',    dot: 'bg-red-500',     ring: 'ring-red-500',     bg: 'bg-red-950',     border: 'border-red-800'     },
-  HIGH:     { label: 'Elevated SRI Risk', threshold: 40, next: 'MODERATE', nextThr: 60,  colour: 'text-orange-400',  dimColour: 'text-orange-500/70', dot: 'bg-orange-500',  ring: 'ring-orange-500',  bg: 'bg-orange-950',  border: 'border-orange-800'  },
+  CRITICAL: { label: 'Critical Risk', threshold: 0,  next: 'HIGH',     nextThr: 40,  colour: 'text-red-400',     dimColour: 'text-red-500/70',    dot: 'bg-red-500',     ring: 'ring-red-500',     bg: 'bg-red-950',     border: 'border-red-800'     },
+  HIGH:     { label: 'High Risk',     threshold: 40, next: 'MODERATE', nextThr: 60,  colour: 'text-orange-400',  dimColour: 'text-orange-500/70', dot: 'bg-orange-500',  ring: 'ring-orange-500',  bg: 'bg-orange-950',  border: 'border-orange-800'  },
   MODERATE: { label: 'Moderate Risk', threshold: 60, next: 'LOW',      nextThr: 80,  colour: 'text-amber-400',   dimColour: 'text-amber-500/70',  dot: 'bg-amber-500',   ring: 'ring-amber-500',   bg: 'bg-amber-950',   border: 'border-amber-800'   },
   LOW:      { label: 'Low Risk',      threshold: 80, next: null,       nextThr: null, colour: 'text-emerald-400', dimColour: 'text-emerald-500/70', dot: 'bg-emerald-500', ring: 'ring-emerald-500', bg: 'bg-emerald-950', border: 'border-emerald-800' },
 };

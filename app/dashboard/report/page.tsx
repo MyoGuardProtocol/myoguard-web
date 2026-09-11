@@ -87,10 +87,25 @@ const STAGE_LABEL: Record<string, string> = {
 // □ Report status strip shows correct live state for all three indicators on first load
 
 // ─── Dark band display helper ─────────────────────────────────────────────────
-function darkBand(b: string): { label: string; subtitle: string | null; color: string; bg: string; border: string } {
-  if (b === 'LOW')      return { label: 'Low Risk',          subtitle: null,                           color: '#2DD4BF', bg: 'rgba(45,212,191,0.1)',   border: 'rgba(45,212,191,0.3)'   };
-  if (b === 'MODERATE') return { label: 'Moderate Risk',     subtitle: null,                           color: '#F59E0B', bg: 'rgba(245,158,11,0.1)',  border: 'rgba(245,158,11,0.3)'  };
-  return                       { label: 'Elevated SRI Risk', subtitle: 'Physician review recommended', color: '#FB7185', bg: 'rgba(248,113,113,0.1)', border: 'rgba(248,113,113,0.3)' };
+//
+// Keyed by the engine's authoritative riskBand. Previously this fell through to
+// a single shared presentation for anything that was not LOW or MODERATE, which
+// collapsed HIGH and CRITICAL into one label, one colour and one subtitle.
+// They are clinically distinct engine outputs, so each band now has its own
+// entry and the distinction survives in text alone — not only in colour.
+type DarkBandPresentation = { label: string; subtitle: string | null; color: string; bg: string; border: string };
+
+const DARK_BAND: Record<string, DarkBandPresentation> = {
+  LOW:      { label: 'Low Risk',      subtitle: null,                                                 color: '#2DD4BF', bg: 'rgba(45,212,191,0.1)',  border: 'rgba(45,212,191,0.3)' },
+  MODERATE: { label: 'Moderate Risk', subtitle: null,                                                 color: '#F59E0B', bg: 'rgba(245,158,11,0.1)',  border: 'rgba(245,158,11,0.3)' },
+  HIGH:     { label: 'High Risk',     subtitle: 'Physician review recommended',                       color: '#FB923C', bg: 'rgba(251,146,60,0.1)',  border: 'rgba(251,146,60,0.3)' },
+  CRITICAL: { label: 'Critical Risk', subtitle: 'Physician review recommended before next dose escalation', color: '#F43F5E', bg: 'rgba(244,63,94,0.1)', border: 'rgba(244,63,94,0.3)' },
+};
+
+function darkBand(b: string): DarkBandPresentation {
+  // Unknown band falls back to the most conservative presentation rather than
+  // silently under-stating risk.
+  return DARK_BAND[b] ?? DARK_BAND.CRITICAL;
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────

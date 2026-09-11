@@ -16,12 +16,20 @@ const ARC = `M ${CX - R} ${CY} A ${R} ${R} 0 0 1 ${CX + R} ${CY}`;
 // ─── Band palette ─────────────────────────────────────────────────────────────
 // Aligned with the Midnight Executive theme tokens in globals.css.
 
+// Keyed by the engine's authoritative riskBand. HIGH and CRITICAL are
+// clinically distinct engine outputs and must never share a label — a shared
+// label would prevent a CRITICAL result (including one set by the engine's
+// recovery override) from being announced as critical.
+//
+// `bandName` is the spoken form used in the accessible announcement; `label`
+// is the visible text. Both carry the distinction, so it never depends on colour.
 const BAND_CONFIG: Record<string, {
   stroke:     string;   // arc fill colour
   trackFill:  string;   // background arc colour
   glowClass:  string;   // applied to SVG wrapper for drop-shadow
   labelColour:string;   // CSS colour for the label text
   label:      string;
+  bandName:   string;
 }> = {
   LOW: {
     stroke:      '#2DD4BF',               // Myo-Teal
@@ -29,6 +37,7 @@ const BAND_CONFIG: Record<string, {
     glowClass:   'gauge-glow-low',
     labelColour: '#2DD4BF',
     label:       'Low Risk',
+    bandName:    'Low',
   },
   MODERATE: {
     stroke:      '#F59E0B',               // amber-500
@@ -36,20 +45,23 @@ const BAND_CONFIG: Record<string, {
     glowClass:   'gauge-glow-moderate',
     labelColour: '#FCD34D',
     label:       'Moderate Risk',
+    bandName:    'Moderate',
   },
   HIGH: {
     stroke:      '#FB923C',               // orange-400
     trackFill:   'rgba(251,146,60,0.12)',
     glowClass:   'gauge-glow-high',
     labelColour: '#FDBA74',
-    label:       'Elevated SRI Risk',
+    label:       'High Risk',
+    bandName:    'High',
   },
   CRITICAL: {
     stroke:      '#F43F5E',               // rose-500
     trackFill:   'rgba(244,63,94,0.12)',
     glowClass:   'gauge-glow-critical',
     labelColour: '#FDA4AF',
-    label:       'Elevated SRI Risk',
+    label:       'Critical Risk',
+    bandName:    'Critical',
   },
 };
 
@@ -107,7 +119,13 @@ export default function ScoreGauge({ score, band, leanLossPct }: Props) {
           viewBox="0 0 200 118"
           width="100%"
           role="img"
-          aria-label={`MyoGuard Score: ${rounded} out of 100 — ${cfg.label}`}
+          /*
+            Canonical accessible SRI announcement: risk band first (the primary
+            clinical interpretation), then the instrument and value, then
+            directionality — because a higher SRI means MORE protection, which
+            is not self-evident from the number alone.
+          */
+          aria-label={`${cfg.bandName} risk band. Sarcopenia Risk Index ${rounded} out of 100. A higher SRI indicates greater muscle protection.`}
         >
           <defs>
             {/*
@@ -122,6 +140,7 @@ export default function ScoreGauge({ score, band, leanLossPct }: Props) {
 
           {/* ── Track arc (background) ── */}
           <path
+            aria-hidden="true"
             d={ARC}
             fill="none"
             stroke={cfg.trackFill}
@@ -132,6 +151,7 @@ export default function ScoreGauge({ score, band, leanLossPct }: Props) {
           {/* ── Track rim — thin bright line at leading edge for depth ── */}
           <path
             d={ARC}
+            aria-hidden="true"
             fill="none"
             stroke="rgba(255,255,255,0.06)"
             strokeWidth="1"
@@ -144,6 +164,7 @@ export default function ScoreGauge({ score, band, leanLossPct }: Props) {
           */}
           <path
             ref={fillRef}
+            aria-hidden="true"
             d={ARC}
             fill="none"
             stroke={cfg.stroke}

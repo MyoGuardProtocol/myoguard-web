@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { EmailCaptureSchema } from '@/src/schemas/assessment';
+// Authoritative band union, re-exported from src/lib/protocolEngine via
+// src/types. Type-only import — erased at compile time, so it adds no runtime
+// dependency on the engine and cannot introduce a cycle.
+import type { RiskBand } from '@/src/types';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://myoguard.health';
 
@@ -126,7 +130,10 @@ type TemplateData = {
   email:          string;
   protocolResult: {
     myoguardScore:     number;
-    riskBand:          string;
+    // Narrowed to the authoritative union so the band-keyed maps below are
+    // exhaustively checked. EmailCaptureSchema already validates this value
+    // against the same four bands, so no runtime behaviour changes.
+    riskBand:          RiskBand;
     proteinStandard:   number;
     proteinAggressive: number;
     fiber:             number;
@@ -146,14 +153,17 @@ type TemplateData = {
 // and must never share a label: collapsing them would stop a CRITICAL result
 // — including one set by the engine's recovery override — from reaching the
 // patient as critical.
-const RISK_LABELS: Record<string, string> = {
+// Exhaustively typed over the authoritative RiskBand union: adding a band to
+// the engine without adding it here is now a compile error rather than a
+// silent fall-through to a default label or colour.
+const RISK_LABELS: Record<RiskBand, string> = {
   LOW:      'Low Risk',
   MODERATE: 'Moderate Risk',
   HIGH:     'High Risk',
   CRITICAL: 'Critical Risk',
 };
 
-const RISK_COLOURS: Record<string, { bg: string; text: string; border: string }> = {
+const RISK_COLOURS: Record<RiskBand, { bg: string; text: string; border: string }> = {
   LOW:      { bg: '#f0fdf4', text: '#15803d', border: '#bbf7d0' },
   MODERATE: { bg: '#fffbeb', text: '#b45309', border: '#fde68a' },
   HIGH:     { bg: '#fff7ed', text: '#c2410c', border: '#fed7aa' },

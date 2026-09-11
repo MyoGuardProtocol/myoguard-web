@@ -15,11 +15,24 @@ export default function SanctuaryScoreOrb({ score, riskBand }: Props) {
     riskBand === "HIGH"     ? "#FB923C" :
     "#F87171"
 
+  // Keyed by the authoritative riskBand. HIGH and CRITICAL are clinically
+  // distinct engine outputs and must never share a label.
   const riskLabel =
     riskBand === "LOW"      ? "Low Risk" :
     riskBand === "MODERATE" ? "Moderate Risk" :
-    riskBand === "HIGH"     ? "Elevated SRI Risk" :
-    "Elevated SRI Risk"
+    riskBand === "HIGH"     ? "High Risk" :
+    "Critical Risk"
+
+  // Spoken form for the accessible announcement.
+  const bandName =
+    riskBand === "LOW"      ? "Low" :
+    riskBand === "MODERATE" ? "Moderate" :
+    riskBand === "HIGH"     ? "High" :
+    "Critical"
+
+  // Physician-review prompt applies to both elevated bands. It previously
+  // rendered for HIGH only, which left the more severe band without it.
+  const showPhysicianNote = riskBand === "HIGH" || riskBand === "CRITICAL"
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -43,10 +56,21 @@ export default function SanctuaryScoreOrb({ score, riskBand }: Props) {
         .orb-glow { animation: orbBreathe 3s ease-in-out infinite; }
       `}</style>
       <div className="orb-glow">
-        <svg viewBox="0 0 200 200" width="180" height="180">
-          <circle cx="100" cy="100" r="80"
+        <svg
+          viewBox="0 0 200 200"
+          width="180"
+          height="180"
+          role="img"
+          /*
+            Canonical accessible SRI announcement: risk band first, then the
+            instrument and value, then directionality — a higher SRI means more
+            muscle protection, which the number alone does not convey.
+          */
+          aria-label={`${bandName} risk band. Sarcopenia Risk Index ${Math.round(score)} out of 100. A higher SRI indicates greater muscle protection.`}
+        >
+          <circle aria-hidden="true" cx="100" cy="100" r="80"
             fill="none" stroke="#1A2744" strokeWidth="12" />
-          <circle cx="100" cy="100" r="80"
+          <circle aria-hidden="true" cx="100" cy="100" r="80"
             fill="none"
             stroke={orbColor}
             strokeWidth="12"
@@ -71,7 +95,7 @@ export default function SanctuaryScoreOrb({ score, riskBand }: Props) {
             fontFamily="-apple-system, sans-serif">
             {riskLabel}
           </text>
-          {riskBand === "HIGH" && (
+          {showPhysicianNote && (
             <text x="100" y="151" textAnchor="middle"
               fill="#64748B" fontSize="8"
               fontFamily="-apple-system, sans-serif">
