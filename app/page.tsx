@@ -37,6 +37,14 @@ const ACTIVITY_OPTIONS = [
   { label: "Active",    subtitle: "Daily training",      bonus: 10 },
 ];
 
+// Preliminary (public, unauthenticated) assessment only.
+// These ranges are NOT the authoritative full-SRI bands and are deliberately
+// kept separate from src/lib/protocolEngine.ts. Results are presented as a
+// "Preliminary risk range", never as an authoritative full-SRI band.
+//
+// TODO Phase 2: align the preliminary assessment
+// with the authoritative SRI framework, including
+// thresholds and additional clinical inputs.
 type RiskBand = "LOW" | "MODERATE" | "HIGH";
 
 function getRisk(score: number): RiskBand {
@@ -648,10 +656,10 @@ export default function HomePage() {
             {result && (
               <div className="flex flex-col gap-4 border-t border-[#1A2744] pt-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
 
-                {/* Composite score — dramatic card */}
+                {/* Preliminary result — dramatic card */}
                 <div className="rounded-2xl p-4 flex items-center justify-between" style={{ background: '#0D1421' }}>
                   <div>
-                    <p className="text-xs text-slate-400 mb-1">MyoGuard Composite Index</p>
+                    <p className="text-xs text-slate-400 mb-1">Preliminary Sarcopenia Risk Index (SRI)</p>
                     <div className="flex items-baseline gap-2">
                       <span className={`text-6xl font-bold tracking-tight ${
                         result.risk === "LOW" ? "text-teal-600" :
@@ -663,16 +671,27 @@ export default function HomePage() {
                       <span className="text-slate-400 text-lg">/100</span>
                     </div>
                   </div>
-                  <div className={`px-4 py-2 rounded-full text-sm font-semibold ${
-                    result.risk === "LOW"
-                      ? "bg-teal-100 text-teal-700"
-                      : result.risk === "MODERATE"
-                      ? "bg-amber-100 text-amber-700"
-                      : "bg-red-100 text-red-700"
-                  }`}>
-                    {RISK_META[result.risk].label}
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="text-[10px] uppercase tracking-widest text-slate-500">
+                      Preliminary risk range
+                    </span>
+                    <div className={`px-4 py-2 rounded-full text-sm font-semibold ${
+                      result.risk === "LOW"
+                        ? "bg-teal-100 text-teal-700"
+                        : result.risk === "MODERATE"
+                        ? "bg-amber-100 text-amber-700"
+                        : "bg-red-100 text-red-700"
+                    }`}>
+                      {RISK_META[result.risk].label}
+                    </div>
                   </div>
                 </div>
+
+                {/* Preliminary vs full SRI notice — must sit adjacent to the result */}
+                <p className="text-xs leading-relaxed" style={{ color: '#94A3B8' }}>
+                  This preliminary result is based on core inputs only. Your full SRI
+                  includes additional clinical factors and may differ.
+                </p>
 
                 {/* Gradient risk bar */}
                 <div className="flex flex-col gap-1">

@@ -1,6 +1,6 @@
 'use client';
 
-import type { ProtocolResult, AssessmentInput, PhysicianInfo } from '@/src/types';
+import type { ProtocolResult, AssessmentInput, PhysicianInfo, RiskBand } from '@/src/types';
 
 type ClinicalSummaryProps = {
   results:    ProtocolResult;
@@ -19,12 +19,21 @@ const ACTIVITY_LABEL: Record<AssessmentInput['activityLevel'], string> = {
   active:    'Active',
 };
 
-/** Derives the 3-band clinical label from the numeric score (display only). */
-function clinicalRisk(score: number): { level: string; badge: string; dot: string } {
-  if (score >= 70) return { level: 'LOW RISK',      badge: 'bg-emerald-100 text-emerald-700 border-emerald-300', dot: 'bg-emerald-500' };
-  if (score >= 40) return { level: 'MODERATE RISK', badge: 'bg-amber-100   text-amber-700   border-amber-300',   dot: 'bg-amber-500'   };
-  return              { level: 'ELEVATED SRI RISK', badge: 'bg-red-100     text-red-700     border-red-300',     dot: 'bg-red-500'     };
-}
+/**
+ * Presentation map keyed by the engine's authoritative `riskBand`.
+ *
+ * The band is never recomputed from the numeric SRI here: the engine can force
+ * CRITICAL via the recovery override regardless of the numeric value, and
+ * re-deriving it from the number would hide that.
+ *
+ * No thresholds are duplicated — keys are band values, not score ranges.
+ */
+const BAND_PRESENTATION: Record<RiskBand, { level: string; badge: string; dot: string; fill: string }> = {
+  LOW:      { level: 'LOW RISK',      badge: 'bg-emerald-100 text-emerald-700 border-emerald-300', dot: 'bg-emerald-500', fill: 'bg-emerald-500' },
+  MODERATE: { level: 'MODERATE RISK', badge: 'bg-amber-100   text-amber-700   border-amber-300',   dot: 'bg-amber-500',   fill: 'bg-amber-500'   },
+  HIGH:     { level: 'HIGH RISK',     badge: 'bg-red-100     text-red-700     border-red-300',     dot: 'bg-red-500',     fill: 'bg-red-500'     },
+  CRITICAL: { level: 'CRITICAL RISK', badge: 'bg-red-200     text-red-900     border-red-400',     dot: 'bg-red-700',     fill: 'bg-red-700'     },
+};
 
 /**
  * Clinical report header shown at the top of the results page.
@@ -33,7 +42,8 @@ function clinicalRisk(score: number): { level: string; badge: string; dot: strin
  * No calculation logic — presentation only.
  */
 export default function ClinicalSummary({ results, formData, physician }: ClinicalSummaryProps) {
-  const risk = clinicalRisk(results.myoguardScore);
+  // Authoritative band from the engine — never recomputed from myoguardScore.
+  const risk = BAND_PRESENTATION[results.riskBand];
 
   const assessmentDate = new Date().toLocaleDateString('en-GB', {
     day: 'numeric', month: 'long', year: 'numeric',
@@ -101,17 +111,15 @@ export default function ClinicalSummary({ results, formData, physician }: Clinic
         {/* Mini progress bar */}
         <div className="mt-3 h-1.5 rounded-full bg-slate-100 overflow-hidden">
           <div
-            className={`h-full rounded-full transition-all duration-500 ${
-              results.myoguardScore >= 70 ? 'bg-emerald-500' :
-              results.myoguardScore >= 40 ? 'bg-amber-500'   : 'bg-red-500'
-            }`}
+            className={`h-full rounded-full transition-all duration-500 ${risk.fill}`}
             style={{ width: `${results.myoguardScore}%` }}
           />
         </div>
         <div className="flex justify-between text-[10px] text-slate-400 mt-1 select-none">
-          <span>0 — Elevated SRI Risk</span>
-          <span>40 — Moderate</span>
-          <span>70 — Low Risk — 100</span>
+          <span>0</span>
+          <span>40</span>
+          <span>60</span>
+          <span>80 — 100</span>
         </div>
       </div>
     </div>

@@ -142,11 +142,15 @@ type TemplateData = {
   };
 };
 
+// One label per authoritative band. HIGH and CRITICAL are clinically distinct
+// and must never share a label: collapsing them would stop a CRITICAL result
+// — including one set by the engine's recovery override — from reaching the
+// patient as critical.
 const RISK_LABELS: Record<string, string> = {
   LOW:      'Low Risk',
   MODERATE: 'Moderate Risk',
-  HIGH:     'Elevated SRI Risk',
-  CRITICAL: 'Elevated SRI Risk',
+  HIGH:     'High Risk',
+  CRITICAL: 'Critical Risk',
 };
 
 const RISK_COLOURS: Record<string, { bg: string; text: string; border: string }> = {
@@ -158,6 +162,10 @@ const RISK_COLOURS: Record<string, { bg: string; text: string; border: string }>
 
 function buildProtocolEmail({ protocolResult, formData }: TemplateData): string {
   const score     = Math.round(protocolResult.myoguardScore);
+  // Authoritative band from the engine — includes the CRITICAL recovery
+  // override, so it is never re-derived from `score`. Summary wording below is
+  // band-based: point-distance framing is gamified and implies a precision the
+  // SRI does not claim.
   const band      = protocolResult.riskBand;
   const riskLabel = RISK_LABELS[band] ?? 'Unknown';
   const riskColor = RISK_COLOURS[band] ?? RISK_COLOURS.HIGH;
@@ -252,9 +260,9 @@ function buildProtocolEmail({ protocolResult, formData }: TemplateData): string 
                       </tr>
                     </table>
                     <p style="margin:10px 0 0;font-size:12px;color:#94a3b8;">${
-                      score < 80
-                        ? `${80 - score} points from the Low Risk zone`
-                        : 'You are in the optimal Low Risk zone ✓'
+                      band === 'LOW'
+                        ? 'Your SRI is currently in the Low Risk band. Continue your current protein intake and activity to maintain muscle protection.'
+                        : `Your SRI is currently in the ${riskLabel} band. Consistent protein intake and activity may support muscle protection. Review this result with your physician.`
                     }</p>
                   </td>
                 </tr>

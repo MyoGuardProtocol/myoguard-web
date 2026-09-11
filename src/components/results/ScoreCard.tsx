@@ -1,58 +1,78 @@
-import type { ProtocolResult } from '@/src/types';
+import type { ProtocolResult, RiskBand } from '@/src/types';
 
 type ScoreCardProps = Pick<ProtocolResult, 'myoguardScore' | 'riskBand' | 'leanLossEstPct' | 'explanation'>;
 
 /**
- * Map the numeric score to a 3-band clinical risk category for display.
- * The underlying 4-band engine calculation (riskBand prop) is preserved
- * and unchanged — this function is display-only.
+ * Presentation map keyed by the engine's authoritative `riskBand`.
  *
- *   70–100 → Low Risk      (green)
- *   40–69  → Moderate Risk (amber)
- *   0–39   → High Risk     (red)
+ * This component does NOT derive the band from the numeric SRI. The engine is
+ * the single source of truth: it can force CRITICAL via the recovery override
+ * (severe sleep deprivation combined with protein deficit) regardless of the
+ * numeric value, and a display that recomputed the band from the number would
+ * silently hide that — showing a reassuring band while the clinical
+ * explanation rendered directly below reports a critical recovery deficit.
+ *
+ * No thresholds are duplicated here. Keys are band values, not score ranges.
  */
-function getClinicalRisk(score: number) {
-  if (score >= 70) {
-    return {
-      level: 'LOW' as const,
-      label: 'Low Risk',
-      badge: 'bg-emerald-100 text-emerald-700 border-emerald-300',
-      bar: 'bg-emerald-500',
-      thumb: '#10b981',
-      border: 'border-emerald-200',
-      bg: 'bg-emerald-50',
-      description:
-        'Your muscle-preservation risk is low. Your current activity level and protocol inputs suggest a favourable outcome with consistent nutritional support. Continue to meet your daily protein targets and stay active.',
-    };
-  }
-  if (score >= 40) {
-    return {
-      level: 'MODERATE' as const,
-      label: 'Moderate Risk',
-      badge: 'bg-amber-100 text-amber-700 border-amber-300',
-      bar: 'bg-amber-500',
-      thumb: '#f59e0b',
-      border: 'border-amber-200',
-      bg: 'bg-amber-50',
-      description:
-        'Your assessment indicates a moderate risk of lean muscle loss during GLP-1 therapy. Prioritising the protein targets and resistance exercise below will significantly reduce this risk. Review the full protocol with your physician.',
-    };
-  }
-  return {
-    level: 'HIGH' as const,
-    label: 'Elevated SRI Risk',
+const BAND_PRESENTATION: Record<RiskBand, {
+  label:       string;
+  badge:       string;
+  bar:         string;
+  thumb:       string;
+  border:      string;
+  bg:          string;
+  accent:      string;
+  description: string;
+}> = {
+  LOW: {
+    label: 'Low Risk',
+    badge: 'bg-emerald-100 text-emerald-700 border-emerald-300',
+    bar: 'bg-emerald-500',
+    thumb: '#10b981',
+    border: 'border-emerald-200',
+    bg: 'bg-emerald-50',
+    accent: 'text-emerald-600',
+    description:
+      'Your muscle-preservation risk is low. Your current activity level and protocol inputs suggest a favourable outcome with consistent nutritional support. Continue to meet your daily protein targets and stay active.',
+  },
+  MODERATE: {
+    label: 'Moderate Risk',
+    badge: 'bg-amber-100 text-amber-700 border-amber-300',
+    bar: 'bg-amber-500',
+    thumb: '#f59e0b',
+    border: 'border-amber-200',
+    bg: 'bg-amber-50',
+    accent: 'text-amber-600',
+    description:
+      'Your assessment indicates a moderate risk of lean muscle loss during GLP-1 therapy. Prioritising the protein targets and resistance exercise below will significantly reduce this risk. Review the full protocol with your physician.',
+  },
+  HIGH: {
+    label: 'High Risk',
     badge: 'bg-red-100 text-red-700 border-red-300',
     bar: 'bg-red-500',
     thumb: '#ef4444',
     border: 'border-red-200',
     bg: 'bg-red-50',
+    accent: 'text-red-600',
     description:
       'Your inputs indicate a high risk of clinically significant muscle loss without active intervention. Urgently review the nutritional targets below and discuss this result with your prescribing physician before your next dose.',
-  };
-}
+  },
+  CRITICAL: {
+    label: 'Critical Risk',
+    badge: 'bg-red-200 text-red-900 border-red-400',
+    bar: 'bg-red-700',
+    thumb: '#b91c1c',
+    border: 'border-red-400',
+    bg: 'bg-red-100',
+    accent: 'text-red-800',
+    description:
+      'Your inputs indicate a critical risk to muscle preservation. Contact your prescribing physician before your next dose and review the nutritional targets below. This result requires physician oversight.',
+  },
+};
 
-export default function ScoreCard({ myoguardScore, leanLossEstPct, explanation }: ScoreCardProps) {
-  const risk = getClinicalRisk(myoguardScore);
+export default function ScoreCard({ myoguardScore, riskBand, leanLossEstPct, explanation }: ScoreCardProps) {
+  // Authoritative band from the engine — never recomputed from myoguardScore.
+  const risk = BAND_PRESENTATION[riskBand];
 
   return (
     <div className={`rounded-2xl border shadow-sm p-5 ${risk.bg} ${risk.border}`}>
@@ -72,13 +92,9 @@ export default function ScoreCard({ myoguardScore, leanLossEstPct, explanation }
           <div className="mt-2 flex items-center gap-2 flex-wrap">
             <span className="text-xs font-medium text-slate-600">Risk Level:</span>
             <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${risk.badge}`}>
-              {risk.level}
+              {riskBand}
             </span>
-            <span className={`text-xs font-semibold ${
-              risk.level === 'HIGH'     ? 'text-red-600'     :
-              risk.level === 'MODERATE' ? 'text-amber-600'   :
-                                          'text-emerald-600'
-            }`}>
+            <span className={`text-xs font-semibold ${risk.accent}`}>
               — {risk.label}
             </span>
           </div>
@@ -92,20 +108,21 @@ export default function ScoreCard({ myoguardScore, leanLossEstPct, explanation }
 
       {/* ── Visual gauge ── */}
       <div className="mt-4">
-        {/* Scale labels */}
+        {/* Scale labels — boundaries match the engine's authoritative bands */}
         <div className="flex justify-between text-[10px] text-slate-400 mb-1 font-medium select-none">
           <span>0</span>
-          <span className="text-red-400">Elevated SRI Risk</span>
-          <span className="text-amber-400">Moderate</span>
-          <span className="text-emerald-500">Low Risk</span>
+          <span className="text-red-500">40</span>
+          <span className="text-amber-400">60</span>
+          <span className="text-emerald-500">80</span>
           <span>100</span>
         </div>
 
-        {/* Colour-banded background track */}
+        {/* Colour-banded background track — 0–39 / 40–59 / 60–79 / 80–100 */}
         <div className="relative h-3 rounded-full overflow-hidden flex">
-          <div className="w-[40%] bg-red-200 h-full" />
-          <div className="w-[30%] bg-amber-200 h-full" />
-          <div className="w-[30%] bg-emerald-200 h-full" />
+          <div className="w-[40%] bg-red-300 h-full" />
+          <div className="w-[20%] bg-red-200 h-full" />
+          <div className="w-[20%] bg-amber-200 h-full" />
+          <div className="w-[20%] bg-emerald-200 h-full" />
         </div>
 
         {/* Score fill + thumb */}
