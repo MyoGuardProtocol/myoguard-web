@@ -37,7 +37,7 @@ export default function TermsOfUse() {
           {/* Introduction */}
           <section>
             <p>
-              These Terms of Use (&quot;Terms&quot;) govern your access to and use of the MyoGuard Protocol platform, including the sarcopenia risk calculator, protocol reports, and all associated services (collectively, the &quot;Service&quot;), operated by MyoGuard Protocol, a brand of Meridian Wellness Systems LLC (&quot;we&quot;, &quot;us&quot;, &quot;our&quot;). By accessing or using the Service, you agree to be bound by these Terms. If you do not agree, you must not use the Service.
+              These Terms of Use (&quot;Terms&quot;) govern your access to and use of the MyoGuard Protocol platform, including the Sarcopenia Risk Index (SRI), Clinical Decision Support outputs, and all associated services (collectively, the &quot;Service&quot;), operated by MyoGuard Protocol, a brand of Meridian Wellness Systems LLC (&quot;we&quot;, &quot;us&quot;, &quot;our&quot;). By accessing or using the Service, you agree to be bound by these Terms. If you do not agree, you must not use the Service.
             </p>
           </section>
 

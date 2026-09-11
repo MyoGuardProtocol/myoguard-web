@@ -37,14 +37,14 @@ export default function PrivacyPolicy() {
           {/* Introduction */}
           <section>
             <p>
-              MyoGuard Protocol (&quot;we&quot;, &quot;us&quot;, &quot;our&quot;) is committed to protecting your personal information. This Privacy Policy explains what data we collect, how we use it, and your rights as a user of this tool. By using the MyoGuard Protocol calculator, you agree to the practices described in this policy.
+              MyoGuard Protocol (&quot;we&quot;, &quot;us&quot;, &quot;our&quot;) is committed to protecting your personal information. This Privacy Policy explains what data we collect, how we use it, and your rights as a user of this tool. By using the MyoGuard Protocol Clinical Decision Support (CDS) platform, you agree to the practices described in this policy.
             </p>
           </section>
 
           {/* 1. Data We Collect */}
           <section>
             <h2 className="text-base font-semibold text-slate-800 mb-3">1. Data We Collect</h2>
-            <p className="mb-3">We collect only the information you voluntarily enter into the calculator. This may include:</p>
+            <p className="mb-3">We collect only the information you voluntarily enter into the SRI assessment. This may include:</p>
             <ul className="list-disc list-inside space-y-1.5 text-slate-600 pl-2">
               <li><span className="font-medium text-slate-700">Email address:</span> collected if you choose to have your protocol emailed to you</li>
               <li><span className="font-medium text-slate-700">Body weight:</span> used solely to calculate personalised nutritional targets</li>
@@ -133,7 +133,7 @@ export default function PrivacyPolicy() {
               Email addresses collected through the protocol delivery feature are retained for a maximum of 12 months from the date of submission. After this period, email addresses are permanently deleted from our systems unless you have actively re-engaged with our service.
             </p>
             <p className="mt-3">
-              Calculator inputs (weight, dose, symptoms, etc.) are processed in-browser and are not stored on our servers beyond what is necessary to generate and deliver your protocol.
+              SRI assessment inputs (weight, dose, symptoms, etc.) are processed in-browser and are not stored on our servers beyond what is necessary to generate and deliver your protocol.
             </p>
             <p className="mt-3">
               You may request early deletion of your data at any time by contacting <a href="mailto:privacy@myoguard.health" className="text-teal-600 hover:underline">privacy@myoguard.health</a>.
