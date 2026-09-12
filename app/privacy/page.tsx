@@ -47,7 +47,7 @@ export default function PrivacyPolicy() {
             <p className="mb-3">We collect only the information you voluntarily enter into the SRI assessment. This may include:</p>
             <ul className="list-disc list-inside space-y-1.5 text-slate-600 pl-2">
               <li><span className="font-medium text-slate-700">Email address:</span> collected if you choose to have your protocol emailed to you</li>
-              <li><span className="font-medium text-slate-700">Body weight:</span> used solely to calculate personalised nutritional targets</li>
+              <li><span className="font-medium text-slate-700">Body weight:</span> used solely to generate personalised nutritional targets</li>
               <li><span className="font-medium text-slate-700">Medication type:</span> the GLP-1 medication you select (e.g. Semaglutide, Tirzepatide)</li>
               <li><span className="font-medium text-slate-700">Weekly dose:</span> your current GLP-1 dose in mg</li>
               <li><span className="font-medium text-slate-700">Activity level:</span> sedentary, moderate, or active</li>
@@ -63,9 +63,9 @@ export default function PrivacyPolicy() {
             <h2 className="text-base font-semibold text-slate-800 mb-3">2. How We Use Your Data</h2>
             <p className="mb-3">We use the information you provide solely for the following purposes:</p>
             <ul className="list-disc list-inside space-y-1.5 pl-2">
-              <li>To generate your personalised protein, fibre, and hydration protocol calculations</li>
+              <li>To generate your personalised protein, fibre, and hydration protocol outputs</li>
               <li>To send your protocol results to the email address you provide, if requested</li>
-              <li>To improve the accuracy and relevance of our calculation models over time</li>
+              <li>To improve the accuracy and relevance of our SRI and protocol methodologies over time</li>
             </ul>
             <p className="mt-3">
               We do not use your data for automated decision-making or profiling that produces legal or similarly significant effects.
