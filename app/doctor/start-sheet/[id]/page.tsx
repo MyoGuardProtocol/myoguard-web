@@ -5,6 +5,29 @@ import { prisma } from "@/src/lib/prisma";
 import PrintButton from "./PrintButton";
 import { QRCodeSVG } from "qrcode.react";
 
+/**
+ * Access control
+ *
+ * The route previously resolved a StartSheetProtocol by id after an
+ * authentication check only, so any physician could retrieve another
+ * physician's protocol — and with it a third party's patient name, email,
+ * age, weight, GLP-1 agent, risk level and clinical notes — merely by knowing
+ * the id.
+ *
+ * Role and ownership are now enforced here in the page rather than relying
+ * solely on app/doctor/start-sheet/layout.tsx. Cross-physician access returns
+ * notFound() rather than a 403 so the response does not confirm that the
+ * record exists.
+ *
+ * ADMIN: behaviour is deliberately UNCHANGED by this fix. Admins reach this
+ * route today via the layout's documented pass-through and are not ownership
+ * scoped. Narrowing that would change existing ADMIN behaviour; exempting it
+ * explicitly would assert a cross-practice access policy the repository does
+ * not establish elsewhere. Flagged for a Founder ruling rather than decided here.
+ *
+ * The subscription gate remains in the layout, which does execute for page
+ * renders (unlike an API route, where no layout runs).
+ */
 export default async function ProtocolViewPage({
   params,
 }: {
@@ -13,6 +36,14 @@ export default async function ProtocolViewPage({
   const { userId } = await auth();
   if (!userId) redirect("/doctor/sign-in");
 
+  const viewer = await prisma.user
+    .findUnique({ where: { clerkId: userId }, select: { role: true } })
+    .catch(() => null);
+
+  if (!viewer || (viewer.role !== "PHYSICIAN" && viewer.role !== "ADMIN")) {
+    notFound();
+  }
+
   const { id } = await params;
 
   const protocol = await prisma.startSheetProtocol
@@ -20,6 +51,11 @@ export default async function ProtocolViewPage({
     .catch(() => null);
 
   if (!protocol) notFound();
+
+  // Ownership scoping — a physician may only view their own protocols.
+  if (viewer.role !== "ADMIN" && protocol.physicianClerkId !== userId) {
+    notFound();
+  }
 
   // Physician credentials lookup via clerkUserId on PhysicianApplication
   const physician = await prisma.physicianApplication

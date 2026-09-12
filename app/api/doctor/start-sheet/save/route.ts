@@ -2,7 +2,19 @@
  * POST /api/doctor/start-sheet/save
  *
  * Saves a generated Start Sheet protocol to the database.
- * Requires an active Clerk session (physician must be signed in).
+ *
+ * Authorization is enforced here server-side and independently of any page or
+ * layout gate, because this endpoint accepts patient-identifying information
+ * (name, email, age, weight) and can be called directly without ever rendering
+ * /doctor/start-sheet.
+ *
+ * The matrix below mirrors app/doctor/start-sheet/layout.tsx, which is the
+ * authoritative access policy for this feature:
+ *   unauthenticated              → 401
+ *   PATIENT / PHYSICIAN_PENDING  → 403
+ *   PHYSICIAN + non-ACTIVE sub   → 403  (layout redirects to billing)
+ *   PHYSICIAN + ACTIVE sub       → permitted
+ *   ADMIN                        → permitted (bypasses the subscription gate)
  */
 
 import { auth } from "@clerk/nextjs/server";
@@ -13,6 +25,25 @@ export async function POST(req: Request) {
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ ok: false, error: "Unauthorised." }, { status: 401 });
+  }
+
+  const actor = await prisma.user.findUnique({
+    where:  { clerkId: userId },
+    select: { role: true, subscriptionStatus: true },
+  }).catch(() => null);
+
+  if (!actor || (actor.role !== "PHYSICIAN" && actor.role !== "ADMIN")) {
+    return NextResponse.json(
+      { ok: false, error: "Verified physician access required." },
+      { status: 403 },
+    );
+  }
+
+  if (actor.role !== "ADMIN" && actor.subscriptionStatus !== "ACTIVE") {
+    return NextResponse.json(
+      { ok: false, error: "An active subscription is required." },
+      { status: 403 },
+    );
   }
 
   try {
