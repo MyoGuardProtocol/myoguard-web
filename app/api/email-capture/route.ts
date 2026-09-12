@@ -247,7 +247,7 @@ function buildProtocolEmail({ protocolResult, formData }: TemplateData): string 
               <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f172a;border-radius:16px;overflow:hidden;">
                 <tr>
                   <td style="padding:20px 24px;">
-                    <p style="margin:0 0 4px;font-size:10px;font-weight:700;color:#2dd4bf;text-transform:uppercase;letter-spacing:0.15em;">Your MyoGuard Score</p>
+                    <p style="margin:0 0 4px;font-size:10px;font-weight:700;color:#2dd4bf;text-transform:uppercase;letter-spacing:0.15em;">Your Sarcopenia Risk Index (SRI)</p>
                     <table width="100%" cellpadding="0" cellspacing="0">
                       <tr>
                         <td>
@@ -350,8 +350,8 @@ function buildProtocolEmail({ protocolResult, formData }: TemplateData): string 
                   <td style="padding:16px 20px;">
                     <p style="margin:0 0 4px;font-size:12px;font-weight:700;color:#b45309;">⚠ Lean Mass Loss Risk</p>
                     <p style="margin:0;font-size:13px;color:#78350f;line-height:1.5;">
-                      Estimated <strong>${protocolResult.leanLossEstPct}%</strong> lean mass loss risk with current GLP-1 dose and activity pattern.
-                      Following the protein and exercise targets above significantly reduces this risk.
+                      Your current risk band is <strong>${RISK_LABELS[band] ?? band}</strong>, based on your GLP-1 dose and activity pattern.
+                      Following the protein and exercise targets above significantly reduces lean mass loss risk.
                     </p>
                   </td>
                 </tr>

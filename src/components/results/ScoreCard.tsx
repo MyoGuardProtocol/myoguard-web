@@ -70,7 +70,14 @@ const BAND_PRESENTATION: Record<RiskBand, {
   },
 };
 
-export default function ScoreCard({ myoguardScore, riskBand, leanLossEstPct, explanation }: ScoreCardProps) {
+/**
+ * `leanLossEstPct` remains part of the prop contract (callers and the engine
+ * output are unchanged) but is deliberately NOT rendered here. The value is a
+ * fixed band-associated expert-consensus constant, not a validated individual
+ * prediction, so presenting it to a patient as "~N%" overstated its standing.
+ * The authoritative band interpretation below carries the clinical meaning.
+ */
+export default function ScoreCard({ myoguardScore, riskBand, explanation }: ScoreCardProps) {
   // Authoritative band from the engine — never recomputed from myoguardScore.
   const risk = BAND_PRESENTATION[riskBand];
 
@@ -81,7 +88,7 @@ export default function ScoreCard({ myoguardScore, riskBand, leanLossEstPct, exp
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
           <p className="text-xs font-semibold text-teal-600 uppercase tracking-wide mb-1">
-            MyoGuard Muscle Preservation Score
+            Sarcopenia Risk Index (SRI)
           </p>
           <div className="flex items-baseline gap-2 flex-wrap">
             <p className="text-4xl font-bold text-slate-800">{myoguardScore}</p>
@@ -100,7 +107,7 @@ export default function ScoreCard({ myoguardScore, riskBand, leanLossEstPct, exp
           </div>
 
           <p className="text-xs text-slate-500 mt-2">
-            Estimated lean-mass risk without intervention: ~{leanLossEstPct}%
+            A higher SRI indicates greater muscle protection.
           </p>
         </div>
         <span className="text-2xl ml-3 flex-shrink-0">📊</span>

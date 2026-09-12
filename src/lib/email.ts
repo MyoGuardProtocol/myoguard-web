@@ -58,7 +58,7 @@ export async function sendWelcomeEmail({
           </p>
           <p style="margin:0 0 24px;font-size:14px;color:#374151;line-height:1.6;">
             Run your first assessment to get your personalised protein, fibre, and hydration protocol
-            plus your MyoGuard Score.
+            plus your Sarcopenia Risk Index (SRI).
           </p>
           <a href="${APP_URL}" style="display:inline-block;background:#0d9488;color:#ffffff;font-size:14px;font-weight:700;padding:14px 32px;border-radius:12px;text-decoration:none;">
             Start Your Assessment &#8594;

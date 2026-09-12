@@ -133,10 +133,16 @@ export function buildPhysicianPriorityReviewEmail({
       `(&#916;&thinsp;${leanVelocityPct.toFixed(1)} percentage points since the qualifying prior assessment). ` +
       `Physician review is recommended at earliest clinical convenience.`;
 
-  // Clinical summary — deterministic; no AI-generated language
+  // Clinical summary — deterministic; no AI-generated language.
+  //
+  // The lean-mass figure is retained for the physician audience but is now
+  // explicitly qualified: it is a fixed band-associated expert-consensus
+  // constant, not a calibrated, validated or patient-specific prediction.
+  // The numeric value itself is unchanged.
   const clinicalSummary =
     `Current SRI classification: ${BAND_LABEL[riskBand] ?? riskBand}. ` +
-    `Estimated lean mass loss at current assessment: ${leanLossEstPct.toFixed(1)}%. ` +
+    `Estimated lean mass loss at current assessment: ${leanLossEstPct.toFixed(1)}% ` +
+    `(band-associated expert-consensus estimate; not a validated individual prediction). ` +
     `Assessment cycle: ${assessmentCount} assessment${assessmentCount !== 1 ? 's' : ''} on record.`;
 
   const content = `

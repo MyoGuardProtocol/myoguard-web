@@ -204,7 +204,7 @@ export async function GET(req: Request) {
         <div style="border:1px solid #e2e8f0;border-radius:10px;padding:16px 20px;">
           <p style="margin:0 0 10px;font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.06em;">What you can do now</p>
           <ul style="margin:0;padding-left:18px;font-size:13px;color:#475569;line-height:2.2;">
-            <li>Monitor patient sarcopenia risk scores</li>
+            <li>Monitor patient SRI results</li>
             <li>Generate QR referral codes for patients</li>
             <li>Review triage alerts and protocol adherence</li>
             <li>Document MDM interventions for CPT 99470</li>

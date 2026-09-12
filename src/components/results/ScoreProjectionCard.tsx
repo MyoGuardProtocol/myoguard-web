@@ -45,7 +45,7 @@ function buildProjections(
     projections.push({
       icon:        '🥩',
       label:       'If protein target is achieved',
-      description: `Reaching ${Math.round(results.proteinAggressive)} g protein/day eliminates the protein-deficit deduction.`,
+      description: `Reaching ${Math.round(results.proteinAggressive)} g protein/day removes the protein-deficit modifier applied to your SRI.`,
       gain:        proteinGain,
       gainLow:     Math.round(proteinGain * 0.6),   // partial adherence lower bound
       basis:       'exact',
@@ -83,7 +83,7 @@ function buildProjections(
     projections.push({
       icon:        '💧',
       label:       'If hydration baseline is reached',
-      description: 'Adequate hydration reduces GI symptoms, each of which carries a 5-point deduction.',
+      description: 'Adequate hydration reduces GI symptoms, each of which applies a GI-symptom modifier to your SRI.',
       gain:        hydrationGainHigh,
       gainLow:     hydrationGainLow,
       basis:       'indirect',
@@ -133,10 +133,10 @@ export default function ScoreProjectionCard({ results, formData }: ScoreProjecti
         <div className="flex items-start gap-3">
           <span className="text-2xl">🎯</span>
           <div>
-            <p className="text-sm font-semibold text-slate-800 mb-1">Score Projection</p>
+            <p className="text-sm font-semibold text-slate-800 mb-1">SRI Projection</p>
             <p className="text-xs text-slate-500 leading-relaxed">
               Your current inputs are already well-optimised. Maintaining your protein targets,
-              activity level, and hydration will preserve your score over time.
+              activity level, and hydration will preserve your SRI over time.
             </p>
           </div>
         </div>
@@ -151,10 +151,10 @@ export default function ScoreProjectionCard({ results, formData }: ScoreProjecti
       <div className="px-5 pt-5 pb-3 border-b border-slate-100">
         <div className="flex items-center gap-2 mb-1">
           <span className="text-lg">📈</span>
-          <p className="text-sm font-bold text-slate-800">Score Projection</p>
+          <p className="text-sm font-bold text-slate-800">SRI Projection</p>
         </div>
         <p className="text-xs text-slate-500 leading-relaxed">
-          How your MyoGuard Score could improve with key behavioural changes.
+          How your SRI could change with key behavioural changes.
         </p>
 
         {/* Current score pill */}
@@ -250,7 +250,7 @@ export default function ScoreProjectionCard({ results, formData }: ScoreProjecti
       {/* ── Footer note ── */}
       <div className="px-5 py-3 bg-slate-50 border-t border-slate-100">
         <p className="text-[10px] text-slate-400 leading-relaxed">
-          Projections are motivational estimates based on the scoring deductions applied to your assessment.
+          Projections show projected SRI change based on the SRI modifiers applied to your assessment.
           They are not clinical guarantees. Individual outcomes vary.
         </p>
       </div>

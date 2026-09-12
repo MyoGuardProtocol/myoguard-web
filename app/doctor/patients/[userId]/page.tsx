@@ -321,7 +321,7 @@ export default async function PatientDetailPage({
             <div className="bg-slate-900 rounded-2xl p-5 text-white">
               {/* Eyebrow */}
               <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-3">
-                Latest MyoGuard Score · {new Date(latest.assessmentDate).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                Latest SRI · {new Date(latest.assessmentDate).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
               </p>
 
               {/* Score row */}
@@ -389,6 +389,15 @@ export default async function PatientDetailPage({
                   </div>
                 ))}
               </div>
+
+              {/* Evidentiary status for the Lean Loss Risk figure above.
+                  Stated once for the block rather than inside the 3-column
+                  tile, where repeating it would break readability. */}
+              {latest.muscleScore?.leanLossEstPct != null && (
+                <p className="text-[10px] text-slate-500 leading-snug mt-2">
+                  Lean Loss Risk is a band-associated expert-consensus estimate; not a validated individual prediction.
+                </p>
+              )}
             </div>
 
             {/* ── Clinical Cockpit (SRI v2 command center) ────────────────── */}
@@ -444,7 +453,8 @@ export default async function PatientDetailPage({
                   )}
                   {(latestMs?.leanLossEstPct ?? 0) > 25 && (
                     <p style={{ fontSize: '13px', color: '#fca5a5' }}>
-                      Elevated lean mass loss risk: {latestMs?.leanLossEstPct}% estimated
+                      Elevated band-associated lean-mass-loss estimate: {latestMs?.leanLossEstPct}%
+                      {' '}— expert-consensus derived, not a validated individual prediction
                     </p>
                   )}
                 </div>

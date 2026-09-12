@@ -26,7 +26,7 @@ export default async function DoctorLandingPage() {
   }
 
   const features = [
-    { label: 'MyoGuard Score',  detail: 'Per-patient muscle risk 0–100' },
+    { label: 'Sarcopenia Risk Index (SRI)', detail: 'Per-patient muscle-loss risk, 0–100' },
     { label: 'Clinical Flags',  detail: 'Protein deficit, fatigue, weakness' },
     { label: 'Risk Bands',      detail: 'Low → Critical prioritisation' },
   ];

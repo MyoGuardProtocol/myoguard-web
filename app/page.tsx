@@ -100,7 +100,7 @@ const RISK_META: Record<RiskBand, {
       "Protein adequacy or recovery environment is suboptimal relative to your GLP-1 dose stage. A sarcopenic trajectory is possible without intervention. Supplementation and structured resistance training are recommended.",
   },
   HIGH: {
-    label: "Elevated SRI Risk",
+    label: "High Risk",
     color: "text-red-600",
     bar: "bg-red-500",
     explanation:
@@ -559,7 +559,7 @@ export default function HomePage() {
                 </div>
                 <p className="text-xs text-slate-400">Typical adult range: 5–9 hours</p>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  Sleep duration is displayed as a recovery context indicator. Nocturnal GH and IGF-1 secretion support muscle protein synthesis — adequate sleep optimises your protocol outcomes. This parameter is not incorporated into the sarcopenia risk score.
+                  Sleep duration is displayed as a recovery context indicator. Nocturnal GH and IGF-1 secretion support muscle protein synthesis — adequate sleep optimises your protocol outcomes. This parameter is not incorporated into the preliminary Sarcopenia Risk Index (SRI).
                 </p>
               </div>
             </div>
@@ -708,7 +708,7 @@ export default function HomePage() {
                     />
                   </div>
                   <div className="flex items-center justify-between text-xs text-slate-400">
-                    <span>0 — Elevated SRI Risk</span>
+                    <span>0 — High Risk</span>
                     <span>40</span>
                     <span>70</span>
                     <span>100 — Low Risk</span>

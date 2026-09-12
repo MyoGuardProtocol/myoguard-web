@@ -693,6 +693,10 @@ export default function PatientDrawer({
                           <p style={{ fontFamily: 'monospace', fontSize: 16, fontWeight: 800, color: ms.leanLossEstPct >= 18 ? '#F43F5E' : ms.leanLossEstPct >= 10 ? '#FB923C' : '#2DD4BF' }}>
                             {ms.leanLossEstPct.toFixed(1)}%
                           </p>
+                          {/* Evidentiary status — physician-facing CDS context. */}
+                          <p style={{ fontSize: 8, color: 'rgba(255,255,255,0.3)', lineHeight: 1.35, maxWidth: 150, marginTop: 2 }}>
+                            Band-associated expert-consensus estimate; not a validated individual prediction.
+                          </p>
                         </div>
                       )}
                       {patient.recoveryStatus && (

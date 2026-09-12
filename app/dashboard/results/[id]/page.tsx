@@ -152,7 +152,6 @@ export default async function ResultsPage({
   // Delta values — only rendered when a previous assessment exists
   const scoreDelta      = prev ? signedDelta(ms.score,          prev.score)          : null;
   const proteinDelta    = prev ? signedDelta(ms.proteinTargetG, prev.proteinTargetG) : null;
-  const leanLossDelta   = prev ? signedDelta(ms.leanLossEstPct, prev.leanLossEstPct) : null;
   const prevBand        = prev ? (prev.riskBand as Band)                              : null;
   const bandImproved    = prev ? (score > Math.round(prev.score))                     : null;
 
@@ -202,14 +201,17 @@ export default async function ResultsPage({
           {/* Label + band badge */}
           <div className="flex items-center justify-between mb-5">
             <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
-              MyoGuard Score
+              Sarcopenia Risk Index (SRI)
             </p>
             <div className="flex flex-col items-end gap-0.5">
               <span className={`myg-badge-in inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border ${meta.bg} ${meta.border} ${meta.colour}`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />
                 {meta.label}
               </span>
-              {band === 'HIGH' && (
+              {/* Both elevated bands carry the recommendation. CRITICAL is the
+                  more severe band, so showing it for HIGH alone was inverted.
+                  Band-driven only — never derived from the numeric SRI. */}
+              {(band === 'HIGH' || band === 'CRITICAL') && (
                 <p className="text-[10px] font-medium text-slate-400">Physician review recommended</p>
               )}
             </div>
@@ -220,15 +222,16 @@ export default async function ResultsPage({
             <ScoreGauge score={score} band={band} leanLossPct={ms.leanLossEstPct} />
           </div>
 
-          {/* Distance to Low Risk / already there */}
+          {/* Current band / already in Low Risk.
+              Band-only wording: `pointsToLow` still gates which message shows,
+              but its numeric value is no longer surfaced as "points". The
+              computation itself is unchanged. */}
           {pointsToLow !== null ? (
             <div className="rounded-xl px-4 py-3" style={{ background: 'rgba(26,39,68,0.5)' }}>
               <p className="text-sm text-slate-200 leading-snug">
-                <span className="font-mono font-bold text-white tabular-nums">{pointsToLow}</span>
-                {' '}
-                <span className="font-light">{pointsToLow === 1 ? 'point' : 'points'}</span>
-                {' from the '}
-                <span className="text-emerald-400 font-semibold">Low Risk zone</span>
+                {'Currently in the '}
+                <span className="font-semibold text-white">{meta.label}</span>
+                {' band'}
               </p>
             </div>
           ) : (
@@ -259,9 +262,9 @@ export default async function ResultsPage({
 
             <div className="grid grid-cols-3 gap-px" style={{ background: 'rgba(26,39,68,0.3)' }}>
 
-              {/* Score delta */}
+              {/* SRI delta */}
               <div className="px-4 py-4 flex flex-col gap-1" style={{ background: '#0D1421' }}>
-                <p className="text-[10px] font-medium text-slate-500">Score</p>
+                <p className="text-[10px] font-medium text-slate-500">SRI</p>
                 <p className="font-mono text-lg font-black text-white tabular-nums leading-none">
                   {score}
                   <span className="font-sans text-slate-600 font-light text-sm"> /100</span>
@@ -273,7 +276,7 @@ export default async function ResultsPage({
                     ? 'text-slate-500'
                     : 'text-red-400'
                 }`}>
-                  {scoreDelta} pts
+                  {scoreDelta} SRI
                 </span>
               </div>
 
@@ -295,22 +298,19 @@ export default async function ResultsPage({
                 </span>
               </div>
 
-              {/* Lean loss delta */}
+              {/* Risk band — replaces the former bare lean-loss percentage.
+                  That value is a fixed band-associated expert-consensus
+                  constant, not a validated individual prediction, so the
+                  authoritative band is the honest presentation here. */}
               <div className="px-4 py-4 flex flex-col gap-1" style={{ background: '#0D1421' }}>
-                <p className="text-[10px] font-medium text-slate-500">Lean Risk</p>
-                <p className="font-mono text-lg font-black text-white tabular-nums leading-none">
-                  {ms.leanLossEstPct}
-                  <span className="font-sans text-slate-600 font-light text-sm">%</span>
+                <p className="text-[10px] font-medium text-slate-500">Risk Band</p>
+                <p className={`text-lg font-black leading-none ${meta.colour}`}>
+                  {meta.label}
                 </p>
-                {/* For lean loss, a DECREASE is good (green) */}
-                <span className={`font-mono text-xs font-bold tabular-nums ${
-                  leanLossDelta && leanLossDelta.startsWith('−')
-                    ? 'text-emerald-400'
-                    : leanLossDelta === '±0'
-                    ? 'text-slate-500'
-                    : 'text-red-400'
-                }`}>
-                  {leanLossDelta}%
+                <span className="text-xs font-medium text-slate-500">
+                  {prevBand && prevBand !== band
+                    ? `from ${BAND_META[prevBand].label}`
+                    : 'unchanged'}
                 </span>
               </div>
             </div>
@@ -586,7 +586,7 @@ export default async function ResultsPage({
           >
             <div>
               <p className="text-sm font-bold leading-snug">View your MyoGuard Journey</p>
-              <p className="text-xs text-teal-200 mt-0.5">Score trajectory, streak, and next steps</p>
+              <p className="text-xs text-teal-200 mt-0.5">SRI trajectory, consistency, and next steps</p>
             </div>
             <span className="text-lg flex-shrink-0 ml-3">→</span>
           </Link>

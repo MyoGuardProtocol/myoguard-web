@@ -69,11 +69,17 @@ const BAND_CONFIG: Record<string, {
 type Props = {
   score:       number;   // 0–100
   band:        string;   // 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL'
-  leanLossPct: number;   // e.g. 14
+  /**
+   * Retained in the prop contract (callers and the engine are unchanged) but
+   * no longer rendered. The value is a fixed band-associated expert-consensus
+   * constant, not a validated individual prediction, so surfacing it bare to a
+   * patient overstated its standing. The band label carries the interpretation.
+   */
+  leanLossPct: number;
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
-export default function ScoreGauge({ score, band, leanLossPct }: Props) {
+export default function ScoreGauge({ score, band }: Props) {
   const rounded  = Math.round(score);
   const cfg      = BAND_CONFIG[band] ?? BAND_CONFIG.HIGH;
   const fillRef  = useRef<SVGPathElement>(null);
@@ -208,7 +214,7 @@ export default function ScoreGauge({ score, band, leanLossPct }: Props) {
         </svg>
       </div>
 
-      {/* ── Band label + lean loss ─────────────────────────────────────────── */}
+      {/* ── Band label + directionality legend ─────────────────────────────── */}
       <div className="text-center space-y-1 pb-1">
         {/* Risk band label */}
         <p
@@ -218,16 +224,13 @@ export default function ScoreGauge({ score, band, leanLossPct }: Props) {
           {cfg.label}
         </p>
 
-        {/* Lean loss — monospaced, laboratory precision */}
+        {/* Canonical directionality legend — replaces the former bare
+            lean-loss percentage. Mirrors the accessible announcement. */}
         <p
-          className="text-[11px] tabular-nums"
-          style={{
-            fontFamily: 'var(--font-geist-mono), ui-monospace, monospace',
-            color:      'rgba(100, 116, 139, 0.9)',  /* slate-500 */
-          }}
+          className="text-[11px]"
+          style={{ color: 'rgba(100, 116, 139, 0.9)' /* slate-500 */ }}
         >
-          <span style={{ color: cfg.labelColour, opacity: 0.85 }}>{leanLossPct}</span>
-          <span>% lean loss risk</span>
+          A higher SRI indicates greater muscle protection.
         </p>
       </div>
 

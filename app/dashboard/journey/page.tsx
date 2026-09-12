@@ -80,7 +80,7 @@ function getSmartNextAction(
     return {
       icon:     '⚠️',
       title:    'Review your MyoGuard protocol today',
-      subtitle: 'Your trend shows a declining score. Protein adherence and resistance training are the two fastest levers to reverse this.',
+      subtitle: 'Your SRI has decreased and requires attention. Protein adherence and resistance training are the two fastest levers to reverse this.',
       cta:      'Generate Updated SRI →',
       ctaHref:  '/dashboard/assessment',
       type:     'urgent',
@@ -104,7 +104,7 @@ function getSmartNextAction(
       return {
         icon:     '🥩',
         title:    `Add ${Math.round(gap)}g protein today to stay on track`,
-        subtitle: `Your recent average is ${Math.round(latestCheckin.avgProteinG)}g vs your ${Math.round(proteinTargetG)}g daily target. Closing this gap is the fastest route to a higher score.`,
+        subtitle: `Your recent average is ${Math.round(latestCheckin.avgProteinG)}g vs your ${Math.round(proteinTargetG)}g daily target. Closing this gap is the fastest route to a higher SRI.`,
         cta:      'Log Weekly Pulse →',
         ctaHref:  '/checkin',
         type:     'recommended',
@@ -152,7 +152,7 @@ function getSmartNextAction(
   return {
     icon:     '🏋️',
     title:    'Add resistance training 2–3 sessions this week',
-    subtitle: 'Resistance training carries the largest single score gain at your current risk level. Bodyweight exercises count — no gym needed.',
+    subtitle: 'Resistance training is the single highest-impact SRI modifier at your current risk level. Bodyweight exercises count — no gym needed.',
     cta:      'Generate Updated SRI →',
     ctaHref:  '/dashboard/assessment',
     type:     'urgent',
@@ -174,13 +174,10 @@ const ACTION_STYLE: Record<ActionType, {
 // ─── Streak message ─────────────────────────────────────────────────────────────
 function getStreakMessage(current: number, total: number): string {
   if (current === 0 && total === 0) return 'Start your first weekly check-in to begin building your consistency record.';
-  if (current === 0) return 'Time to restart your streak. Every week back on track compounds your results.';
-  if (current === 1) return 'First check-in logged this week. One week at a time.';
-  if (current === 2) return 'Two weeks in a row. Consistency at this level already separates you from most patients.';
-  if (current === 3) return `Three-week streak. The habit is forming — this is where outcomes start to diverge.`;
-  if (current < 8)   return `${current}-week streak. Sustained adherence is the single most predictive factor in GLP-1 muscle outcomes.`;
-  if (current < 13)  return `${current}-week streak. Over two months of consistent tracking — this is clinical-grade dedication.`;
-  return `${current}-week streak. Exceptional. You are in the top tier of protocol adherence on this platform.`;
+  if (current === 0) return 'No consecutive weeks currently recorded. Each week logged rebuilds your consistency record.';
+  if (current === 1) return '1 consecutive week of check-ins.';
+  if (current < 8)   return `${current} consecutive weeks of check-ins. Sustained adherence is the single most predictive factor in GLP-1 muscle outcomes.`;
+  return `${current} consecutive weeks of check-ins. Over two months of continuous tracking.`;
 }
 
 // ─── Recent wins ───────────────────────────────────────────────────────────────
@@ -212,7 +209,7 @@ function buildRecentWins(
       wins.push({
         icon:    '↑',
         iconCls: 'text-emerald-400 bg-emerald-900/40 border-emerald-800',
-        text:    `Score improved +${Math.round(gain)} points`,
+        text:    `SRI increased from ${Math.round(prev.muscleScore?.score ?? 0)} to ${Math.round(latest.muscleScore?.score ?? 0)}`,
         date:    dateWithTime(latest.assessmentDate),
       });
     }
@@ -262,19 +259,20 @@ function buildRecentWins(
 function getProgressMessage(delta: number | null, band: Band, count: number): string {
   if (count === 1) {
     const m: Record<Band, string> = {
-      LOW:      'Strong start — you\'re already in the low-risk zone. The goal now is to maintain this through every dose escalation.',
-      MODERATE: 'Your journey begins here. Most patients who follow their protocol move out of moderate risk within 4–6 weeks.',
-      HIGH:     'This is your baseline. Consistent protein intake and resistance training are the two changes that move this number fastest.',
-      CRITICAL: 'This is where it begins. Every step you take from here is progress. Your protocol is designed to change this trajectory.',
+      LOW:      'Your first assessment places you in the Low Risk band. The goal now is to maintain this through every dose escalation.',
+      MODERATE: 'Your first assessment places you in the Moderate Risk band. Protein adherence and resistance training are the two modifiers that most influence your SRI.',
+      HIGH:     'Your first assessment places you in the High Risk band. Protein adherence and resistance training are the two modifiers that most influence your SRI.',
+      CRITICAL: 'Your first assessment places you in the Critical Risk band. Review this result with your prescribing physician before your next dose escalation.',
     };
     return m[band];
   }
-  if (delta === null) return 'Keep tracking to see your progress story unfold.';
-  if (delta > 15) return 'Exceptional progress. Your commitment to the protocol is measurably protecting your muscle mass.';
-  if (delta > 8)  return 'Solid upward trend. The data shows your interventions are working — keep the consistency going.';
-  if (delta > 0)  return 'Moving in the right direction. Small, consistent gains compound into significant muscle protection over time.';
-  if (delta === 0) return 'Score is holding steady. Review your next best step below to identify your highest-impact move.';
-  return 'A small dip — not uncommon during dose escalations. Your targets remain unchanged; refocus on protein adherence first.';
+  // Trend copy is descriptive only: it reports the SRI movement without
+  // attributing it to any intervention, and a numeric change is never
+  // described as a change in clinical risk status — the band does that.
+  if (delta === null) return 'Not enough assessments yet to describe a trend.';
+  if (delta > 0)  return `Your SRI has increased by ${delta} since your first assessment. Your risk band is the authoritative interpretation of that change.`;
+  if (delta === 0) return 'Your SRI is stable since your first assessment. Review your next step below.';
+  return `Your SRI has decreased by ${Math.abs(delta)} since your first assessment and requires attention. Your targets remain unchanged; refocus on protein adherence first.`;
 }
 
 // ─── Score bar colour ──────────────────────────────────────────────────────────
@@ -335,7 +333,7 @@ export default async function JourneyPage() {
             Your journey hasn&apos;t started yet
           </h1>
           <p className="text-slate-400 text-sm leading-relaxed mb-6">
-            Complete your first assessment to generate your MyoGuard Score and
+            Complete your first assessment to generate your Sarcopenia Risk Index (SRI) and
             begin tracking your muscle-protection progress over time.
           </p>
           <Link
@@ -471,7 +469,10 @@ export default async function JourneyPage() {
                 <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />
                 {meta.label}
               </span>
-              {band === 'HIGH' && (
+              {/* Both elevated bands carry the recommendation. CRITICAL is the
+                  more severe band, so showing it for HIGH alone was inverted.
+                  Band-driven only — never derived from the numeric SRI. */}
+              {(band === 'HIGH' || band === 'CRITICAL') && (
                 <p className="text-[9px] text-slate-500 text-right leading-tight">
                   Physician review recommended
                 </p>
@@ -483,7 +484,7 @@ export default async function JourneyPage() {
                   : delta < 0 ? 'bg-red-900/70 text-red-400 border border-red-700'
                   : 'bg-slate-700 text-slate-400 border border-slate-600'
                 }`}>
-                  {delta > 0 ? '↑' : delta < 0 ? '↓' : '→'} {Math.abs(delta)} pts
+                  {delta > 0 ? '↑' : delta < 0 ? '↓' : '→'} {Math.abs(delta)} SRI
                 </span>
               )}
             </div>
@@ -518,12 +519,13 @@ export default async function JourneyPage() {
           </div>
 
           {pointsToLow !== null ? (
+            /* Band-only wording. `pointsToLow` still gates which message shows;
+               its computation is unchanged and its value is no longer surfaced. */
             <div className="flex items-center gap-2 bg-slate-700/50 rounded-xl px-4 py-3">
               <span className="text-lg">🎯</span>
               <p className="text-sm text-slate-200 leading-snug">
-                <span className="text-white font-bold">{pointsToLow} point{pointsToLow === 1 ? '' : 's'}</span>
-                {' '}away from the{' '}
-                <span className="text-emerald-400 font-semibold">Low Risk zone</span>
+                Currently in the{' '}
+                <span className="text-white font-semibold">{meta.label}</span> band
               </p>
             </div>
           ) : (
@@ -568,7 +570,7 @@ export default async function JourneyPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] mb-1">
-                  Projected Score · 30 Days
+                  Projected SRI · 30 Days
                 </p>
                 <p className="text-xs text-slate-500 leading-snug">
                   Estimated trajectory based on your assessment history
@@ -583,7 +585,7 @@ export default async function JourneyPage() {
               <div className="w-12 h-12 rounded-full bg-slate-700/60 flex items-center justify-center text-2xl mx-auto mb-3">📊</div>
               <p className="text-sm font-semibold text-slate-200 mb-1">Building your trajectory…</p>
               <p className="text-xs text-slate-500 leading-relaxed mb-5 max-w-xs mx-auto">
-                Complete your next assessment after your next dose escalation to activate score projection.
+                Complete your next assessment after your next dose escalation to activate SRI projection.
               </p>
               <Link href="/dashboard/assessment" className="inline-block bg-teal-600 hover:bg-teal-500 text-white font-semibold text-xs px-5 py-2.5 rounded-xl transition-colors">
                 Generate Updated SRI →
@@ -605,9 +607,9 @@ export default async function JourneyPage() {
                     digest.trendStatus === 'improving' ? 'text-emerald-400' :
                     digest.trendStatus === 'declining' ? 'text-red-400' : 'text-slate-400'
                   }`}>
-                    {pointChange > 0 ? `+${pointChange} points projected`
-                    : pointChange < 0 ? `${pointChange} points projected`
-                    : 'Score holding steady'}
+                    {pointChange !== 0
+                      ? `Projected SRI ${current} → ${digest.projectedScore}`
+                      : 'Projected SRI stable'}
                   </p>
                 </div>
                 <div className={`w-16 h-16 rounded-2xl flex flex-col items-center justify-center border flex-shrink-0 ${
@@ -749,8 +751,8 @@ export default async function JourneyPage() {
           {/* ── Stat trio ── */}
           <div className="grid grid-cols-3 divide-x divide-[#1A2744]" style={{ borderTop: '1px solid #1A2744' }}>
             {[
-              { value: digest.streakWeeks,   label: 'Current streak',  unit: 'wks' },
-              { value: digest.bestStreak,    label: 'Best streak',     unit: 'wks' },
+              { value: digest.streakWeeks,   label: 'Consecutive weeks', unit: 'wks' },
+              { value: digest.bestStreak,    label: 'Longest run',       unit: 'wks' },
               { value: digest.totalCheckins, label: 'Total check-ins', unit: '' },
             ].map(({ value, label, unit }) => (
               <div key={label} className="px-4 py-4 text-center">
@@ -768,7 +770,7 @@ export default async function JourneyPage() {
             <div style={{ borderTop: '1px solid #1A2744' }}>
               <div className="px-5 pt-3.5 pb-1">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em]">
-                  Recent wins
+                  Recent activity
                 </p>
               </div>
               <div className="divide-y divide-slate-700/30 pb-1">
@@ -793,7 +795,7 @@ export default async function JourneyPage() {
           {recentWins.length === 0 && (
             <div className="px-5 py-5 text-center" style={{ borderTop: '1px solid #1A2744' }}>
               <p className="text-xs text-slate-500 leading-relaxed mb-3">
-                Complete a weekly check-in to start building your wins record.
+                Complete a weekly check-in to start building your activity record.
               </p>
               <Link
                 href="/checkin"
@@ -892,7 +894,7 @@ export default async function JourneyPage() {
               <div className="w-12 h-12 rounded-full bg-slate-700/60 flex items-center justify-center text-2xl mx-auto mb-3">📈</div>
               <p className="text-sm font-semibold text-slate-200 mb-1">Trend builds with each assessment</p>
               <p className="text-xs text-slate-500 leading-relaxed mb-5 max-w-xs mx-auto">
-                Run a new assessment after your next dose escalation to start tracking how your score changes over time.
+                Run a new assessment after your next dose escalation to start tracking how your SRI changes over time.
               </p>
               <Link href="/dashboard/assessment" className="inline-block bg-slate-700 hover:bg-slate-600 text-white font-semibold text-xs px-5 py-2.5 rounded-xl transition-colors">
                 Generate Updated SRI →
@@ -934,7 +936,7 @@ export default async function JourneyPage() {
                   : delta < 0 ? 'bg-red-900/50 text-red-400 border border-red-800'
                   : 'bg-slate-700 text-slate-400 border border-slate-600'
                 }`}>
-                  {delta > 0 ? '↑' : delta < 0 ? '↓' : '→'} {Math.abs(delta)} points overall since first assessment
+                  {delta > 0 ? '↑' : delta < 0 ? '↓' : '→'} SRI {Math.round(first.muscleScore!.score)} → {Math.round(latest.muscleScore!.score)} since first assessment
                 </div>
               )}
             </div>
@@ -1026,7 +1028,7 @@ export default async function JourneyPage() {
         </div>
 
         <p className="text-center text-[10px] text-slate-600 pt-1 leading-relaxed">
-          Score history reflects completed assessments. Weekly check-ins track
+          SRI history reflects completed assessments. Weekly check-ins track
           adherence but do not regenerate your SRI.
         </p>
 

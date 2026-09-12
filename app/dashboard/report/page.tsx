@@ -536,7 +536,7 @@ export default async function ReportPage() {
                     </span>
                   </div>
                   <p style={{ fontSize: '12px', color: '#94A3B8', marginTop: '4px' }}>
-                    Composite muscle-loss risk score — higher is better
+                    Sarcopenia Risk Index (SRI) — a higher SRI indicates greater muscle protection
                   </p>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column',
@@ -589,10 +589,12 @@ export default async function ReportPage() {
                   borderRadius: '12px', padding: '12px 16px' }}>
                   <p style={{ fontSize: '10px', color: '#94A3B8', textTransform: 'uppercase',
                     letterSpacing: '0.06em', marginBottom: '4px' }}>
-                    Distance to Low Risk
+                    Current Risk Band
                   </p>
+                  {/* Band-only wording. `pointsToLow` still gates the message;
+                      its computation is unchanged and no longer surfaced. */}
                   <p style={{ fontSize: '14px', fontWeight: '600', color: '#F1F5F9' }}>
-                    {pointsToLow !== null ? `${pointsToLow} points` : '✓ In optimal zone'}
+                    {pointsToLow !== null ? db.label : '✓ In optimal zone'}
                   </p>
                 </div>
                 <div style={{ background: '#080C14', border: '1px solid #1A2744',

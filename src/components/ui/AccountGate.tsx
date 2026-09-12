@@ -26,7 +26,7 @@ export default function AccountGate({ score, onGuest }: AccountGateProps) {
       <div className="bg-slate-900 px-5 py-4 flex items-center justify-between">
         <div>
           <p className="text-xs font-semibold text-teal-400 uppercase tracking-widest mb-0.5">
-            Your MyoGuard Score
+            Your Sarcopenia Risk Index (SRI)
           </p>
           <div className="flex items-baseline gap-2">
             <span className="text-4xl font-extrabold text-white tabular-nums leading-none">

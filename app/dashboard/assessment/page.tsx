@@ -336,7 +336,7 @@ export default function AssessmentPage() {
             New Assessment
           </h1>
           <p style={{ fontSize: '13px', color: '#94A3B8', lineHeight: '1.6' }}>
-            Enter your current details to generate a fresh MyoGuard Score and muscle-protection protocol.
+            Enter your current details to generate a fresh Sarcopenia Risk Index (SRI) and muscle-protection protocol.
           </p>
         </div>
 
@@ -474,8 +474,8 @@ export default function AssessmentPage() {
               </p>
             )}
             <p style={{ marginTop: '6px', fontSize: '12px', color: '#94A3B8' }}>
-              Oral semaglutide (Rybelsus) doses are normalised to injectable equivalents for scoring
-              purposes. If your medication is not listed, select the closest equivalent.
+              Oral semaglutide (Rybelsus) doses are normalised to injectable equivalents when generating
+              your SRI. If your medication is not listed, select the closest equivalent.
             </p>
           </div>
 
@@ -692,8 +692,8 @@ export default function AssessmentPage() {
 
             </div>
             <p style={{ marginTop: '8px', fontSize: '12px', color: '#475569', lineHeight: '1.6' }}>
-              Sleep data activates the recovery modifier in your MyoGuard Score.
-              Fewer than 6.5 hours or poor quality (≤ 2) reduces your score by 10 points.
+              Sleep data activates the recovery modifier in your Sarcopenia Risk Index (SRI).
+              Fewer than 6.5 hours or poor quality (≤ 2) reduces your SRI, reflecting reduced recovery capacity.
             </p>
             {form.sleepHours !== undefined && form.sleepQuality !== undefined && (() => {
               const h = form.sleepHours!;

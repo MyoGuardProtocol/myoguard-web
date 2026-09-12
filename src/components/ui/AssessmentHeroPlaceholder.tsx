@@ -85,7 +85,7 @@ export default function AssessmentHeroPlaceholder() {
       <p className="text-2xl mb-2">📊</p>
       <p className="text-slate-700 font-semibold mb-1">No assessment yet</p>
       <p className="text-sm text-slate-500 mb-4 leading-relaxed">
-        Complete the protocol calculator to generate your first MyoGuard Score.
+        Complete the assessment to generate your first Sarcopenia Risk Index (SRI).
       </p>
       <Link
         href="/"

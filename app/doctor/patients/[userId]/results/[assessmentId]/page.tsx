@@ -133,7 +133,7 @@ export default async function PhysicianAssessmentResultPage({
           borderRadius: '16px', padding: '28px 32px',
         }}>
           <p style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '20px' }}>
-            MyoGuard Score
+            Sarcopenia Risk Index (SRI)
           </p>
 
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '24px', marginBottom: '20px' }}>
@@ -180,6 +180,14 @@ export default async function PhysicianAssessmentResultPage({
               </div>
             ))}
           </div>
+
+          {/* Evidentiary status for the Lean Loss Risk tile above. Stated once
+              for the block rather than inside the 3-column tile. */}
+          {ms?.leanLossEstPct != null && (
+            <p style={{ fontSize: '10px', color: '#64748B', lineHeight: 1.45, marginTop: '10px' }}>
+              Lean Loss Risk is a band-associated expert-consensus estimate; not a validated individual prediction.
+            </p>
+          )}
         </div>
 
         {/* Assessment inputs */}
@@ -246,7 +254,8 @@ export default async function PhysicianAssessmentResultPage({
                   {ms.leanLossEstPct.toFixed(1)}%
                 </p>
                 <p style={{ fontSize: '12px', color: '#64748B', marginTop: '4px' }}>
-                  Estimated lean mass at risk during current GLP-1 protocol
+                  Estimated lean mass at risk during current GLP-1 protocol.
+                  {' '}Band-associated expert-consensus estimate; not a validated individual prediction.
                 </p>
               </div>
             )}

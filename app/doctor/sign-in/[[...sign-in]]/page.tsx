@@ -137,7 +137,7 @@ export default async function PhysicianSignInPage({
           Clinical Command Center
         </p>
         <p style={{ fontSize: '12px', color: '#64748B', lineHeight: '1.6', margin: 0 }}>
-          Sign in to access patient risk scores, protocol oversight, and muscle-protection flags.
+          Sign in to access patient SRI results, protocol oversight, and muscle-protection flags.
         </p>
         <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #1A2744', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
           <span style={{ fontSize: '12px', color: '#475569' }}>No physician account?</span>

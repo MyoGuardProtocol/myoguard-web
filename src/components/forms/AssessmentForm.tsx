@@ -175,7 +175,7 @@ export default function AssessmentForm({ onSubmit }: AssessmentFormProps) {
                   </svg>
                 ),
                 title:  'Receive your personalised protocol',
-                detail: 'Get your MyoGuard Score, daily protein target, fibre guidance, and hydration baseline — calibrated to your inputs.',
+                detail: 'Get your Sarcopenia Risk Index (SRI), daily protein target, fibre guidance, and hydration baseline — calibrated to your inputs.',
               },
               {
                 icon: (
@@ -341,7 +341,7 @@ export default function AssessmentForm({ onSubmit }: AssessmentFormProps) {
                 <span className="text-slate-400 font-normal">(select all that apply)</span>
               </label>
               <p className="text-xs text-slate-400 mb-2.5 leading-snug">
-                Symptom data improves the accuracy of your muscle-risk score and GI guidance.
+                Symptom data improves the accuracy of your SRI and GI guidance.
               </p>
               <div className="flex flex-wrap gap-2">
                 {SYMPTOMS.map(s => (
@@ -495,7 +495,7 @@ export default function AssessmentForm({ onSubmit }: AssessmentFormProps) {
                     <p className="text-xs text-orange-800 leading-relaxed">
                       <span className="font-bold">Biological Alert:</span>{' '}
                       Insufficient recovery blunts Muscle Protein Synthesis by ~18%. Poor sleep quality
-                      will apply a 10-point penalty to your MyoGuard Score.
+                      reduces your SRI, reflecting reduced recovery capacity.
                     </p>
                   </div>
                 </div>

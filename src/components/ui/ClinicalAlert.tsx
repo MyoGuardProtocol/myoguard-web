@@ -18,6 +18,12 @@ type Band = 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL';
 
 type Props = {
   band:          Band;
+  /**
+   * Retained in the prop contract (callers and the engine are unchanged) but
+   * no longer rendered. The value is a fixed band-associated expert-consensus
+   * constant, not a validated individual prediction. The band-keyed severity
+   * bar below conveys the same standing qualitatively.
+   */
   leanLossPct:   number;
   message:       string;
   patientFacing?: boolean;
@@ -53,7 +59,7 @@ const BAND_CFG: Record<Band, {
     severityBar:  '#FB923C',
     severityPct:  75,
     headerLabel:  'Medical Action Required',
-    badgeText:    'ELEVATED SRI RISK',
+    badgeText:    'HIGH RISK',
     icon: 'M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z',
   },
   MODERATE: {
@@ -80,7 +86,7 @@ const BAND_CFG: Record<Band, {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function ClinicalAlert({ band, leanLossPct, message, patientFacing }: Props) {
+export default function ClinicalAlert({ band, message, patientFacing }: Props) {
   const cfg = BAND_CFG[band];
   const headerLabel = patientFacing && band === 'HIGH'
     ? 'Physician Review Recommended'
@@ -151,22 +157,21 @@ export default function ClinicalAlert({ band, leanLossPct, message, patientFacin
             }}
           />
         </div>
+        {/* Severity is band-keyed (cfg.severityPct), not a numeric lean-loss
+            estimate. The former per-cent readout was removed: it presented a
+            fixed band constant as if it were an individual prediction. */}
         <div className="flex items-center justify-between mt-1.5">
           <p
             className="text-[9px] uppercase tracking-[0.14em]"
             style={{ color: `${cfg.accentColour}70` }}
           >
-            Lean Loss Risk Severity
+            Muscle-Loss Risk Severity
           </p>
-          {/* Lean loss percentage — Geist Mono for laboratory precision */}
           <p
-            className="text-[11px] tabular-nums font-semibold"
-            style={{
-              fontFamily: 'var(--font-geist-mono), ui-monospace, monospace',
-              color:      cfg.accentColour,
-            }}
+            className="text-[9px] uppercase tracking-[0.14em] font-semibold"
+            style={{ color: cfg.accentColour }}
           >
-            {leanLossPct}% estimated
+            {cfg.badgeText}
           </p>
         </div>
       </div>

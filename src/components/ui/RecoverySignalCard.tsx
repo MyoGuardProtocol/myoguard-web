@@ -237,8 +237,8 @@ export default function RecoverySignalCard({
                 fontFamily:   'var(--font-geist-mono), ui-monospace, monospace',
               }}
             >
-              <span>−10 pts</span>
-              <span style={{ color: `${cfg.accentColour}80`, fontFamily: 'inherit' }}>score penalty applied</span>
+              <span>−10 SRI</span>
+              <span style={{ color: `${cfg.accentColour}80`, fontFamily: 'inherit' }}>recovery modifier applied</span>
             </span>
           )}
           {criticalOverride && (

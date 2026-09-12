@@ -158,7 +158,7 @@ export async function POST(req: Request) {
       </p>
       <ul style="margin: 0; padding-left: 16px; font-size: 13px; color: #475569; line-height: 2;">
         <li>Access the Clinical Command Center</li>
-        <li>Monitor patient sarcopenia risk scores</li>
+        <li>Monitor patient SRI results</li>
         <li>Generate QR referral codes for patients</li>
         <li>Review triage alerts and protocol adherence</li>
         <li>Document MDM interventions for CPT 99470</li>

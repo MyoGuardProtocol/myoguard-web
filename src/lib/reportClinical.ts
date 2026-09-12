@@ -401,7 +401,7 @@ export function buildSuggestedActions(params: {
   };
   const { days: reassessDays, urgency: reassessUrgency } = REASSESS[band];
   const decliningNote = trendStatus === 'declining'
-    ? ' Score is on a declining trajectory — prompt follow-up is essential.'
+    ? ' SRI is on a declining trajectory — prompt follow-up is essential.'
     : '';
 
   const reassessAction: SuggestedAction = {
@@ -410,7 +410,7 @@ export function buildSuggestedActions(params: {
     text:
       band === 'LOW'
         ? 'Continue monthly MyoGuard assessments to maintain low-risk classification. No immediate intervention required — sustain current protocol.'
-        : `Reassess MyoGuard score within ${reassessDays} days following protocol adjustment to confirm adequate clinical response.${decliningNote}`,
+        : `Reassess the SRI within ${reassessDays} days following protocol adjustment to confirm adequate clinical response.${decliningNote}`,
   };
 
   return selected.length === 0 ? [reassessAction] : [...selected, reassessAction];
@@ -468,11 +468,17 @@ export function buildEscalationSignal(params: {
     });
   }
 
-  // 4. Rapid lean mass loss — threshold of >5% estimated loss
+  // 4. Elevated band-associated lean-mass-loss estimate — threshold of >5%.
+  //
+  // `leanLossEstPct` is the engine's fixed per-band constant (LEAN_LOSS_BY_BAND),
+  // NOT a measured longitudinal rate — so the previous wording ("Rapid … loss")
+  // overstated its evidentiary status. The threshold, the trigger condition and
+  // the urgency level are all unchanged; only the surfaced reasoning is now
+  // explicit about what the number is.
   if (leanLossEstPct > 5) {
     triggers.push({
       level: 'urgent',
-      text:  `Rapid estimated lean mass loss (${leanLossEstPct}%) — exceeds the acceptable threshold for standard GLP-1 monitoring protocol`,
+      text:  `Elevated band-associated lean-mass-loss estimate (${leanLossEstPct}%); expert-consensus derived, not a validated individual prediction — exceeds the acceptable threshold for standard GLP-1 monitoring protocol`,
     });
   }
 
@@ -480,7 +486,7 @@ export function buildEscalationSignal(params: {
   if (trendStatus === 'declining') {
     triggers.push({
       level: 'urgent',
-      text:  'MyoGuard score on a declining trajectory — progressive deterioration detected across recent assessment cycles',
+      text:  'SRI on a declining trajectory — progressive deterioration detected across recent assessment cycles',
     });
   }
 

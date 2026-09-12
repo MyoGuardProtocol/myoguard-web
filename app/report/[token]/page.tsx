@@ -272,19 +272,19 @@ export default async function PublicReportPage({
                     <span className="text-6xl font-black text-slate-900 tabular-nums leading-none">{score}</span>
                     <span className="text-xl text-slate-400 font-light">/100</span>
                   </div>
-                  <p className="text-xs text-slate-500 mt-1">Composite muscle-loss risk score — higher is better</p>
+                  <p className="text-xs text-slate-500 mt-1">Sarcopenia Risk Index (SRI) — a higher SRI indicates greater muscle protection</p>
                 </div>
                 <div className="flex flex-col items-end gap-2 flex-shrink-0">
                   <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border ${meta.bg} ${meta.border} ${meta.colour}`}>
                     <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />
                     {meta.label}
                   </span>
-                  {band === 'HIGH' && (
+                  {/* Both elevated bands carry the recommendation. CRITICAL is
+                      the more severe band, so showing it for HIGH alone was
+                      inverted. Band-driven only — never from the numeric SRI. */}
+                  {(band === 'HIGH' || band === 'CRITICAL') && (
                     <span className="text-[11px] font-medium text-orange-600">Physician review recommended</span>
                   )}
-                  <span className="text-xs font-semibold text-slate-600 tabular-nums">
-                    {ms.leanLossEstPct}% estimated lean mass loss risk
-                  </span>
                 </div>
               </div>
               <div className="h-3 rounded-full bg-white/70 overflow-hidden flex gap-px mb-3 border border-slate-200">
@@ -301,9 +301,11 @@ export default async function PublicReportPage({
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-white/70 rounded-lg px-3 py-2.5 border border-slate-200">
-                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Distance to Low Risk</p>
+                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Current Risk Band</p>
+                  {/* Band-only wording. `pointsToLow` still gates the message;
+                      its computation is unchanged and no longer surfaced. */}
                   <p className="text-sm font-bold text-slate-900">
-                    {pointsToLow !== null ? `${pointsToLow} points` : '✓ In optimal zone'}
+                    {pointsToLow !== null ? meta.label : '✓ In optimal zone'}
                   </p>
                 </div>
                 <div className="bg-white/70 rounded-lg px-3 py-2.5 border border-slate-200">
@@ -386,12 +388,11 @@ export default async function PublicReportPage({
                   </p>
                 </div>
                 <div className="px-5 py-4">
+                  {/* Bare lean-loss percentage removed — a fixed band-associated
+                      expert-consensus constant, not an individual prediction.
+                      The qualitative trajectory sentence is retained. */}
                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2.5">
-                    30-Day Lean Mass Projection
-                  </p>
-                  <p className="text-base font-medium tabular-nums leading-tight mb-1" style={{ color: '#94A3B8' }}>
-                    {ms.leanLossEstPct}%
-                    <span className="text-sm font-normal ml-1">lean loss risk</span>
+                    Lean Mass Trajectory
                   </p>
                   <p className="text-xs text-slate-600 leading-relaxed">
                     {interp.leanMassProjection.split('. ').slice(1).join('. ')}
@@ -626,17 +627,17 @@ export default async function PublicReportPage({
                   </p>
                 </div>
                 <div className="border border-slate-200 rounded-xl px-4 py-3.5">
-                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Score Trend</p>
+                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">SRI Trend</p>
                   <p className={`text-base font-bold ${trendCfg.colour} flex items-center gap-1`}>
                     <span>{trendCfg.icon}</span>{trendCfg.text}
                   </p>
                 </div>
                 <div className="border border-slate-200 rounded-xl px-4 py-3.5">
-                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Check-in Streak</p>
+                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Consecutive weeks of check-ins</p>
                   <p className="text-2xl font-black text-slate-900 tabular-nums leading-tight">
                     {digest.streakWeeks}<span className="text-sm text-slate-400 font-light ml-1">wks</span>
                   </p>
-                  <p className="text-[10px] text-slate-400">Best: {digest.bestStreak} wks</p>
+                  <p className="text-[10px] text-slate-400">Longest: {digest.bestStreak} wks</p>
                 </div>
               </div>
             </section>

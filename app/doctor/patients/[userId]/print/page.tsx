@@ -186,7 +186,7 @@ export default async function PrintPage({
 
             {score !== null && (
               <div style={{ textAlign: 'center', minWidth: 120 }}>
-                <p style={{ fontSize: 9, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>MyoGuard Score</p>
+                <p style={{ fontSize: 9, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>Sarcopenia Risk Index (SRI)</p>
                 <p className="mono" style={{ fontSize: 48, fontWeight: 900, lineHeight: 1, color: '#0F172A' }}>
                   {score}
                 </p>
@@ -249,7 +249,12 @@ export default async function PrintPage({
                   {/* Lean loss */}
                   {ms?.leanLossEstPct != null && (
                     <tr>
-                      <td>Lean Mass Loss Risk</td>
+                      <td>
+                        Lean Mass Loss Risk
+                        <span style={{ display: 'block', fontSize: 8, color: '#64748B', fontWeight: 400, lineHeight: 1.35 }}>
+                          Band-associated expert-consensus estimate; not a validated individual prediction.
+                        </span>
+                      </td>
                       <td className="mono" style={{ fontWeight: 700 }}>{ms.leanLossEstPct.toFixed(1)}%</td>
                       <td className="mono">{'< 10%'}</td>
                       <td>
