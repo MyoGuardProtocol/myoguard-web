@@ -48,9 +48,39 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "Patient not found" }, { status: 404 });
     }
 
-    // Idempotent — already linked
+    // Idempotent — already linked to this physician
     if (patient.physicianId === physician.id) {
       return NextResponse.json({ ok: true, alreadyLinked: true });
+    }
+
+    // ── Relationship-preservation guard ───────────────────────────────────────
+    //
+    // A share token authorises READING a patient's report. It must not also
+    // authorise taking over an existing patient–physician relationship.
+    //
+    // Without this check the update below ran unconditionally, so any physician
+    // holding the token could silently reassign another physician's patient to
+    // themselves — removing the original physician's access and moving clinical
+    // attribution and PhysicianReviewSession billing with it.
+    //
+    // This mirrors the semantics already established in /api/referral/link,
+    // which guards the identical write with `if (!patient.physicianId)`.
+    //
+    // Transfer of care is deliberately NOT implemented here — an existing
+    // relationship may only change through an explicit, patient-authorised flow
+    // that does not yet exist. Until then the safe outcome is to refuse.
+    //
+    // The response states that a link exists but never identifies the current
+    // physician, and no invitation or audit artefact is written on this path.
+    if (patient.physicianId && patient.physicianId !== physician.id) {
+      return NextResponse.json(
+        {
+          ok:    false,
+          error: "This patient is already linked to another physician. " +
+                 "Transfer of care must be arranged with the patient.",
+        },
+        { status: 409 },
+      );
     }
 
     await prisma.user.update({
