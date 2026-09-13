@@ -1,4 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+
+/**
+ * Request contract for the public preliminary-SRI protocol email.
+ *
+ * This route is intentionally unauthenticated, so the request body is the
+ * trust boundary. Every field below is validated against the contract the
+ * only legitimate caller actually produces (app/page.tsx):
+ *
+ *   risk           getRisk() → "LOW" | "MODERATE" | "HIGH"
+ *                  (app/page.tsx:48 — the PRELIMINARY band set, which
+ *                  deliberately excludes CRITICAL; see the note at
+ *                  app/page.tsx:40-46. It is not the authoritative full-SRI
+ *                  band set and must not be conflated with it.)
+ *   score          computeLeanMassScore() → Math.round, clamped 0–100
+ *   leanScore      same function, same domain
+ *   recoveryScore  computeRecoveryScore() → fixed integer table, 14–95
+ *
+ * The bounds are read off the existing implementation, not invented here.
+ *
+ * Validation — not escaping — is what makes the generated HTML safe: once
+ * `risk` is an enum, the three lookup maps below are total, so every value
+ * interpolated into the template is either a compile-time constant or a
+ * validated number. No caller-controlled string reaches the markup, including
+ * the numeric width attribute on the risk bar.
+ */
+const ProtocolEmailSchema = z.object({
+  email:         z.string().email(),
+  score:         z.number().int().min(0).max(100),
+  leanScore:     z.number().int().min(0).max(100),
+  recoveryScore: z.number().int().min(0).max(100),
+  risk:          z.enum(["LOW", "MODERATE", "HIGH"]),
+});
+
+/** Preliminary band set — see the note above. */
+type PreliminaryRiskBand = z.infer<typeof ProtocolEmailSchema>["risk"];
 
 const PRODUCTION_URL = "https://myoguard.health";
 const rawAppUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
@@ -7,19 +43,19 @@ const APP_URL =
     ? rawAppUrl
     : PRODUCTION_URL;
 
-const RISK_LABELS: Record<string, string> = {
+const RISK_LABELS: Record<PreliminaryRiskBand, string> = {
   LOW: "Low Risk",
   MODERATE: "Moderate Risk",
   HIGH: "High Risk",
 };
 
-const RISK_COLORS: Record<string, string> = {
+const RISK_COLORS: Record<PreliminaryRiskBand, string> = {
   LOW: "#0d9488",
   MODERATE: "#d97706",
   HIGH: "#dc2626",
 };
 
-const RISK_GUIDANCE: Record<string, string> = {
+const RISK_GUIDANCE: Record<PreliminaryRiskBand, string> = {
   LOW: "Your protein intake and recovery environment are well-matched to your current GLP-1 dose stage. Continue your current protocol with quarterly monitoring.",
   MODERATE: "Protein adequacy or recovery environment is suboptimal relative to your GLP-1 dose stage. Supplementation and structured resistance training are recommended.",
   HIGH: "Significant lean mass loss risk detected. Immediate protocol review is indicated — your current inputs are not meeting the threshold required to protect skeletal muscle at your GLP-1 dose.",
@@ -27,19 +63,24 @@ const RISK_GUIDANCE: Record<string, string> = {
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, score, leanScore, recoveryScore, risk } = await req.json() as {
-      email: string;
-      score: number;
-      leanScore: number;
-      recoveryScore: number;
-      risk: string;
-    };
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
+
+    const parsed = ProtocolEmailSchema.safeParse(body);
+    if (!parsed.success) {
+      // Out-of-contract input is rejected outright rather than coerced. The
+      // previous `RISK_LABELS[risk] ?? risk` fallback silently promoted an
+      // arbitrary caller string into a clinical label and into the email HTML.
+      return NextResponse.json({ error: "Invalid request" }, { status: 422 });
+    }
+
+    const { email, score, leanScore, recoveryScore, risk } = parsed.data;
 
     console.log("[protocol-email] received:", { email, score, risk });
-
-    if (!email || !email.includes("@")) {
-      return NextResponse.json({ error: "Invalid email" }, { status: 400 });
-    }
 
     const resendKey = process.env.RESEND_API_KEY;
     if (!resendKey) {
@@ -47,9 +88,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Email service unavailable" }, { status: 500 });
     }
 
-    const riskLabel = RISK_LABELS[risk] ?? risk;
-    const riskColor = RISK_COLORS[risk] ?? "#64748b";
-    const guidance = RISK_GUIDANCE[risk] ?? "";
+    // `risk` is enum-validated, so these lookups are total — no fallback needed
+    // and no caller-controlled string can reach the template.
+    const riskLabel = RISK_LABELS[risk];
+    const riskColor = RISK_COLORS[risk];
+    const guidance  = RISK_GUIDANCE[risk];
 
     const html = `<!DOCTYPE html>
 <html lang="en">

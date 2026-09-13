@@ -38,7 +38,12 @@ export const EmailCaptureSchema = z.object({
   formData: z.object({
     medication: z.string(),
     doseMg: z.number(),
-    activityLevel: z.string(),
+    // Same finite domain as AssessmentInputSchema.activityLevel above — this
+    // field is rendered into the protocol email, and /api/email-capture is a
+    // public unauthenticated route, so the loose z.string() let an arbitrary
+    // caller put any text into the generated HTML. Constrained to the values
+    // the form actually produces; no new category is introduced here.
+    activityLevel: z.enum(["sedentary", "moderate", "active"]),
     symptoms: z.array(z.string()),
     referralSlug: z.string().optional(),
   }),

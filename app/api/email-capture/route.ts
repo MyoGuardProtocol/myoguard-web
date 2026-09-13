@@ -4,6 +4,10 @@ import { EmailCaptureSchema } from '@/src/schemas/assessment';
 // src/types. Type-only import — erased at compile time, so it adds no runtime
 // dependency on the engine and cannot introduce a cycle.
 import type { RiskBand } from '@/src/types';
+// Canonical escaper for this email layer. `explanation` is free-form clinical
+// text that must stay free-form, so it is encoded at the output boundary
+// rather than constrained by the schema.
+import { escapeHtml } from '@/src/lib/email/templates/BaseEmail';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://myoguard.health';
 
@@ -287,7 +291,7 @@ function buildProtocolEmail({ protocolResult, formData }: TemplateData): string 
                 <tr>
                   <td style="padding:20px 24px;">
                     <p style="margin:0 0 8px;font-size:11px;font-weight:700;color:#0d9488;text-transform:uppercase;letter-spacing:0.08em;">Clinical Summary</p>
-                    <p style="margin:0;font-size:14px;color:#374151;line-height:1.6;">${protocolResult.explanation}</p>
+                    <p style="margin:0;font-size:14px;color:#374151;line-height:1.6;">${escapeHtml(protocolResult.explanation)}</p>
                   </td>
                 </tr>
               </table>
