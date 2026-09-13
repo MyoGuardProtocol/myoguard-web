@@ -158,10 +158,14 @@ export function baseEmail({
 // ─── Utility ──────────────────────────────────────────────────────────────────
 
 /**
- * Escapes HTML special characters for safe interpolation into document
- * title and preheader (user-supplied strings).
+ * Escapes HTML special characters for safe interpolation of user-supplied
+ * strings into email HTML — document title, preheader, and display names.
+ *
+ * Exported so every email builder in this layer escapes identically rather
+ * than each one growing its own copy. Behaviour is unchanged for existing
+ * callers inside this file.
  */
-function escapeHtml(str: string): string {
+export function escapeHtml(str: string): string {
   return str
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')

@@ -84,7 +84,7 @@ export function checkConfig(): void {
   if (isPlaceholder) {
     warn(
       'RESEND_API_KEY is not set',
-      '/api/email-capture and /api/email will return delivered:false — no emails will be sent',
+      '/api/email-capture will return delivered:false — no emails will be sent',
     );
   }
 

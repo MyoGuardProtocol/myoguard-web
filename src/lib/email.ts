@@ -3,7 +3,17 @@
  *
  * Shared email-sending utilities.
  * Import and call directly from server-side route handlers — never via HTTP fetch.
+ *
+ * The former POST /api/email relay, which exposed this function over
+ * unauthenticated HTTP, has been removed. /api/user/onboard already calls
+ * sendWelcomeEmail() directly, which is the pattern this file's header has
+ * always specified.
  */
+
+// Imported by explicit path: the bare specifier '@/src/lib/email' resolves to
+// THIS file rather than the src/lib/email/ directory, so the deep path is
+// required to reach the email layer's canonical escaper.
+import { escapeHtml } from '@/src/lib/email/templates/BaseEmail';
 
 const PRODUCTION_URL = 'https://myoguard.health';
 
@@ -51,7 +61,7 @@ export async function sendWelcomeEmail({
     <tr><td align="center" style="padding:32px 16px;">
       <table width="100%" style="max-width:560px;" cellpadding="0" cellspacing="0">
         <tr><td style="padding-bottom:24px;">
-          <h1 style="margin:0 0 12px;font-size:22px;font-weight:900;color:#0f172a;">Welcome to MyoGuard, ${firstName} &#128075;</h1>
+          <h1 style="margin:0 0 12px;font-size:22px;font-weight:900;color:#0f172a;">Welcome to MyoGuard, ${escapeHtml(firstName)} &#128075;</h1>
           <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.6;">
             Your muscle-protection journey starts now. MyoGuard helps you preserve lean muscle mass
             while on GLP-1 therapy — one of the most overlooked risks in weight-loss treatment.
