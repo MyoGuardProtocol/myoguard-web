@@ -7,10 +7,29 @@
  * physician here; they receive exactly one email: the activation link after
  * admin approval (sent by /api/admin/verify-physician).
  *
+ * PUBLIC BY DESIGN. This is the anonymous half of physician acquisition;
+ * /api/doctor/onboarding is the authenticated half. Authentication is
+ * therefore NOT a control available here.
+ *
+ * Phase 1D-S4B hardening (application layer only):
+ *   1. Zod contract with length ceilings, sharing the S3B field bounds
+ *   2. the email is normalised ONCE and that value is used everywhere
+ *   3. every value interpolated into either email body is HTML-escaped
+ *   4. the applicant-facing send passes through the recipient throttle
+ *   5. notification failures after successful persistence are non-fatal,
+ *      so a Resend outage can no longer strand a registered physician
+ *      behind Clerk's duplicate-identifier 409
+ *
+ * The throttle is SECONDARY protection here. It limits how often one
+ * recipient can be mailed; it does not limit how many distinct identities an
+ * anonymous caller can register. Breadth-of-abuse protection is an
+ * infrastructure (IP rate limit) decision handled separately.
+ *
  * Required environment variables:
  *   CLERK_SECRET_KEY    — Clerk backend API key (sk_live_... or sk_test_...)
  *   ADMIN_TOKEN_SECRET  — HMAC secret for one-click admin action tokens
  *   RESEND_API_KEY      — Resend email API key
+ *   EMAIL_THROTTLE_SECRET — recipient throttle HMAC key
  */
 
 export const dynamic = "force-dynamic";
@@ -19,6 +38,9 @@ import { createHmac } from "node:crypto";
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { prisma } from "@/src/lib/prisma";
+import { escapeHtml } from "@/src/lib/email/templates/BaseEmail";
+import { consumeRecipientBudget } from "@/src/lib/emailThrottle";
+import { RegistrationSchema, normaliseEmail } from "@/src/lib/onboardingIdentity";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -80,31 +102,41 @@ async function createClerkUser(params: {
 // ---------------------------------------------------------------------------
 
 export async function POST(req: Request) {
+  // Set once the Clerk identity and both rows exist. From that point the
+  // registration has genuinely succeeded, so no later fault — including one
+  // reaching the catch-all below — may report it as a failure. See S4A CASE 7.
+  let persisted = false;
+
   try {
-    const body = await req.json() as {
-      fullName:       string;
-      email:          string;
-      password:       string;
-      country:        string;
-      specialty:      string;
-      npiNumber?:     string;
-      licenseNumber?: string;
-      inviteToken?:   string;
-    };
+    // ── Request contract — no side effect until this passes ─────────────────
+    let rawBody: unknown;
+    try {
+      rawBody = await req.json();
+    } catch {
+      return NextResponse.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
+    }
 
-    const { fullName, email, password, country, specialty, npiNumber, licenseNumber, inviteToken } = body;
+    const parsed = RegistrationSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { ok: false, error: "Validation failed", details: parsed.error.flatten() },
+        { status: 422 },
+      );
+    }
 
-    // ── Basic validation ────────────────────────────────────────────────────
-    if (!fullName || fullName.trim().length < 2)
-      return NextResponse.json({ ok: false, error: "Full name is required." }, { status: 422 });
-    if (!email || !email.includes("@"))
-      return NextResponse.json({ ok: false, error: "A valid email is required." }, { status: 422 });
-    if (!password || password.length < 8)
-      return NextResponse.json({ ok: false, error: "Password must be at least 8 characters." }, { status: 422 });
-    if (!country)
-      return NextResponse.json({ ok: false, error: "Country is required." }, { status: 422 });
-    if (!specialty)
-      return NextResponse.json({ ok: false, error: "Specialty is required." }, { status: 422 });
+    const {
+      fullName, email: rawEmail, password, country, specialty,
+      npiNumber, licenseNumber, inviteToken,
+    } = parsed.data;
+
+    // ── Email normalised ONCE ───────────────────────────────────────────────
+    // This single value is the identity for Clerk creation, both DB rows, the
+    // admin-token HMAC input, the throttle key and the applicant recipient.
+    // Previously the raw submission was persisted while Clerk stored its own
+    // normalised form, which could leave User.email and the Clerk identity
+    // differing only by case. Trim + lowercase only — no provider-specific
+    // canonicalisation, matching the throttle's rule.
+    const email = normaliseEmail(rawEmail);
 
     // ── Split name for Clerk ────────────────────────────────────────────────
     const nameParts = fullName.trim().split(/\s+/);
@@ -229,15 +261,36 @@ export async function POST(req: Request) {
       }
     }
 
+    persisted = true;
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // PERSISTENCE COMPLETE. The identity and both rows exist, so from here the
+    // registration HAS succeeded. Everything below is notification: it is
+    // logged on failure and never converted into a failed response. Reporting
+    // 500 after this point stranded the physician — their retry hit Clerk's
+    // duplicate-identifier 409 with no way forward (S4A CASE 7).
+    // ═══════════════════════════════════════════════════════════════════════
+
     // ── Build one-click admin URLs ───────────────────────────────────────────
     const approveUrl = `https://myoguard.health/api/admin/verify-physician?token=${adminToken}&action=approve`;
     const flagUrl    = `https://myoguard.health/api/admin/verify-physician?token=${adminToken}&action=flag`;
 
-    console.log("[register] application.id:", application.id);
-    console.log("[register] clerkUserId:", clerkUserId);
-    console.log("[register] token (first 8):", adminToken.slice(0, 8) + "…");
+    // Identifiers only — never the token, never the applicant's name or email.
+    console.log("[register] application.id:", application.id, "clerkUserId:", clerkUserId);
 
-    // ── Admin notification email ─────────────────────────────────────────────
+    // ── Email bodies — every interpolated value encoded ──────────────────────
+    // All of these are caller-controlled. The admin notification matters most:
+    // it carries the approve / flag action links.
+    const eName       = escapeHtml(fullName);
+    const eEmail      = escapeHtml(email);
+    const eCountry    = escapeHtml(country);
+    const eSpecialty  = escapeHtml(specialty);
+    const eNpi        = escapeHtml(npiNumber ?? "Not provided");
+    const eLicence    = escapeHtml(licenseNumber ?? "Not provided");
+    const eCredential = escapeHtml(licenseNumber ?? npiNumber ?? "Not provided");
+    const eGreeting   = escapeHtml(fullName.replace(/^Dr\.?\s*/i, ''));
+
+    // ── Admin notification email (non-fatal) ─────────────────────────────────
     try {
     await resend.emails.send({
       from:    "MyoGuard Clinical <admin@myoguard.health>",
@@ -281,27 +334,27 @@ export async function POST(req: Request) {
           </tr>
           <tr style="border-bottom:1px solid #f1f5f9;">
             <td style="padding:12px 16px;font-size:13px;color:#64748b;width:35%;">Full name</td>
-            <td style="padding:12px 16px;font-size:13px;font-weight:600;color:#0f172a;">${fullName}</td>
+            <td style="padding:12px 16px;font-size:13px;font-weight:600;color:#0f172a;">${eName}</td>
           </tr>
           <tr style="border-bottom:1px solid #f1f5f9;background:#fafafa;">
             <td style="padding:12px 16px;font-size:13px;color:#64748b;">Email</td>
-            <td style="padding:12px 16px;font-size:13px;color:#0f172a;">${email}</td>
+            <td style="padding:12px 16px;font-size:13px;color:#0f172a;">${eEmail}</td>
           </tr>
           <tr style="border-bottom:1px solid #f1f5f9;">
             <td style="padding:12px 16px;font-size:13px;color:#64748b;">Country</td>
-            <td style="padding:12px 16px;font-size:13px;color:#0f172a;">${country}</td>
+            <td style="padding:12px 16px;font-size:13px;color:#0f172a;">${eCountry}</td>
           </tr>
           <tr style="border-bottom:1px solid #f1f5f9;background:#fafafa;">
             <td style="padding:12px 16px;font-size:13px;color:#64748b;">Specialty</td>
-            <td style="padding:12px 16px;font-size:13px;color:#0f172a;">${specialty}</td>
+            <td style="padding:12px 16px;font-size:13px;color:#0f172a;">${eSpecialty}</td>
           </tr>
           <tr style="border-bottom:1px solid #f1f5f9;">
             <td style="padding:12px 16px;font-size:13px;color:#64748b;">NPI</td>
-            <td style="padding:12px 16px;font-size:13px;color:#0f172a;">${npiNumber ?? "Not provided"}</td>
+            <td style="padding:12px 16px;font-size:13px;color:#0f172a;">${eNpi}</td>
           </tr>
           <tr>
             <td style="padding:12px 16px;font-size:13px;color:#64748b;">Licence</td>
-            <td style="padding:12px 16px;font-size:13px;color:#0f172a;">${licenseNumber ?? "Not provided"}</td>
+            <td style="padding:12px 16px;font-size:13px;color:#0f172a;">${eLicence}</td>
           </tr>
         </table>
 
@@ -346,19 +399,48 @@ export async function POST(req: Request) {
       `,
     });
     } catch (e: unknown) {
-      console.error("[register] EMAIL FAILED:", e);
-      return NextResponse.json({ ok: false, error: "Admin email failed", detail: String(e) }, { status: 500 });
+      // Non-fatal. The account and both rows already exist, so failing the
+      // response here would tell a successfully-registered physician to retry
+      // into Clerk's duplicate-identifier 409 — the S4A CASE 7 lockout. The
+      // application is still visible in the admin panel; only the convenience
+      // notification was lost, and that is an operational follow-up.
+      console.error("[register] admin notification failed (non-fatal) for application", application.id, "-", e);
+    }
+
+    // ── Recipient throttle — gates the applicant-facing send only ────────────
+    // Shared budget with the other public email routes, keyed on the normalised
+    // recipient. Deliberately NOT applied to the admin notification: that goes
+    // to one fixed internal address, and throttling it would silently stop
+    // credential-review notifications after a few registrations.
+    //
+    // Unlike /api/protocol-email and /api/doctor/onboarding, a refusal here does
+    // NOT fail the request. Persistence has already succeeded, so the
+    // registration stands and only the acknowledgement is suppressed — the same
+    // rule every other notification below follows.
+    //
+    // This is secondary protection. It bounds how often ONE recipient can be
+    // mailed; it does not bound how many distinct identities an anonymous
+    // caller can register.
+    const throttle = await consumeRecipientBudget(email);
+    const mayNotifyApplicant = throttle.outcome === 'allowed';
+
+    if (!mayNotifyApplicant) {
+      console.warn(
+        `[register] acknowledgement suppressed (throttle: ${throttle.outcome}) for application`,
+        application.id,
+      );
     }
 
     // ── Physician acknowledgement email (non-fatal) ──────────────────────────
     // Confirm receipt of the application so the physician is not left in silence
     // between registration and the activation email that arrives after approval.
     try {
-      await resend.emails.send({
-        from:    "MyoGuard Clinical <admin@myoguard.health>",
-        to:      email,
-        subject: "Your MyoGuard Physician Application — Received",
-        html: `
+      if (mayNotifyApplicant) {
+        await resend.emails.send({
+          from:    "MyoGuard Clinical <admin@myoguard.health>",
+          to:      email,
+          subject: "Your MyoGuard Physician Application — Received",
+          html: `
 <div style="font-family:-apple-system,sans-serif;max-width:580px;margin:0 auto;background:#ffffff;">
   <div style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);padding:32px 24px;border-radius:12px 12px 0 0;text-align:center;">
     <h1 style="margin:0;font-size:24px;font-weight:700;letter-spacing:-0.5px;">
@@ -367,7 +449,7 @@ export async function POST(req: Request) {
     </h1>
   </div>
   <div style="padding:32px 24px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 12px 12px;">
-    <h2 style="margin:0 0 8px;font-size:20px;color:#0f172a;">Application received, Dr. ${fullName.replace(/^Dr\.?\s*/i, '')}</h2>
+    <h2 style="margin:0 0 8px;font-size:20px;color:#0f172a;">Application received, Dr. ${eGreeting}</h2>
     <p style="color:#64748b;font-size:14px;line-height:1.6;margin:0 0 24px;">
       Thank you for applying for credentialed access to the MyoGuard Protocol platform.
       Our clinical team reviews all physician credentials individually.
@@ -379,10 +461,10 @@ export async function POST(req: Request) {
     <div style="border:1px solid #e2e8f0;border-radius:10px;padding:16px;margin-bottom:24px;">
       <p style="margin:0 0 12px;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;">Application Summary</p>
       <table style="width:100%;border-collapse:collapse;font-size:13px;">
-        <tr><td style="padding:6px 0;color:#64748b;width:40%;">Full name</td><td style="padding:6px 0;font-weight:600;color:#0f172a;">${fullName}</td></tr>
-        <tr><td style="padding:6px 0;color:#64748b;">Country</td><td style="padding:6px 0;color:#0f172a;">${country}</td></tr>
-        <tr><td style="padding:6px 0;color:#64748b;">Specialty</td><td style="padding:6px 0;color:#0f172a;">${specialty}</td></tr>
-        <tr><td style="padding:6px 0;color:#64748b;">Licence / NPI</td><td style="padding:6px 0;color:#0f172a;">${licenseNumber ?? npiNumber ?? "Not provided"}</td></tr>
+        <tr><td style="padding:6px 0;color:#64748b;width:40%;">Full name</td><td style="padding:6px 0;font-weight:600;color:#0f172a;">${eName}</td></tr>
+        <tr><td style="padding:6px 0;color:#64748b;">Country</td><td style="padding:6px 0;color:#0f172a;">${eCountry}</td></tr>
+        <tr><td style="padding:6px 0;color:#64748b;">Specialty</td><td style="padding:6px 0;color:#0f172a;">${eSpecialty}</td></tr>
+        <tr><td style="padding:6px 0;color:#64748b;">Licence / NPI</td><td style="padding:6px 0;color:#0f172a;">${eCredential}</td></tr>
       </table>
     </div>
     <p style="font-size:13px;color:#64748b;line-height:1.6;">
@@ -394,9 +476,10 @@ export async function POST(req: Request) {
     © 2026 Meridian Wellness Systems LLC · myoguard.health
   </p>
 </div>
-        `,
-      });
-      console.log("[register] physician acknowledgement email sent to", email);
+          `,
+        });
+        console.log("[register] physician acknowledgement email sent to", email);
+      }
     } catch (ackErr: unknown) {
       // Non-fatal — admin notification already delivered; registration proceeds
       console.error("[register] physician acknowledgement email failed (non-fatal):", ackErr);
@@ -406,6 +489,16 @@ export async function POST(req: Request) {
 
   } catch (error: unknown) {
     console.error("[register] error:", error);
+
+    // If the identity and both rows already exist, the registration succeeded
+    // and only a downstream convenience failed. Reporting 500 would send the
+    // physician back to retry into Clerk's duplicate-identifier 409 with no
+    // way forward, which is the exact lockout this phase removes.
+    if (persisted) {
+      console.error("[register] fault occurred AFTER successful persistence — reporting success");
+      return NextResponse.json({ ok: true });
+    }
+
     return NextResponse.json({ ok: false, error: "Server error. Please try again." }, { status: 500 });
   }
 }

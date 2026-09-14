@@ -1,7 +1,10 @@
 /**
  * src/lib/onboardingIdentity.ts
  *
- * Identity-binding and ownership decisions for POST /api/doctor/onboarding.
+ * Identity-binding, contract and ownership decisions for the two physician
+ * entry points — POST /api/doctor/register (anonymous) and
+ * POST /api/doctor/onboarding (authenticated). They share one definition of
+ * the credential fields so their bounds cannot drift apart.
  *
  * WHY THIS EXISTS
  * Phase 1D-S3A found that the onboarding route called auth() but never
@@ -28,7 +31,7 @@ import { z } from 'zod';
  * already-normalised output to the throttle, and the throttle normalises again
  * idempotently. No provider-specific canonicalisation in either.
  */
-function normaliseEmail(email: string): string {
+export function normaliseEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
@@ -39,12 +42,13 @@ function normaliseEmail(email: string): string {
  * (including non-Latin scripts and long institutional specialties) while
  * still bounding what reaches the database and the email templates.
  *
- * `email` remains part of the contract because both existing callers send it,
- * but it is NOT the identity — see `verifiedEmailMatchesBody`. It is accepted
- * only so it can be checked against the Clerk-verified address and rejected
- * on mismatch.
+ * `email` is present in both contracts but plays a different role in each.
+ * In ONBOARDING it is not the identity — the Clerk-verified primary is, and a
+ * submitted address that disagrees with it is refused (`verifiedEmailMatchesBody`).
+ * In REGISTRATION there is no session yet, so the submitted address becomes the
+ * identity: it is normalised once and Clerk enforces uniqueness over it.
  */
-export const OnboardingSchema = z.object({
+const physicianFields = {
   fullName:      z.string().trim().min(2, 'Full name required').max(120),
   email:         z.string().trim().email('Valid email required').max(254),
   country:       z.string().trim().min(1, 'Country required').max(80),
@@ -52,9 +56,33 @@ export const OnboardingSchema = z.object({
   npiNumber:     z.string().trim().max(20).optional(),
   licenseNumber: z.string().trim().max(60).optional(),
   inviteToken:   z.string().trim().max(200).optional(),
-});
+} as const;
+
+export const OnboardingSchema = z.object(physicianFields);
 
 export type OnboardingInput = z.infer<typeof OnboardingSchema>;
+
+/**
+ * Public physician registration (POST /api/doctor/register).
+ *
+ * Identical credential fields to onboarding — the two endpoints are the
+ * anonymous and authenticated halves of one acquisition flow, so their bounds
+ * are shared rather than restated — plus the password Clerk needs to create
+ * the account.
+ *
+ * `password` is deliberately NOT trimmed: leading and trailing spaces are
+ * legitimate password characters and silently stripping them would change the
+ * credential the physician believes they set. The 8-character floor preserves
+ * the route's existing rule; the ceiling only bounds the payload, since Clerk
+ * remains the authority on strength and breach checks
+ * (`skip_password_checks: false`).
+ */
+export const RegistrationSchema = z.object({
+  ...physicianFields,
+  password: z.string().min(8, 'Password must be at least 8 characters').max(128),
+});
+
+export type RegistrationInput = z.infer<typeof RegistrationSchema>;
 
 // ─── Verified primary email ───────────────────────────────────────────────────
 
