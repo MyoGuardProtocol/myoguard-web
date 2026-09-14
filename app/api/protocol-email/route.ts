@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { consumeRecipientBudget } from "@/src/lib/emailThrottle";
 
 /**
  * Request contract for the public preliminary-SRI protocol email.
@@ -86,6 +87,32 @@ export async function POST(req: NextRequest) {
     if (!resendKey) {
       console.error("[protocol-email] RESEND_API_KEY not set");
       return NextResponse.json({ error: "Email service unavailable" }, { status: 500 });
+    }
+
+    // ── Recipient throttle ────────────────────────────────────────────────────
+    //
+    // Placed after validation so a malformed request never consumes budget, and
+    // before Resend so the limit governs attempts rather than deliveries. The
+    // budget is shared with /api/email-capture: one recipient, one allowance.
+    //
+    // Responses stay neutral — neither reveals which limit was reached nor
+    // anything about this address's history, so the endpoint cannot be used to
+    // probe whether a given address was recently mailed.
+    const throttle = await consumeRecipientBudget(email);
+
+    if (throttle.outcome === 'throttled') {
+      return NextResponse.json(
+        { error: "Too many requests. Please try again later." },
+        { status: 429 },
+      );
+    }
+    if (throttle.outcome === 'unavailable') {
+      // Fail closed: protecting the sending domain outranks delivering during
+      // a throttle-store outage.
+      return NextResponse.json(
+        { error: "Temporarily unavailable. Please try again shortly." },
+        { status: 503 },
+      );
     }
 
     // `risk` is enum-validated, so these lookups are total — no fallback needed

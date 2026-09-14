@@ -330,6 +330,31 @@ model PreloadedAssessment {
   createdAt   DateTime @default(now())
 }
 
+/// Abuse-control state for the two public, unauthenticated email routes
+/// (/api/protocol-email, /api/email-capture). Security control only.
+///
+/// One row per send ATTEMPT, recorded before the provider is invoked, so the
+/// limit governs mail MyoGuard is asked to originate — not just successful
+/// deliveries. Append-only rows (rather than a counter) are what make the
+/// 24-hour ceiling a true rolling window rather than a resetting one.
+///
+/// Deliberately holds no plaintext address, no name, no IP, no user id and no
+/// clinical value — `recipientKey` is HMAC-SHA256(normalised email) and is not
+/// reversible without the server secret.
+///
+/// Rows are disposable. Every request that reaches this table also runs a
+/// bounded delete of rows older than the enforcement window, so the table
+/// cannot accumulate while traffic continues and never becomes durable
+/// anonymous visitor history. With no traffic at all, expired rows simply wait
+/// for the next request — there is no scheduled job.
+model EmailSendAttempt {
+  id           String   @id @default(cuid())
+  recipientKey String
+  createdAt    DateTime @default(now())
+
+  @@index([recipientKey, createdAt])
+}
+
 /// Tracks a patient's invitation to a physician via a shared report link.
 /// Created when a physician registers or accepts from a /report/[token] CTA.
 /// shareToken refs ShareCard.shareToken; patientUserId / claimedByUserId ref User.id

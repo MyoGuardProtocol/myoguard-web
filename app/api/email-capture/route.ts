@@ -8,6 +8,7 @@ import type { RiskBand } from '@/src/types';
 // text that must stay free-form, so it is encoded at the output boundary
 // rather than constrained by the schema.
 import { escapeHtml } from '@/src/lib/email/templates/BaseEmail';
+import { consumeRecipientBudget } from '@/src/lib/emailThrottle';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://myoguard.health';
 
@@ -41,6 +42,34 @@ export async function POST(req: NextRequest) {
   }
 
   const { email, protocolResult, formData } = parsed.data;
+
+  // ── Recipient throttle ──────────────────────────────────────────────────
+  //
+  // After validation (a malformed request must not consume budget) and before
+  // BOTH downstream side effects — Resend delivery and the n8n forward — since
+  // either can originate contact with the recipient. The budget is shared with
+  // /api/protocol-email: one recipient, one allowance across both routes.
+  //
+  // Note this is the one place the route does not return 200. The "always 200"
+  // convention below exists so a delivery misconfiguration still reads as a
+  // successful form submission; a throttled request is a refused submission and
+  // must be distinguishable. The message is neutral and reveals nothing about
+  // this address's history.
+  const throttle = await consumeRecipientBudget(email);
+
+  if (throttle.outcome === 'throttled') {
+    return NextResponse.json(
+      { ok: false, error: 'Too many requests. Please try again later.' },
+      { status: 429 },
+    );
+  }
+  if (throttle.outcome === 'unavailable') {
+    // Fail closed — no Resend call, no n8n forward.
+    return NextResponse.json(
+      { ok: false, error: 'Temporarily unavailable. Please try again shortly.' },
+      { status: 503 },
+    );
+  }
 
   // ── 1. Resend email delivery ─────────────────────────────────────────────
   const resendKey = process.env.RESEND_API_KEY;
