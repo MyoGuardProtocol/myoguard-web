@@ -106,34 +106,34 @@ model Assessment {
 }
 
 model MuscleScore {
-  id             String     @id @default(cuid())
-  userId         String
-  assessmentId   String     @unique
-  score                  Float
-  riskBand               RiskBand
-  leanLossEstPct         Float
-  proteinTargetG         Float
-  explanation            String
-  generatedAt            DateTime   @default(now())
+  id                        String     @id @default(cuid())
+  userId                    String
+  assessmentId              String     @unique
+  score                     Float
+  riskBand                  RiskBand
+  leanLossEstPct            Float
+  proteinTargetG            Float
+  explanation               String
+  generatedAt               DateTime   @default(now())
   /// Lower-bound protein target (activity-adjusted clinical floor)
-  proteinStandardG       Float?
+  proteinStandardG          Float?
   /// Temporary step-down protein target for moderate/severe GI symptoms
-  proteinStepTargetG     Int?
+  proteinStepTargetG        Int?
   /// Explains the floor/step distinction and when full floor resumes
-  stepRationale          String?
+  stepRationale             String?
   /// GI severity classification: none | mild | moderate | severe
-  giSeverity             String?
+  giSeverity                String?
   /// Estimated lean mass loss velocity derived from leanLossEstPct
-  leanVelocityPct        Float?
+  leanVelocityPct           Float?
   /// Lean velocity flag: insufficient_data | stable | concerning | critical_review
-  leanVelocityFlag       String?
+  leanVelocityFlag          String?
   /// GLP-1 stage multiplier applied to score (1.0 = no stage pressure)
-  stageMultiplierApplied Float?
+  stageMultiplierApplied    Float?
   /// Floor-based protein adherence at assessment time: (most recent WeeklyCheckin.avgProteinG / proteinStandardG) × 100
   /// Uses Clinical Protein Floor as denominator — not the aggressive target — for accurate Level 3 tripwire evaluation.
   recentProteinAdherencePct Float?
-  assessment     Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
-  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assessment                Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  user                      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model ProtocolPlan {
@@ -248,7 +248,7 @@ model PhysicianReviewSession {
   id                String   @id @default(cuid())
   physicianId       String
   patientId         String
-  billingMonth      String   // "YYYY-MM"
+  billingMonth      String // "YYYY-MM"
   cumulativeSeconds Int      @default(0)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -320,14 +320,14 @@ model AnalyticsEvent {
 }
 
 model PreloadedAssessment {
-  id          String   @id @default(cuid())
-  physicianId String
+  id           String   @id @default(cuid())
+  physicianId  String
   patientName  String?
   patientEmail String?
-  payload     Json
-  used        Boolean  @default(false)
-  expiresAt   DateTime
-  createdAt   DateTime @default(now())
+  payload      Json
+  used         Boolean  @default(false)
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
 }
 
 /// Abuse-control state for the two public, unauthenticated email routes
@@ -360,12 +360,12 @@ model EmailSendAttempt {
 /// shareToken refs ShareCard.shareToken; patientUserId / claimedByUserId ref User.id
 /// — plain scalars (zero-touch on existing models).
 model PhysicianPatientInvitation {
-  id              String    @id @default(cuid())
+  id              String   @id @default(cuid())
   shareToken      String
   patientUserId   String
-  status          String    @default("PENDING") // PENDING | ACCEPTED | EXPIRED
+  status          String   @default("PENDING") // PENDING | ACCEPTED | EXPIRED
   claimedByUserId String?
-  createdAt       DateTime  @default(now())
+  createdAt       DateTime @default(now())
   expiresAt       DateTime
 
   @@index([shareToken])
@@ -689,4 +689,363 @@ model StudyEventLog {
   @@index([enrollmentId])
   @@index([studyId, eventType])
   @@index([recordedAt])
+}
+
+// ─── Communications Governance Foundation ───────────────────────────────────
+// Phase: 1D-C3A — additive, behaviour-neutral data foundation.
+//
+// Nothing in the application reads or writes these models yet. Enforcement
+// (canSend), the unsubscribe endpoint, /settings and the Resend webhook are
+// later, separately authorised phases. Every table below ships empty and stays
+// empty: this phase creates no preference, consent, suppression or event state
+// for any existing user, and assigns no default to anyone.
+//
+// Relation strategy: references to EXISTING models (User, Notification) use
+// plain scalar String fields with no @relation, matching the Observational
+// Study block above. This keeps the change zero-touch on existing clinical
+// models. Relations WITHIN this block are real relations, because both sides
+// are new — and their delete behaviour is chosen so that evidence survives:
+// deleting a CommunicationRecipient must never erase the record that someone
+// asked not to be contacted.
+//
+// Identity: `recipientKey` is a keyed HMAC of the normalised email address —
+// the same construction EmailSendAttempt.recipientKey uses, but derived under
+// a SEPARATE, dedicated secret. The throttle's rows are swept on a 24-hour
+// window and its secret may be rotated on that assumption; this keyspace must
+// be permanent, so the two must not share key material. Derivation is NOT
+// implemented in this phase. `keyVersion` exists so the secret can later be
+// rotated without orphaning suppression rows — a lost or silently rotated key
+// would make every suppression unmatchable.
+//
+// Data minimisation (non-negotiable): no rendered email bodies, no subject
+// lines, and no clinical values — no SRI value, risk band, symptoms,
+// medication or dose — anywhere in this block. CommunicationEvent REFERENCES
+// clinical and workflow records by id; it never duplicates their contents.
+// ────────────────────────────────────────────────────────────────────────────
+
+/// Founder-approved communication taxonomy (Phase 1D-C2).
+/// OPERATIONAL_INTERNAL is mail to MyoGuard's own operational addresses. It is
+/// NOT a recipient-consent class and must never be used to reach an external
+/// recipient.
+enum CommunicationClass {
+  ESSENTIAL_SERVICE
+  CLINICAL_CONTINUITY
+  EDUCATIONAL
+  MARKETING
+  OPERATIONAL_INTERNAL
+}
+
+/// Delivery channel. Preference and suppression are keyed on channel as well
+/// as class, so opting out of SMS cannot silently opt someone out of email.
+enum CommunicationChannel {
+  EMAIL
+  SMS
+}
+
+/// Current projected preference state for one (recipient, channel, class).
+/// NEVER_SET is distinct from UNSUBSCRIBED on purpose: "has made no choice" and
+/// "has declined" are different facts, and collapsing them would destroy the
+/// only signal that distinguishes them.
+enum CommunicationPreferenceState {
+  SUBSCRIBED
+  UNSUBSCRIBED
+  NEVER_SET
+}
+
+/// Append-only ledger actions.
+enum CommunicationConsentAction {
+  GRANT
+  WITHDRAW
+  ADMIN_SET
+  SYSTEM_SET
+}
+
+/// Why sending to this recipient is suppressed. Reasons differ in scope and in
+/// reversibility, which is why a single boolean is insufficient.
+enum CommunicationSuppressionReason {
+  RECIPIENT_UNSUBSCRIBE
+  HARD_BOUNCE
+  SOFT_BOUNCE_REPEATED
+  SPAM_COMPLAINT
+  ADMIN_SUPPRESSION
+  ACCOUNT_CONTACTABILITY_REVOKED
+}
+
+/// Lifecycle of one outbound communication attempt, including attempts that
+/// were never sent because they were suppressed.
+enum CommunicationState {
+  REQUESTED
+  SUPPRESSED
+  SENT
+  DELIVERED
+  BOUNCED_HARD
+  BOUNCED_SOFT
+  COMPLAINED
+  FAILED
+}
+
+/// A contactable communications identity.
+///
+/// Created ONLY where a durable relationship legitimately exists — an account,
+/// or an affirmative subscription. Deliberately NOT created by one-shot SRI /
+/// protocol delivery: manufacturing a plaintext row for every anonymous visitor
+/// would create the marketing list the product does not have today.
+///
+/// This phase populates nothing. No row is created from existing User records.
+model CommunicationRecipient {
+  id String @id @default(cuid())
+
+  /// Keyed HMAC of the normalised (trimmed, lowercased) email address.
+  /// Derivation is implemented in a later phase — see the block header.
+  recipientKey String @unique
+
+  /// Which generation of the identity secret produced `recipientKey`.
+  keyVersion Int @default(1)
+
+  /// Normalised plaintext address. Held here — and only here — because an
+  /// ongoing relationship requires being able to actually send.
+  email String @unique
+
+  /// User.id when the recipient also holds an account.
+  /// Plain scalar — no @relation (zero-touch on existing User model).
+  /// Nullable: anonymous subscribers are first-class recipients.
+  userId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  preferences CommunicationPreference[]
+
+  /// Back-relations for the optional, non-cascading links below.
+  consentEvents CommunicationConsentEvent[]
+  suppressions  CommunicationSuppression[]
+  events        CommunicationEvent[]
+
+  /// Resolving "which preferences does this signed-in user hold?" on the future
+  /// authenticated preference surface.
+  @@index([userId])
+}
+
+/// Current preference state — a PROJECTION, not the source of truth.
+///
+/// CommunicationConsentEvent is authoritative; this table exists so the future
+/// send-time check is a single indexed lookup rather than a ledger replay. It
+/// must be rebuildable from the ledger, and that property is the audit control.
+model CommunicationPreference {
+  id String @id @default(cuid())
+
+  recipientId String
+  recipient   CommunicationRecipient @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  channel            CommunicationChannel
+  communicationClass CommunicationClass
+  state              CommunicationPreferenceState @default(NEVER_SET)
+
+  /// The ledger entry that established the current state. Restrict, not
+  /// SetNull: the evidence for a live preference must not be deletable while
+  /// the preference still points at it.
+  lastEventId String?
+  lastEvent   CommunicationConsentEvent? @relation(fields: [lastEventId], references: [id], onDelete: Restrict)
+
+  updatedAt DateTime @updatedAt
+
+  /// One preference per recipient per channel per class. Also serves the
+  /// send-time lookup by leftmost prefix, so no separate index is needed.
+  @@unique([recipientId, channel, communicationClass])
+}
+
+/// Append-only evidence ledger for grants, withdrawals and explicit changes.
+///
+/// Rows are never updated and never deleted — enforced by application logic in
+/// a later phase; the schema is shaped so that invariant is possible to hold.
+/// Keyed by `recipientKey` rather than by relation so the history survives
+/// deletion of the plaintext recipient.
+///
+/// Must never contain clinical data, free-text clinical content, or rendered
+/// email bodies.
+model CommunicationConsentEvent {
+  id String @id @default(cuid())
+
+  /// Pseudonymous identity — present even when `recipientId` is null or has
+  /// been detached.
+  recipientKey String
+  keyVersion   Int    @default(1)
+
+  /// SetNull, never Cascade: removing the recipient must not erase the record
+  /// of what they consented to or withdrew.
+  recipientId String?
+  recipient   CommunicationRecipient? @relation(fields: [recipientId], references: [id], onDelete: SetNull)
+
+  channel            CommunicationChannel
+  communicationClass CommunicationClass
+  action             CommunicationConsentAction
+
+  occurredAt DateTime @default(now())
+
+  /// Where the action was taken. Controlled vocabulary maintained in
+  /// application code rather than an enum: the surfaces this will name do not
+  /// exist yet, and inventing enum values for unbuilt pages would be guesswork.
+  sourceSurface String
+
+  /// Who acted. Documented vocabulary: SELF | ADMIN | SYSTEM.
+  /// Same status-as-documented-String convention as PhysicianApplication.status.
+  actorType String
+
+  /// User.id of the acting admin when actorType = ADMIN.
+  /// Plain scalar — no @relation (zero-touch on existing User model).
+  actorId String?
+
+  /// The exact wording shown at the time, where a surface presented any.
+  /// Restrict: wording that consent evidence points at must not be deletable.
+  wordingId String?
+  wording   ConsentWording? @relation(fields: [wordingId], references: [id], onDelete: Restrict)
+
+  /// Minimal structured provenance only. Never clinical values, never a
+  /// rendered body, never free-text clinical content.
+  evidence Json?
+
+  establishedPreferences CommunicationPreference[]
+
+  /// Answers "when did this person consent, and what happened after?" — filter
+  /// and sort are served by the one composite.
+  @@index([recipientKey, occurredAt])
+}
+
+/// Immutable, versioned registry of the exact consent wording presented.
+///
+/// Rows are write-once. Without this, "what did they actually agree to?" is
+/// unanswerable for every consent collected before it existed. Mirrors the
+/// intent of StudyConsent.consentTextSnapshot on the research side.
+model ConsentWording {
+  id String @id @default(cuid())
+
+  /// The capture surface this wording belongs to.
+  surface String
+
+  /// Semantic version of the text for that surface — e.g. "1.0", "1.1".
+  version String
+
+  /// Verbatim text as presented. Never edited in place; a change is a new row.
+  text String
+
+  effectiveFrom DateTime
+  createdAt     DateTime @default(now())
+
+  consentEvents CommunicationConsentEvent[]
+
+  /// One version identity per surface — prevents two different texts claiming
+  /// to be the same version of the same surface.
+  @@unique([surface, version])
+}
+
+/// Class-aware, channel-aware, pseudonymous suppression.
+///
+/// Deliberately keyed by `recipientKey` and NOT dependent on a
+/// CommunicationRecipient row, for two reasons that both matter:
+///   - an address that was only ever sent a one-shot SRI email has no recipient
+///     row, but a hard bounce or complaint on it must still suppress it;
+///   - the suppression must survive deletion of the recipient, or deletion
+///     would silently undo an unsubscribe and allow re-contact on re-import.
+model CommunicationSuppression {
+  id String @id @default(cuid())
+
+  recipientKey String
+  keyVersion   Int    @default(1)
+
+  channel CommunicationChannel
+
+  /// NULL means ALL classes. A class value scopes the suppression to that class
+  /// alone — so a recipient who opted out of EDUCATIONAL still receives a
+  /// requested report. Send-time queries must therefore match
+  /// `communicationClass = <class> OR communicationClass IS NULL`.
+  communicationClass CommunicationClass?
+
+  reason CommunicationSuppressionReason
+
+  /// Documented vocabulary: RECIPIENT | PROVIDER_WEBHOOK | ADMIN | SYSTEM.
+  source String
+
+  createdAt DateTime @default(now())
+
+  /// Set only for auto-expiring suppressions (repeated soft bounce). NULL means
+  /// the suppression does not lapse on its own.
+  expiresAt DateTime?
+
+  /// Set when the suppression is lifted. Rows are never deleted — a cleared
+  /// suppression is still evidence.
+  clearedAt DateTime?
+
+  /// User.id of the clearing admin, where cleared by a person.
+  /// Plain scalar — no @relation (zero-touch on existing User model).
+  clearedBy String?
+
+  /// Optional convenience link. SetNull, never Cascade — see the model note.
+  recipientId String?
+  recipient   CommunicationRecipient? @relation(fields: [recipientId], references: [id], onDelete: SetNull)
+
+  /// The send-time suppression lookup: everything on record for this address
+  /// and channel, class-filtered in the query.
+  @@index([recipientKey, channel])
+}
+
+/// Durable record of one outbound communication attempt — including attempts
+/// that were suppressed and never sent.
+///
+/// Suppression today is console-only and invisible once logs age out. This is
+/// what makes a refusal to send auditable.
+///
+/// EXCLUDES BY DESIGN: rendered body, subject line, SRI value, risk band,
+/// symptoms, medication, dose, and any free-text clinical content. Clinical and
+/// workflow context is REFERENCED by id, never copied — note that
+/// Notification.body already holds clinical JSON, and this model must not
+/// duplicate it.
+model CommunicationEvent {
+  id String @id @default(cuid())
+
+  recipientKey String
+  keyVersion   Int    @default(1)
+
+  /// SetNull, never Cascade: send history must outlive the recipient row.
+  recipientId String?
+  recipient   CommunicationRecipient? @relation(fields: [recipientId], references: [id], onDelete: SetNull)
+
+  /// User.id when known. Plain scalar — no @relation (zero-touch on User).
+  userId String?
+
+  communicationClass CommunicationClass
+  channel            CommunicationChannel
+
+  /// Identifier of the template used — never the rendered output, and never the
+  /// subject line, several of which are personalised.
+  templateId String
+
+  /// Documented vocabulary: RESEND | TWILIO.
+  provider String
+
+  /// Provider-side message id, stored so webhook delivery events can be joined
+  /// back to this row. Unique: one provider message maps to at most one event.
+  /// Postgres permits many NULLs under a unique index, so attempts that never
+  /// reached a provider are unaffected.
+  providerMessageId String? @unique
+
+  requestedAt DateTime  @default(now())
+  sentAt      DateTime?
+
+  state CommunicationState @default(REQUESTED)
+
+  /// Populated when state = SUPPRESSED.
+  suppressionReason CommunicationSuppressionReason?
+
+  /// Notification.id where one exists.
+  /// Plain scalar — no @relation (zero-touch on existing Notification model).
+  relatedNotificationId String?
+
+  /// Opaque reference to the originating workflow, for tracing only.
+  relatedWorkflowRef String?
+
+  /// Per-recipient send history, chronological.
+  @@index([recipientKey, requestedAt])
+  /// Reconciliation for the future provider webhook: find attempts sitting in a
+  /// non-terminal state (e.g. SENT with no delivery event) within a time range.
+  @@index([state, requestedAt])
 }
