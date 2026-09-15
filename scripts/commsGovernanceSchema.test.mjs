@@ -228,6 +228,10 @@ section('-- 9. only authorised consumers --');
     'src/lib/communications/consentWording.ts',
     'app/api/communications/preferences/route.ts',
     'app/settings/page.tsx',
+    // Added by Phase 1D-C3D — the provider delivery lifecycle.
+    'src/lib/communications/providerEvents.ts',
+    'src/lib/communications/deliveryLifecycle.ts',
+    'app/api/webhooks/resend/route.ts',
   ];
   const roots = ['app', 'src'];
   const files = [];
@@ -246,7 +250,14 @@ section('-- 9. only authorised consumers --');
   // wrappers matter: C3B's callers reach the models only through canSend /
   // recordCommunicationEvent, so a regex covering only Prisma accessors would
   // report a false pass for every migrated pathway.
-  const CONSUMERS = /\b(communicationRecipient|communicationPreference|communicationConsentEvent|consentWording|communicationSuppression|communicationEvent|CommunicationClass|CommunicationChannel|CommunicationState|CommunicationPreferenceState|CommunicationConsentAction|CommunicationSuppressionReason|canSend|recordCommunicationEvent|markEventSent|deriveRecipientIdentity|verifyRecipientEmail)\b/;
+  //
+  // Every new exported entry point must be added here as it is written.
+  // `markEventFailed` and `applyProviderEvent` were added in C3D: without them
+  // a future pathway could call into the governance layer and this guard would
+  // report a clean pass, which is precisely the failure mode it exists to
+  // prevent. `markEventSent` does not match `markEventFailed` — the alternation
+  // is anchored on word boundaries, so each name must be listed explicitly.
+  const CONSUMERS = /\b(communicationRecipient|communicationPreference|communicationConsentEvent|consentWording|communicationSuppression|communicationEvent|CommunicationClass|CommunicationChannel|CommunicationState|CommunicationPreferenceState|CommunicationConsentAction|CommunicationSuppressionReason|canSend|recordCommunicationEvent|markEventSent|markEventFailed|deriveRecipientIdentity|verifyRecipientEmail|applyProviderEvent)\b/;
 
   const repoRel = f => f.replace(/\\/g, '/').split('/myoguard-web/')[1] ?? f.replace(/\\/g, '/');
   const consumers = files.filter(f => CONSUMERS.test(readFileSync(f, 'utf8'))).map(repoRel);

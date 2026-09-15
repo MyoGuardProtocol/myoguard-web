@@ -21,11 +21,9 @@ import {
   canSend,
   recordCommunicationEvent,
   markEventSent,
+  markEventFailed,
 } from '@/src/lib/communications/governance';
-import {
-  mintUnsubscribeToken,
-  unsubscribeUrlFor,
-} from '@/src/lib/communications/unsubscribeToken';
+import { mintUnsubscribeToken } from '@/src/lib/communications/unsubscribeToken';
 
 /** Template identifier recorded on CommunicationEvent — never the rendered output. */
 const TEMPLATE_ID = 'clinical.weekly_pulse.v1';
@@ -255,8 +253,8 @@ export async function GET(request: NextRequest) {
 
     const { id: providerMessageId, error } = await sendWeeklyPulseEmail({
       to:             patient.email,
-      patientName:    patient.fullName,
-      unsubscribeUrl: unsubscribeUrlFor(unsubToken),
+      patientName:      patient.fullName,
+      unsubscribeToken: unsubToken,
       digest: {
         riskBand:       digest.riskBand,
         trendStatus:    digest.trendStatus,
@@ -268,6 +266,9 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       errorCount++;
+      // Phase 1D-C3D: record the refused attempt rather than leaving the row in
+      // REQUESTED, where it is indistinguishable from one never attempted.
+      await markEventFailed(eventId);
       console.error(`[cron/weekly-pulse] send error userId=${patient.id}:`, error.message);
       continue;
     }

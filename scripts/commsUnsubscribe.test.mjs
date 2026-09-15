@@ -266,15 +266,23 @@ section('-- 36-46. email integration --');
   const FTR = strip(src('src/lib/email/templates/ComplianceFooter.ts'));
   const BASE= strip(src('src/lib/email/templates/BaseEmail.ts'));
 
-  t('[safety] 36. Weekly Pulse refuses to send with no unsubscribe link',
-    /if \(!opts\.unsubscribeUrl\)[\s\S]{0,260}?return \{ id: undefined/.test(WP));
-  t('[safety] 37. Longitudinal Summary refuses to send with no unsubscribe link',
-    /if \(!opts\.unsubscribeUrl\)[\s\S]{0,260}?return \{ id: undefined/.test(LS));
-  t('[safety] 36-37. the refusal precedes the provider call in both',
-    WP.indexOf('!opts.unsubscribeUrl') < WP.indexOf('sendEmail(') &&
-    LS.indexOf('!opts.unsubscribeUrl') < LS.indexOf('sendEmail('));
-  t('[ordering] 36-37. unsubscribeUrl is required, not optional, in both option types',
-    /unsubscribeUrl: string;/.test(WP) && /unsubscribeUrl: string;/.test(LS));
+  // Phase 1D-C3D carries the signed TOKEN rather than the rendered URL, so the
+  // body link and the RFC 8058 header derive from one capability. The guarantee
+  // these checks exist to protect is unchanged and still asserted: no
+  // recipient-choice capability, no send.
+  t('[safety] 36. Weekly Pulse refuses to send with no unsubscribe capability',
+    /if \(!opts\.unsubscribeToken\)[\s\S]{0,260}?return \{ id: undefined/.test(WP));
+  t('[safety] 37. Longitudinal Summary refuses to send with no unsubscribe capability',
+    /if \(!opts\.unsubscribeToken\)[\s\S]{0,260}?return \{ id: undefined/.test(LS));
+  t('[safety] 36-37. the refusal precedes the provider call in both', (() => {
+    // Guard the indexOf: a renamed symbol yields -1, which would otherwise make
+    // this comparison true and the check vacuous.
+    const ok = s => s.indexOf('!opts.unsubscribeToken') >= 0
+                 && s.indexOf('!opts.unsubscribeToken') < s.indexOf('sendEmail(');
+    return ok(WP) && ok(LS);
+  })());
+  t('[ordering] 36-37. the capability is required, not optional, in both option types',
+    /unsubscribeToken: string;/.test(WP) && /unsubscribeToken: string;/.test(LS));
   t('[ordering] the footer renders the link when supplied',
     /unsubscribeUrl\s*\?[\s\S]{0,200}?Unsubscribe from these emails/.test(FTR));
   t('[ordering] the footer is reached through baseEmail — one insertion point',
@@ -295,10 +303,16 @@ section('-- 36-46. email integration --');
       /if \(!unsubToken\)/.test(H));
     t(`[safety] 39. ${label} mints from the governed recipient key`,
       /recipientKey:\s*gate\.recipientKey!/.test(H));
-    t(`[safety] 39. ${label} passes the URL to the sender`,
-      /unsubscribeUrl:\s*unsubscribeUrlFor\(unsubToken\)/.test(H));
-    t(`[safety] 40. ${label} never puts an address in the link`,
-      !/unsubscribeUrlFor\([^)]*email/.test(H));
+    t(`[safety] 39. ${label} passes the minted capability to the sender`,
+      /unsubscribeToken:\s*unsubToken/.test(H));
+    t(`[safety] 40. ${label} never derives the capability from an address`, (() => {
+      // Scoped to the call's own argument block. A wider window sweeps in the
+      // adjacent log tag "[email/weekly-pulse]" and fails on prose. Match is
+      // case-SENSITIVE so the legitimate `channel: 'EMAIL'` is not mistaken for
+      // an address, while `patient.email` would still be caught.
+      const args = /mintUnsubscribeToken\(\{([\s\S]*?)\n\s*\}\)/.exec(H)?.[1];
+      return typeof args === 'string' && args.length > 0 && !/email/.test(args);
+    })());
     t(`[ordering] 44. ${label} still runs Layer 0 first`,
       at(/\bcanSend\(/) < at(/mintUnsubscribeToken\(/));
   }

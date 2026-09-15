@@ -11,11 +11,9 @@ import {
   canSend,
   recordCommunicationEvent,
   markEventSent,
+  markEventFailed,
 } from '@/src/lib/communications/governance';
-import {
-  mintUnsubscribeToken,
-  unsubscribeUrlFor,
-} from '@/src/lib/communications/unsubscribeToken';
+import { mintUnsubscribeToken } from '@/src/lib/communications/unsubscribeToken';
 
 /** Same template identity as the cron — this route sends the same message. */
 const TEMPLATE_ID = 'clinical.longitudinal_summary.v1';
@@ -176,8 +174,8 @@ export async function POST(req: NextRequest) {
 
   const { id: providerMessageId, error } = await sendLongitudinalSummaryEmail({
     to:             patient.email,
-    patientName:    patient.fullName,
-    unsubscribeUrl: unsubscribeUrlFor(unsubToken),
+    patientName:      patient.fullName,
+    unsubscribeToken: unsubToken,
     data: {
       assessmentCount,
       riskBand:       digest.riskBand,
@@ -190,6 +188,9 @@ export async function POST(req: NextRequest) {
   });
 
   if (error) {
+    // Phase 1D-C3D: see the note in the Weekly Pulse route. Attempt recorded as
+    // FAILED; no retry, no suppression.
+    await markEventFailed(eventId);
     console.error('[email/longitudinal-summary] Send failed:', error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

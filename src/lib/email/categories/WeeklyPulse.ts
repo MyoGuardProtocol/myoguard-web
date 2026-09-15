@@ -7,6 +7,10 @@
 
 import { buildPatientEmail, sendEmail, EMAIL_TOKENS } from '../index';
 import type { WeeklyDigestPayload } from '@/src/lib/weeklyDigest';
+import {
+  unsubscribeUrlFor,
+  listUnsubscribeHeaders,
+} from '@/src/lib/communications/unsubscribeToken';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -27,11 +31,17 @@ export interface WeeklyPulseEmailOptions {
   >;
   /**
    * REQUIRED since Phase 1D-C3C. This is CLINICAL_CONTINUITY mail, so it must
-   * carry a working recipient-choice link. Required rather than optional so a
-   * caller cannot omit it by accident; `sendWeeklyPulseEmail` also refuses at
-   * runtime, because a type is not a guarantee.
+   * carry a working recipient-choice capability. Required rather than optional
+   * so a caller cannot omit it by accident; `sendWeeklyPulseEmail` also refuses
+   * at runtime, because a type is not a guarantee.
+   *
+   * Phase 1D-C3D takes the signed token rather than the rendered URL, which
+   * C3C passed. The body link and the RFC 8058 List-Unsubscribe header must
+   * name the same capability for the same recipient; deriving both here from
+   * one token makes that structural instead of a convention four routes have to
+   * remember.
    */
-  unsubscribeUrl: string;
+  unsubscribeToken: string;
 }
 
 // ─── Private helpers ──────────────────────────────────────────────────────────
@@ -86,7 +96,7 @@ function trendDirectionLine(trendStatus: WeeklyDigestPayload['trendStatus']): st
 export function buildWeeklyPulseEmail({
   patientName,
   digest,
-  unsubscribeUrl,
+  unsubscribeToken,
 }: WeeklyPulseEmailOptions): string {
   const { riskBand, trendStatus, proteinTargetG, totalCheckins, streakWeeks } = digest;
 
@@ -159,7 +169,7 @@ ${continuityMeta}
     preheader: 'Your longitudinal check-in remains available. Log your weekly pulse to maintain protocol continuity.',
     content,
     variant:  'dark',
-    unsubscribeUrl,
+    unsubscribeUrl: unsubscribeUrlFor(unsubscribeToken),
   });
 }
 
@@ -178,8 +188,8 @@ export async function sendWeeklyPulseEmail(opts: WeeklyPulseEmailOptions) {
   // link. If one could not be produced, the email does not go out — recipient
   // choice outranks delivery. Checked at runtime as well as in the type,
   // because the type only binds callers that compile against it.
-  if (!opts.unsubscribeUrl) {
-    console.error('[email/weekly-pulse] no unsubscribe link — refusing to send.');
+  if (!opts.unsubscribeToken) {
+    console.error('[email/weekly-pulse] no unsubscribe token — refusing to send.');
     return { id: undefined, error: new Error('Unsubscribe link unavailable — not sent.') };
   }
 
@@ -189,5 +199,9 @@ export async function sendWeeklyPulseEmail(opts: WeeklyPulseEmailOptions) {
     subject: 'MyoGuard Weekly Pulse Check-In',
     html,
     from:    EMAIL_TOKENS.from.patient,
+    // Phase 1D-C3D: RFC 8058. Same token as the body link, so the mail client's
+    // own unsubscribe control and the link in the footer exercise one
+    // capability and cannot disagree.
+    headers: listUnsubscribeHeaders(opts.unsubscribeToken),
   });
 }

@@ -11,11 +11,9 @@ import {
   canSend,
   recordCommunicationEvent,
   markEventSent,
+  markEventFailed,
 } from '@/src/lib/communications/governance';
-import {
-  mintUnsubscribeToken,
-  unsubscribeUrlFor,
-} from '@/src/lib/communications/unsubscribeToken';
+import { mintUnsubscribeToken } from '@/src/lib/communications/unsubscribeToken';
 
 /** Same template identity as the cron — this route sends the same message. */
 const TEMPLATE_ID = 'clinical.weekly_pulse.v1';
@@ -176,8 +174,8 @@ export async function POST(req: NextRequest) {
 
   const { id: providerMessageId, error } = await sendWeeklyPulseEmail({
     to:             patient.email,
-    patientName:    patient.fullName,
-    unsubscribeUrl: unsubscribeUrlFor(unsubToken),
+    patientName:      patient.fullName,
+    unsubscribeToken: unsubToken,
     digest: {
       riskBand:       digest.riskBand,
       trendStatus:    digest.trendStatus,
@@ -188,6 +186,10 @@ export async function POST(req: NextRequest) {
   });
 
   if (error) {
+    // Phase 1D-C3D: the provider refused it synchronously. Record that the
+    // attempt happened and failed — no automatic retry, and no suppression,
+    // because a rejection is not evidence about the recipient's address.
+    await markEventFailed(eventId);
     console.error('[email/weekly-pulse] Send failed:', error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

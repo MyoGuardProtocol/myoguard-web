@@ -777,6 +777,13 @@ enum CommunicationState {
   REQUESTED
   SUPPRESSED
   SENT
+  /// Provider accepted the message, attempted delivery, and is retrying. Added
+  /// in Phase 1D-C3D because Resend emits `email.delivery_delayed` as a
+  /// distinct event: without this member a deferred message would sit in SENT,
+  /// indistinguishable from one the provider has said nothing further about,
+  /// and the (state, requestedAt) reconciliation index could not tell "still
+  /// being retried" from "silently lost".
+  DELAYED
   DELIVERED
   BOUNCED_HARD
   BOUNCED_SOFT

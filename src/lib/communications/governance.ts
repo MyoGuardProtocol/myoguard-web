@@ -423,8 +423,71 @@ export async function markEventSent(
       },
     });
   } catch (err) {
+    // The message has already left. Re-sending to obtain traceability would
+    // deliver a second clinical email to a patient, which is categorically
+    // worse than an imperfect record — so the provider is never called again
+    // from here, in this branch or any other.
     console.error(
-      `[comms/governance] CommunicationEvent ${eventId} left in REQUESTED — update failed:`,
+      `[comms/governance] CommunicationEvent ${eventId} update failed:`,
+      err instanceof Error ? err.message : String(err),
+    );
+
+    // Second, narrower attempt writing ONLY the correlation key. This is not a
+    // generic retry: providerMessageId is the single field that makes the row
+    // reachable by the C3D webhook, so landing it alone lets the record repair
+    // itself when the provider reports `email.sent` or `email.delivered` —
+    // REQUESTED then advances normally under the lifecycle precedence rules.
+    if (providerMessageId) {
+      try {
+        const { prisma } = await import('@/src/lib/prisma');
+        await prisma.communicationEvent.update({
+          where: { id: eventId },
+          data:  { providerMessageId },
+        });
+        console.error(
+          `[comms/governance] CommunicationEvent ${eventId} left in REQUESTED, ` +
+          `correlation key persisted — provider events can still repair it`,
+        );
+        return;
+      } catch {
+        // Fall through to the manual-reconciliation record below.
+      }
+    }
+
+    // Nothing durable links this row to the provider any more. Both ids are
+    // opaque and neither is an address, so recording the pair is what makes
+    // manual reconciliation possible at all.
+    console.error(
+      `[comms/governance] RECONCILE event=${eventId} ` +
+      `providerMessageId=${providerMessageId ?? 'none'} — row left in REQUESTED, ` +
+      `uncorrelated; the message WAS accepted by the provider and was NOT resent`,
+    );
+  }
+}
+
+/**
+ * Records that the provider refused the message outright.
+ *
+ * Distinct from the silence that C3B left behind: before C3D a synchronous
+ * rejection returned an error to the caller and abandoned the row in REQUESTED,
+ * which is indistinguishable from a send that was never attempted. FAILED says
+ * the attempt happened and did not succeed.
+ *
+ * Creates no suppression. A provider rejection is not bounce evidence — the
+ * message may have been refused for a malformed payload, a rate limit, or a
+ * domain problem that says nothing whatsoever about the recipient's address.
+ * Only the webhook, holding real provider evidence, may suppress.
+ */
+export async function markEventFailed(eventId: string): Promise<void> {
+  try {
+    const { prisma } = await import('@/src/lib/prisma');
+    await prisma.communicationEvent.update({
+      where: { id: eventId },
+      data:  { state: 'FAILED' },
+    });
+  } catch (err) {
+    console.error(
+      `[comms/governance] CommunicationEvent ${eventId} could not be marked FAILED:`,
       err instanceof Error ? err.message : String(err),
     );
   }

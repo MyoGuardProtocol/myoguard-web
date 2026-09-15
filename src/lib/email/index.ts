@@ -57,6 +57,18 @@ export interface SendEmailOptions {
 
   /** Optional reply-to address. */
   replyTo?: string;
+
+  /**
+   * Additional SMTP headers passed straight to Resend.
+   *
+   * Added in Phase 1D-C3D for RFC 8058 List-Unsubscribe / List-Unsubscribe-Post
+   * on governed CLINICAL_CONTINUITY mail. Headers are transport metadata, so
+   * they are the correct place for a machine-readable unsubscribe capability —
+   * the human-facing link in the body remains unchanged.
+   *
+   * Never put a recipient address or any clinical value in a header.
+   */
+  headers?: Record<string, string>;
 }
 
 export interface SendEmailResult {
@@ -83,6 +95,7 @@ export async function sendEmail({
   html,
   from   = EMAIL_TOKENS.from.system,
   replyTo,
+  headers,
 }: SendEmailOptions): Promise<SendEmailResult> {
   try {
     const client = getResend();
@@ -93,6 +106,7 @@ export async function sendEmail({
       subject,
       html,
       ...(replyTo ? { replyTo } : {}),
+      ...(headers && Object.keys(headers).length > 0 ? { headers } : {}),
     });
 
     if (error) {

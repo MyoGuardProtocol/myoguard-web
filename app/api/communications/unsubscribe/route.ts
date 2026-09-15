@@ -20,21 +20,30 @@ import { withdrawConsent } from '@/src/lib/communications/preferenceService';
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
-  let body: unknown;
+  // Body parsing is best-effort. RFC 8058 fixes the one-click body as the
+  // literal `List-Unsubscribe=One-Click` and carries no token at all, so a body
+  // that yields nothing usable is not by itself an error — the query string is
+  // checked before anything is refused.
+  let body: Record<string, unknown> = {};
   try {
-    body = await req.json();
+    body = (await req.json()) as Record<string, unknown>;
   } catch {
-    // RFC 8058 one-click posts form-encoded, not JSON. Accept both rather than
-    // rejecting the mail client's own unsubscribe button.
     try {
       const form = await req.formData();
       body = Object.fromEntries(form.entries());
     } catch {
-      return NextResponse.json({ ok: false, error: 'Invalid request body' }, { status: 400 });
+      // Leave body empty and fall through to the query string.
     }
   }
 
-  const { token, scope } = (body ?? {}) as { token?: unknown; scope?: unknown };
+  const { token: bodyToken, scope } = (body ?? {}) as { token?: unknown; scope?: unknown };
+
+  // Phase 1D-C3D: `?t=` is where the RFC 8058 List-Unsubscribe header puts the
+  // capability, because the body is spoken for. Same signed token, same
+  // verification, same allowlist — not a second, weaker entry path.
+  const queryToken = req.nextUrl.searchParams.get('t');
+
+  const token = typeof bodyToken === 'string' && bodyToken ? bodyToken : queryToken;
 
   if (typeof token !== 'string' || !token) {
     return NextResponse.json({ ok: false, error: 'Missing token' }, { status: 400 });

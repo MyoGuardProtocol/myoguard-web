@@ -222,3 +222,51 @@ export function unsubscribeUrlFor(token: string): string {
 export function settingsUrl(): string {
   return `${APP_URL}/settings`;
 }
+
+// ─── RFC 8058 one-click (Phase 1D-C3D) ────────────────────────────────────────
+
+/** The mutation endpoint. POST only — there is deliberately no GET handler. */
+const ONE_CLICK_PATH = '/api/communications/unsubscribe';
+
+/**
+ * The apex 307-redirects to www for every path, including API routes. A browser
+ * following the body link handles that invisibly, but RFC 8058 one-click is a
+ * machine POST issued by a mail client, and a redirected POST is not reliably
+ * re-issued with its method and body intact. The header therefore names the
+ * host that answers directly.
+ *
+ * Only the apex is rewritten. Any other configured origin is left alone.
+ */
+function oneClickOrigin(): string {
+  return APP_URL.replace(/^https:\/\/myoguard\.health$/, 'https://www.myoguard.health');
+}
+
+/**
+ * The URL a mail client POSTs to when the recipient presses its own unsubscribe
+ * button. Carries the same signed, downgrade-only capability as the body link —
+ * there is no second, weaker token and no separate unsubscribe service.
+ *
+ * The token is in the query string because RFC 8058 fixes the request body as
+ * `List-Unsubscribe=One-Click`, leaving the URL as the only place a
+ * recipient-specific capability can travel. It is opaque and contains no
+ * address.
+ */
+export function unsubscribeOneClickUrlFor(token: string): string {
+  return `${oneClickOrigin()}${ONE_CLICK_PATH}?t=${encodeURIComponent(token)}`;
+}
+
+/**
+ * The two headers that let a mail client offer a native unsubscribe control.
+ *
+ * `List-Unsubscribe-Post` is what distinguishes RFC 8058 one-click from the
+ * older RFC 2369 header: it tells the client the URL accepts an unattended POST,
+ * so it can unsubscribe without opening a browser. Both are only ever attached
+ * to governed optional-class mail; ESSENTIAL_SERVICE carries no opt-out, and
+ * the token itself cannot encode a non-optional class.
+ */
+export function listUnsubscribeHeaders(token: string): Record<string, string> {
+  return {
+    'List-Unsubscribe':      `<${unsubscribeOneClickUrlFor(token)}>`,
+    'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+  };
+}

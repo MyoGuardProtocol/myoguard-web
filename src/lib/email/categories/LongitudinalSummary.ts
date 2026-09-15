@@ -6,6 +6,10 @@
 // Always: physician-aligned, CDS-positioned, institutionally restrained.
 
 import { buildPatientEmail, sendEmail, EMAIL_TOKENS } from '../index';
+import {
+  unsubscribeUrlFor,
+  listUnsubscribeHeaders,
+} from '@/src/lib/communications/unsubscribeToken';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -35,11 +39,15 @@ export interface LongitudinalSummaryEmailOptions {
   data:        LongitudinalSummaryData;
   /**
    * REQUIRED since Phase 1D-C3C. This is CLINICAL_CONTINUITY mail, so it must
-   * carry a working recipient-choice link. Required rather than optional so a
-   * caller cannot omit it by accident; the send wrapper also refuses at
+   * carry a working recipient-choice capability. Required rather than optional
+   * so a caller cannot omit it by accident; the send wrapper also refuses at
    * runtime, because a type is not a guarantee.
+   *
+   * Phase 1D-C3D takes the signed token rather than the rendered URL — see the
+   * note in WeeklyPulse.ts. The body link and the RFC 8058 header derive from
+   * this one value.
    */
-  unsubscribeUrl: string;
+  unsubscribeToken: string;
 }
 
 // ─── Private helpers ──────────────────────────────────────────────────────────
@@ -97,7 +105,7 @@ function trendDirectionSummary(trendStatus: LongitudinalSummaryData['trendStatus
 export function buildLongitudinalSummaryEmail({
   patientName,
   data,
-  unsubscribeUrl,
+  unsubscribeToken,
 }: LongitudinalSummaryEmailOptions): string {
   const {
     assessmentCount, riskBand, trendStatus,
@@ -219,7 +227,7 @@ export function buildLongitudinalSummaryEmail({
     preheader: `${firstName}, a longitudinal summary of your MyoGuard Protocol record is available.`,
     content,
     variant:  'dark',
-    unsubscribeUrl,
+    unsubscribeUrl: unsubscribeUrlFor(unsubscribeToken),
   });
 }
 
@@ -236,8 +244,8 @@ export function buildLongitudinalSummaryEmail({
 export async function sendLongitudinalSummaryEmail(opts: LongitudinalSummaryEmailOptions) {
   // Phase 1D-C3C: see the note in WeeklyPulse.ts. No recipient-choice link,
   // no send.
-  if (!opts.unsubscribeUrl) {
-    console.error('[email/longitudinal-summary] no unsubscribe link — refusing to send.');
+  if (!opts.unsubscribeToken) {
+    console.error('[email/longitudinal-summary] no unsubscribe token — refusing to send.');
     return { id: undefined, error: new Error('Unsubscribe link unavailable — not sent.') };
   }
 
@@ -247,5 +255,7 @@ export async function sendLongitudinalSummaryEmail(opts: LongitudinalSummaryEmai
     subject: 'Your MyoGuard Longitudinal Summary',
     html,
     from:    EMAIL_TOKENS.from.patient,
+    // Phase 1D-C3D: RFC 8058, same token as the body link.
+    headers: listUnsubscribeHeaders(opts.unsubscribeToken),
   });
 }
