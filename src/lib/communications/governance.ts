@@ -21,6 +21,7 @@
  */
 
 import { deriveRecipientIdentity, normaliseEmail } from './identity';
+import { verifyRecipientEmail } from './recipientVerification';
 
 // ─── Contract ─────────────────────────────────────────────────────────────────
 
@@ -72,6 +73,7 @@ export type PolicyReason =
   | 'no_preference_on_record'
   | 'preference_never_set'
   | 'recipient_not_verified'
+  | 'recipient_identity_unavailable'
   | 'class_not_activated'
   | 'deliverability_hold';
 
@@ -81,16 +83,19 @@ export type CanSendInput = {
   channel:            CommunicationChannelName;
   userId?:            string;
   /**
-   * Whether the recipient's email identity is verified.
+   * The recipient's Clerk identity, used to resolve verification INSIDE this
+   * boundary.
    *
-   * Required for CLINICAL_CONTINUITY and supplied by the CALLER, because this
-   * module must not guess at what "verified" means for a given recipient type.
-   * Omitted (undefined) is treated as NOT verified — fail closed.
+   * Phase 1D-C3B.1 removed the previous `recipientVerified: boolean` input.
+   * A caller-supplied boolean made verification an assertion any route could
+   * make, which is not a trust boundary — TypeScript does not constrain what a
+   * future call site chooses to pass. Callers may now only identify the
+   * recipient; whether that identity is verified is decided here, by the
+   * authoritative server-side resolver, and cannot be overridden.
    *
-   * See the caller's comment at each cron for what is actually being passed
-   * today, and the known defect recorded in the Phase 1D-C3B report.
+   * Absent or unresolvable is treated as NOT verified — fail closed.
    */
-  recipientVerified?: boolean;
+  clerkUserId?:       string | null;
   /** Free-form tracing label. Never logged with the address. */
   context?:           string;
 };
@@ -142,7 +147,11 @@ export type GovernanceState = {
   activeSuppressionReasons: SuppressionReasonName[];
   /** Null when no preference row exists for this recipient + channel + class. */
   preferenceState: PreferenceStateName | null;
-  /** Caller-supplied verification state; undefined is treated as unverified. */
+  /**
+   * Resolved by the authoritative server-side verifier, never by a caller.
+   * `undefined` means "not yet resolved" and is treated as unverified, so the
+   * pure function is total and fails closed on the unknown.
+   */
   recipientVerified: boolean | undefined;
 };
 
@@ -169,16 +178,17 @@ export function decideFromGovernanceState(
   switch (communicationClass) {
 
     case 'CLINICAL_CONTINUITY': {
-      // Founder decision 5 (Phase 1D-C3B): no recurring clinically loaded
-      // patient communication to an unverified email identity. Evaluated before
-      // preference so that an unverified recipient cannot be unblocked merely
-      // by someone setting them to SUBSCRIBED.
-      if (state.recipientVerified !== true) {
-        return { decision: 'SUPPRESS_POLICY', policyReason: 'recipient_not_verified' };
-      }
       // Founder decision 3: NEVER_SET — and the absence of any row, which is
       // the same fact — suppress until a default is approved. Existing users
       // are NOT silently subscribed.
+      //
+      // Evaluated BEFORE verification, which reverses the C3B ordering. Both
+      // must still pass for ALLOW, so the guarantee is unchanged: no one can be
+      // sent to on the strength of a preference alone. What changes is which
+      // reason is reported when both fail, and — the reason for the change —
+      // that the locally-answerable question is asked first, so the Clerk
+      // network lookup is only made when it can actually change the outcome.
+      // In production today that is zero Clerk calls per batch.
       if (state.preferenceState === null) {
         return { decision: 'SUPPRESS_POLICY', policyReason: 'no_preference_on_record' };
       }
@@ -188,6 +198,15 @@ export function decideFromGovernanceState(
       if (state.preferenceState === 'UNSUBSCRIBED') {
         return { decision: 'SUPPRESS_PREFERENCE' };
       }
+
+      // Founder decision 5: no recurring clinically loaded patient
+      // communication to an unverified email identity. Reaching here means
+      // everything else passed, so `canSend` treats this outcome as its signal
+      // to resolve verification for real and re-decide.
+      if (state.recipientVerified !== true) {
+        return { decision: 'SUPPRESS_POLICY', policyReason: 'recipient_not_verified' };
+      }
+
       return { decision: 'ALLOW' };
     }
 
@@ -265,7 +284,10 @@ export async function canSend(input: CanSendInput): Promise<CanSendResult> {
     state = {
       activeSuppressionReasons: suppressions.map(s => s.reason as SuppressionReasonName),
       preferenceState:          (preference?.state as PreferenceStateName | undefined) ?? null,
-      recipientVerified:        input.recipientVerified,
+      // Left unresolved on purpose. Stage 1 below decides everything answerable
+      // without a network call; verification is resolved only if it becomes the
+      // deciding question.
+      recipientVerified:        undefined,
     };
   } catch (err) {
     // Store unreachable, schema not yet applied, pool exhausted — all fail
@@ -277,7 +299,41 @@ export async function canSend(input: CanSendInput): Promise<CanSendResult> {
     return { decision: 'UNAVAILABLE', recipientKey, keyVersion };
   }
 
-  const verdict = decideFromGovernanceState(input.communicationClass, state);
+  // Stage 1 — decide everything answerable from local state, with verification
+  // deliberately left unresolved.
+  const provisional = decideFromGovernanceState(input.communicationClass, state);
+
+  // Because preference is evaluated before verification, `recipient_not_verified`
+  // is returned ONLY when every other gate passed. That makes it an unambiguous
+  // signal that verification is now the deciding question — and the only point
+  // at which a Clerk lookup is worth making.
+  if (provisional.policyReason !== 'recipient_not_verified') {
+    return { recipientKey, keyVersion, ...provisional };
+  }
+
+  // Stage 2 — resolve verification authoritatively and re-decide.
+  const verification = await verifyRecipientEmail({
+    clerkUserId:      input.clerkUserId,
+    destinationEmail: input.email,
+  });
+
+  if (!verification.verified) {
+    console.log(
+      `[comms/governance] recipient verification failed ` +
+      `code=${verification.code} detail=${verification.detail}`,
+    );
+    return {
+      recipientKey,
+      keyVersion,
+      decision:     'SUPPRESS_POLICY',
+      policyReason: verification.code,
+    };
+  }
+
+  const verdict = decideFromGovernanceState(input.communicationClass, {
+    ...state,
+    recipientVerified: true,
+  });
 
   return { recipientKey, keyVersion, ...verdict };
 }
@@ -294,6 +350,14 @@ export type RecordEventInput = {
   provider:           string;
   state:              'REQUESTED' | 'SUPPRESSED' | 'SENT' | 'FAILED';
   suppressionReason?: SuppressionReasonName;
+  /**
+   * Bounded governance reason code for SUPPRESS_POLICY decisions, which have no
+   * CommunicationSuppressionReason member because no suppression ROW caused
+   * them. Phase 1D-C3B recorded these to the console only, which meant the
+   * durable record could not distinguish "unverified" from "no preference".
+   * Never an address, never clinical content, never a provider error body.
+   */
+  policyReason?:      PolicyReason;
 };
 
 /**
@@ -320,6 +384,7 @@ export async function recordCommunicationEvent(input: RecordEventInput): Promise
         provider:           input.provider,
         state:              input.state,
         suppressionReason:  input.suppressionReason ?? null,
+        policyReason:       input.policyReason ?? null,
       },
       select: { id: true },
     });

@@ -62,8 +62,9 @@ export async function POST(req: NextRequest) {
   // ── Resolve patient ───────────────────────────────────────────────────────
   const patient = await prisma.user.findUnique({
     where:  { id: userId },
-    // isVerified added in Phase 1D-C3B for the Layer 0 verified-identity gate.
-    select: { email: true, fullName: true, isVerified: true },
+    // clerkId added in Phase 1D-C3B.1 — Layer 0 resolves verification from the
+    // Clerk identity. Replaces the isVerified column C3B selected here.
+    select: { clerkId: true, email: true, fullName: true },
   });
 
   if (!patient?.email) {
@@ -79,7 +80,9 @@ export async function POST(req: NextRequest) {
     communicationClass: 'CLINICAL_CONTINUITY',
     channel:            'EMAIL',
     userId,
-    recipientVerified:  patient.isVerified,
+    // Admin authority governs who may trigger a send, not whether the
+    // recipient's address is verified.
+    clerkUserId:        patient.clerkId,
     context:            'admin:longitudinal-summary',
   });
 
@@ -102,6 +105,7 @@ export async function POST(req: NextRequest) {
       provider:           'RESEND',
       state:              'SUPPRESSED',
       suppressionReason:  gate.suppressionReason,
+      policyReason:       gate.policyReason,
     });
     console.log(
       `[email/longitudinal-summary] governance suppressed decision=${gate.decision} ` +

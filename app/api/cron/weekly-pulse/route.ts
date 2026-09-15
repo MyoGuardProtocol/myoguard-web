@@ -57,8 +57,11 @@ export async function GET(request: NextRequest) {
     where:  { role: 'PATIENT' },
     select: {
       id:         true,
+      clerkId:    true,
       email:      true,
       fullName:   true,
+      // Retained for Layer 1 ONLY, which has consumed it since BUILD 4C. It is
+      // no longer used as an email-verification signal — see Layer 0 below.
       isVerified: true,
       weeklyCheckins: {
         select:  { completedAt: true },
@@ -103,19 +106,18 @@ export async function GET(request: NextRequest) {
     // record at all, and preference is both cheaper and more absolute than
     // data-sufficiency.
     //
-    // `recipientVerified` carries User.isVerified. NOTE: that column is set
-    // only by the physician-approval routes (always alongside role=PHYSICIAN)
-    // and is never set for a PATIENT — so it does not currently mean "email
-    // address verified". It is passed because it is the only verification-shaped
-    // signal the platform has, and it fails in the safe direction. See the
-    // Phase 1D-C3B report; a genuine patient email-verification source is a
-    // Founder decision, not something this layer may infer.
+    // Phase 1D-C3B.1: this route no longer asserts whether the recipient is
+    // verified. It supplies the Clerk identity and the governance boundary
+    // resolves verification itself against Clerk's verified PRIMARY email,
+    // requiring that address to BE the destination. User.isVerified is a
+    // physician credential-approval flag and was never an email-verification
+    // signal; it is not consulted here.
     const gate = await canSend({
       email:              patient.email,
       communicationClass: 'CLINICAL_CONTINUITY',
       channel:            'EMAIL',
       userId:             patient.id,
-      recipientVerified:  patient.isVerified,
+      clerkUserId:        patient.clerkId,
       context:            'cron:weekly-pulse',
     });
 
@@ -146,6 +148,7 @@ export async function GET(request: NextRequest) {
         provider:           'RESEND',
         state:              'SUPPRESSED',
         suppressionReason:  gate.suppressionReason,
+        policyReason:       gate.policyReason,
       });
       continue;
     }

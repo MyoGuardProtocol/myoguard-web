@@ -1033,8 +1033,24 @@ model CommunicationEvent {
 
   state CommunicationState @default(REQUESTED)
 
-  /// Populated when state = SUPPRESSED.
+  /// Populated when state = SUPPRESSED because a CommunicationSuppression row
+  /// applied.
   suppressionReason CommunicationSuppressionReason?
+
+  /// Bounded governance reason code for a SUPPRESS_POLICY decision, where no
+  /// suppression ROW was responsible and `suppressionReason` is therefore null.
+  /// Added in Phase 1D-C3B.1: C3B recorded these to the console only, so the
+  /// durable record could not distinguish "unverified recipient" from "no
+  /// preference on record".
+  ///
+  /// Documented bounded vocabulary — the same status-as-String convention used
+  /// by `source`, `actorType`, `provider` and PhysicianApplication.status:
+  ///   recipient_not_verified | recipient_identity_unavailable |
+  ///   no_preference_on_record | preference_never_set |
+  ///   class_not_activated | deliverability_hold
+  ///
+  /// Never an address, never clinical content, never a provider error body.
+  policyReason String?
 
   /// Notification.id where one exists.
   /// Plain scalar — no @relation (zero-touch on existing Notification model).

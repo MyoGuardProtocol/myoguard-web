@@ -261,7 +261,14 @@ for (const [label, path] of Object.entries(PATHWAYS)) {
     at(/decision !== 'ALLOW'/) < at(/send(WeeklyPulse|LongitudinalSummary)Email\(/));
   t(`[ordering] ${label} UNAVAILABLE is handled explicitly`,
     /decision === 'UNAVAILABLE'/.test(H));
-  t(`[ordering] ${label} passes recipientVerified`, /recipientVerified:/.test(H));
+  // Phase 1D-C3B.1 replaced the caller-supplied `recipientVerified` boolean
+  // with a caller-supplied Clerk identity that the boundary resolves itself.
+  // The assertion is inverted rather than dropped: a route regaining the
+  // ability to assert verification is exactly what this must catch.
+  t(`[ordering] ${label} supplies clerkUserId for boundary-side verification`,
+    /clerkUserId:/.test(H));
+  t(`[safety] ${label} cannot assert verification itself`,
+    !/recipientVerified/.test(H));
   t(`[ordering] ${label} records an event before the send`,
     at(/recordCommunicationEvent\(/) < at(/send(WeeklyPulse|LongitudinalSummary)Email\(/));
   t(`[ordering] ${label} refuses to send when the event cannot be recorded`,

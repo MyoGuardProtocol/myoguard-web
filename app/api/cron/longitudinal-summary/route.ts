@@ -59,12 +59,13 @@ export async function GET(request: NextRequest) {
     where:  { role: 'PATIENT' },
     select: {
       id:         true,
+      // Phase 1D-C3B.1: the Clerk identity, from which Layer 0 resolves the
+      // verified primary email. Replaces the isVerified column C3B selected
+      // here, which was a physician-approval flag and never meant what its
+      // name suggested. This pathway does not consume isVerified at all.
+      clerkId:    true,
       email:      true,
       fullName:   true,
-      // Added in Phase 1D-C3B for the Layer 0 verified-identity gate. Weekly
-      // Pulse already selected this; this pathway did not, which is why it had
-      // no verification gate at all.
-      isVerified: true,
       weeklyCheckins: {
         select:  { completedAt: true },
         orderBy: { completedAt: 'desc' },
@@ -106,18 +107,15 @@ export async function GET(request: NextRequest) {
     // Longitudinal Summary emails were sent to two recipients in June and July
     // 2026, with no consent record and no verification gate of any kind.
     //
-    // `recipientVerified` carries User.isVerified. NOTE: that column is set
-    // only by the physician-approval routes (always alongside role=PHYSICIAN)
-    // and is never set for a PATIENT — so it does not currently mean "email
-    // address verified". It is passed because it is the only verification-shaped
-    // signal the platform has, and it fails in the safe direction. See the
-    // Phase 1D-C3B report.
+    // Phase 1D-C3B.1: verification is resolved inside the governance boundary
+    // against Clerk's verified PRIMARY email, which must BE the destination.
+    // This route cannot assert that the recipient is verified.
     const gate = await canSend({
       email:              patient.email,
       communicationClass: 'CLINICAL_CONTINUITY',
       channel:            'EMAIL',
       userId:             patient.id,
-      recipientVerified:  patient.isVerified,
+      clerkUserId:        patient.clerkId,
       context:            'cron:longitudinal-summary',
     });
 
@@ -146,6 +144,7 @@ export async function GET(request: NextRequest) {
         provider:           'RESEND',
         state:              'SUPPRESSED',
         suppressionReason:  gate.suppressionReason,
+        policyReason:       gate.policyReason,
       });
       continue;
     }

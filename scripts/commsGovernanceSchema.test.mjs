@@ -218,6 +218,7 @@ section('-- 9. only authorised consumers --');
   const AUTHORISED = [
     'src/lib/communications/governance.ts',
     'src/lib/communications/identity.ts',
+    'src/lib/communications/recipientVerification.ts',
     'app/api/cron/weekly-pulse/route.ts',
     'app/api/cron/longitudinal-summary/route.ts',
     'app/api/email/weekly-pulse/route.ts',
@@ -240,7 +241,7 @@ section('-- 9. only authorised consumers --');
   // wrappers matter: C3B's callers reach the models only through canSend /
   // recordCommunicationEvent, so a regex covering only Prisma accessors would
   // report a false pass for every migrated pathway.
-  const CONSUMERS = /\b(communicationRecipient|communicationPreference|communicationConsentEvent|consentWording|communicationSuppression|communicationEvent|CommunicationClass|CommunicationChannel|CommunicationState|CommunicationPreferenceState|CommunicationConsentAction|CommunicationSuppressionReason|canSend|recordCommunicationEvent|markEventSent|deriveRecipientIdentity)\b/;
+  const CONSUMERS = /\b(communicationRecipient|communicationPreference|communicationConsentEvent|consentWording|communicationSuppression|communicationEvent|CommunicationClass|CommunicationChannel|CommunicationState|CommunicationPreferenceState|CommunicationConsentAction|CommunicationSuppressionReason|canSend|recordCommunicationEvent|markEventSent|deriveRecipientIdentity|verifyRecipientEmail)\b/;
 
   const repoRel = f => f.replace(/\\/g, '/').split('/myoguard-web/')[1] ?? f.replace(/\\/g, '/');
   const consumers = files.filter(f => CONSUMERS.test(readFileSync(f, 'utf8'))).map(repoRel);
