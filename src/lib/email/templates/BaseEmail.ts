@@ -37,6 +37,16 @@ export interface BaseEmailOptions {
    * NOT a pill, badge, or chip.
    */
   audience?: 'patient' | 'physician' | 'system';
+
+  /**
+   * Class-specific unsubscribe URL, rendered in the compliance footer.
+   *
+   * Optional here because ESSENTIAL_SERVICE and internal mail carry no
+   * unsubscribe. Where a class REQUIRES one — CLINICAL_CONTINUITY since Phase
+   * 1D-C3C — the requirement is enforced at that category's send wrapper, not
+   * here, so a template can never quietly omit it.
+   */
+  unsubscribeUrl?: string;
 }
 
 // ─── Audience metadata labels ─────────────────────────────────────────────────
@@ -76,6 +86,7 @@ export function baseEmail({
   content,
   variant  = 'dark',
   audience,
+  unsubscribeUrl,
 }: BaseEmailOptions): string {
   const isDark = variant === 'dark';
 
@@ -143,7 +154,7 @@ export function baseEmail({
 
           <!-- ── Compliance footer ─────────────────────────────────────── -->
           <tr>
-            <td>${complianceFooter(variant)}</td>
+            <td>${complianceFooter(variant, unsubscribeUrl)}</td>
           </tr>
 
         </table>

@@ -12,6 +12,10 @@ import {
   recordCommunicationEvent,
   markEventSent,
 } from '@/src/lib/communications/governance';
+import {
+  mintUnsubscribeToken,
+  unsubscribeUrlFor,
+} from '@/src/lib/communications/unsubscribeToken';
 
 /** Same template identity as the cron — this route sends the same message. */
 const TEMPLATE_ID = 'clinical.weekly_pulse.v1';
@@ -133,6 +137,23 @@ export async function POST(req: NextRequest) {
 
   // ── Send ──────────────────────────────────────────────────────────────────
   // Only pass governed fields — never pass nextAction, projectedScore, or nextActionType.
+  // Recipient-choice link. An admin-triggered send is the same message to the
+  // same person, so it carries the same obligation as the scheduled one.
+  const unsubToken = mintUnsubscribeToken({
+    recipientKey:       gate.recipientKey!,
+    keyVersion:         gate.keyVersion,
+    channel:            'EMAIL',
+    communicationClass: 'CLINICAL_CONTINUITY',
+  });
+
+  if (!unsubToken) {
+    console.error('[email/weekly-pulse] unsubscribe link unavailable — not sent');
+    return NextResponse.json(
+      { error: 'Unsubscribe link unavailable. Not sent.' },
+      { status: 503 },
+    );
+  }
+
   // Governance record before the provider is contacted; no record, no send.
   const eventId = await recordCommunicationEvent({
     recipientKey:       gate.recipientKey!,
@@ -154,8 +175,9 @@ export async function POST(req: NextRequest) {
   }
 
   const { id: providerMessageId, error } = await sendWeeklyPulseEmail({
-    to:          patient.email,
-    patientName: patient.fullName,
+    to:             patient.email,
+    patientName:    patient.fullName,
+    unsubscribeUrl: unsubscribeUrlFor(unsubToken),
     digest: {
       riskBand:       digest.riskBand,
       trendStatus:    digest.trendStatus,

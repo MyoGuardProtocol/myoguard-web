@@ -223,6 +223,11 @@ section('-- 9. only authorised consumers --');
     'app/api/cron/longitudinal-summary/route.ts',
     'app/api/email/weekly-pulse/route.ts',
     'app/api/email/longitudinal-summary/route.ts',
+    // Added by Phase 1D-C3C — the recipient-choice surfaces.
+    'src/lib/communications/preferenceService.ts',
+    'src/lib/communications/consentWording.ts',
+    'app/api/communications/preferences/route.ts',
+    'app/settings/page.tsx',
   ];
   const roots = ['app', 'src'];
   const files = [];

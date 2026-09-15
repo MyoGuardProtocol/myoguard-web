@@ -25,6 +25,10 @@ import {
   recordCommunicationEvent,
   markEventSent,
 } from '@/src/lib/communications/governance';
+import {
+  mintUnsubscribeToken,
+  unsubscribeUrlFor,
+} from '@/src/lib/communications/unsubscribeToken';
 
 /** Template identifier recorded on CommunicationEvent — never the rendered output. */
 const TEMPLATE_ID = 'clinical.longitudinal_summary.v1';
@@ -207,6 +211,23 @@ export async function GET(request: NextRequest) {
 
     // ── Send ─────────────────────────────────────────────────────────────────
 
+    // Recipient-choice link, minted for THIS recipient. No link, no send —
+    // see Weekly Pulse for the rationale.
+    const unsubToken = mintUnsubscribeToken({
+      recipientKey:       gate.recipientKey!,
+      keyVersion:         gate.keyVersion,
+      channel:            'EMAIL',
+      communicationClass: 'CLINICAL_CONTINUITY',
+    });
+
+    if (!unsubToken) {
+      errorCount++;
+      console.error(
+        `[cron/longitudinal-summary] unsubscribe link unavailable userId=${patient.id} — not sent`,
+      );
+      continue;
+    }
+
     // Governance record established BEFORE the provider is contacted; if it
     // cannot be written, we do not send. See Weekly Pulse for the rationale.
     const eventId = await recordCommunicationEvent({
@@ -229,8 +250,9 @@ export async function GET(request: NextRequest) {
     }
 
     const { id: providerMessageId, error } = await sendLongitudinalSummaryEmail({
-      to:          patient.email,
-      patientName: patient.fullName,
+      to:             patient.email,
+      patientName:    patient.fullName,
+      unsubscribeUrl: unsubscribeUrlFor(unsubToken),
       data: {
         assessmentCount,
         riskBand:       digest.riskBand,

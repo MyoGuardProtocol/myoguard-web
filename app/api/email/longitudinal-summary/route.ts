@@ -12,6 +12,10 @@ import {
   recordCommunicationEvent,
   markEventSent,
 } from '@/src/lib/communications/governance';
+import {
+  mintUnsubscribeToken,
+  unsubscribeUrlFor,
+} from '@/src/lib/communications/unsubscribeToken';
 
 /** Same template identity as the cron — this route sends the same message. */
 const TEMPLATE_ID = 'clinical.longitudinal_summary.v1';
@@ -134,6 +138,22 @@ export async function POST(req: NextRequest) {
   });
 
   // ── Send ──────────────────────────────────────────────────────────────────
+  // Recipient-choice link — same obligation as the scheduled send.
+  const unsubToken = mintUnsubscribeToken({
+    recipientKey:       gate.recipientKey!,
+    keyVersion:         gate.keyVersion,
+    channel:            'EMAIL',
+    communicationClass: 'CLINICAL_CONTINUITY',
+  });
+
+  if (!unsubToken) {
+    console.error('[email/longitudinal-summary] unsubscribe link unavailable — not sent');
+    return NextResponse.json(
+      { error: 'Unsubscribe link unavailable. Not sent.' },
+      { status: 503 },
+    );
+  }
+
   // Governance record before the provider is contacted; no record, no send.
   const eventId = await recordCommunicationEvent({
     recipientKey:       gate.recipientKey!,
@@ -155,8 +175,9 @@ export async function POST(req: NextRequest) {
   }
 
   const { id: providerMessageId, error } = await sendLongitudinalSummaryEmail({
-    to:          patient.email,
-    patientName: patient.fullName,
+    to:             patient.email,
+    patientName:    patient.fullName,
+    unsubscribeUrl: unsubscribeUrlFor(unsubToken),
     data: {
       assessmentCount,
       riskBand:       digest.riskBand,

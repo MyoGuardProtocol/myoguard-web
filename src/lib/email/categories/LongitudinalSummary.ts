@@ -33,6 +33,13 @@ export interface LongitudinalSummaryEmailOptions {
   patientName: string;
   /** Pre-computed longitudinal data */
   data:        LongitudinalSummaryData;
+  /**
+   * REQUIRED since Phase 1D-C3C. This is CLINICAL_CONTINUITY mail, so it must
+   * carry a working recipient-choice link. Required rather than optional so a
+   * caller cannot omit it by accident; the send wrapper also refuses at
+   * runtime, because a type is not a guarantee.
+   */
+  unsubscribeUrl: string;
 }
 
 // ─── Private helpers ──────────────────────────────────────────────────────────
@@ -90,6 +97,7 @@ function trendDirectionSummary(trendStatus: LongitudinalSummaryData['trendStatus
 export function buildLongitudinalSummaryEmail({
   patientName,
   data,
+  unsubscribeUrl,
 }: LongitudinalSummaryEmailOptions): string {
   const {
     assessmentCount, riskBand, trendStatus,
@@ -211,6 +219,7 @@ export function buildLongitudinalSummaryEmail({
     preheader: `${firstName}, a longitudinal summary of your MyoGuard Protocol record is available.`,
     content,
     variant:  'dark',
+    unsubscribeUrl,
   });
 }
 
@@ -225,6 +234,13 @@ export function buildLongitudinalSummaryEmail({
  * Available for on-demand admin invocation via app/api/email/longitudinal-summary.
  */
 export async function sendLongitudinalSummaryEmail(opts: LongitudinalSummaryEmailOptions) {
+  // Phase 1D-C3C: see the note in WeeklyPulse.ts. No recipient-choice link,
+  // no send.
+  if (!opts.unsubscribeUrl) {
+    console.error('[email/longitudinal-summary] no unsubscribe link — refusing to send.');
+    return { id: undefined, error: new Error('Unsubscribe link unavailable — not sent.') };
+  }
+
   const html = buildLongitudinalSummaryEmail(opts);
   return sendEmail({
     to:      opts.to,

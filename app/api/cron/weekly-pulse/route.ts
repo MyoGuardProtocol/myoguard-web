@@ -22,6 +22,10 @@ import {
   recordCommunicationEvent,
   markEventSent,
 } from '@/src/lib/communications/governance';
+import {
+  mintUnsubscribeToken,
+  unsubscribeUrlFor,
+} from '@/src/lib/communications/unsubscribeToken';
 
 /** Template identifier recorded on CommunicationEvent — never the rendered output. */
 const TEMPLATE_ID = 'clinical.weekly_pulse.v1';
@@ -208,6 +212,24 @@ export async function GET(request: NextRequest) {
     //
     // Only governed fields are passed — never nextAction, projectedScore, or nextActionType.
 
+    // Recipient-choice link, minted for THIS recipient from the governed
+    // identity. If the signing secret is unusable we do not send: an email the
+    // recipient cannot opt out of is worse than an email not sent.
+    const unsubToken = mintUnsubscribeToken({
+      recipientKey:       gate.recipientKey!,
+      keyVersion:         gate.keyVersion,
+      channel:            'EMAIL',
+      communicationClass: 'CLINICAL_CONTINUITY',
+    });
+
+    if (!unsubToken) {
+      errorCount++;
+      console.error(
+        `[cron/weekly-pulse] unsubscribe link unavailable userId=${patient.id} — not sent`,
+      );
+      continue;
+    }
+
     // Governance record is established BEFORE the provider is contacted.
     // If it cannot be written we do not send: protecting recipient choice and
     // the integrity of the clinical sending record outranks delivery, and an
@@ -232,8 +254,9 @@ export async function GET(request: NextRequest) {
     }
 
     const { id: providerMessageId, error } = await sendWeeklyPulseEmail({
-      to:          patient.email,
-      patientName: patient.fullName,
+      to:             patient.email,
+      patientName:    patient.fullName,
+      unsubscribeUrl: unsubscribeUrlFor(unsubToken),
       digest: {
         riskBand:       digest.riskBand,
         trendStatus:    digest.trendStatus,

@@ -28,6 +28,7 @@ import { EMAIL_TOKENS } from '../tokens';
  */
 export function complianceFooter(
   variant: 'dark' | 'clinical-paper' = 'dark',
+  unsubscribeUrl?: string,
 ): string {
   const isDark = variant === 'dark';
 
@@ -75,7 +76,11 @@ export function complianceFooter(
       <p style="margin:0;font-size:${size};color:${textColor};text-align:center;line-height:${lineHeight};font-family:${font};">
         You received this because you have a MyoGuard Protocol account.
         Manage your preferences at
-        <a href="${EMAIL_TOKENS.url.settings}" style="${linkStyle}">myoguard.health/settings</a>
+        <a href="${EMAIL_TOKENS.url.settings}" style="${linkStyle}">myoguard.health/settings</a>${
+          unsubscribeUrl
+            ? `<br /><a href="${unsubscribeUrl}" style="${linkStyle}">Unsubscribe from these emails</a>`
+            : ''
+        }
       </p>
 
     </td>

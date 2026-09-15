@@ -25,6 +25,13 @@ export interface WeeklyPulseEmailOptions {
   digest: Pick<WeeklyDigestPayload,
     'riskBand' | 'trendStatus' | 'proteinTargetG' | 'totalCheckins' | 'streakWeeks'
   >;
+  /**
+   * REQUIRED since Phase 1D-C3C. This is CLINICAL_CONTINUITY mail, so it must
+   * carry a working recipient-choice link. Required rather than optional so a
+   * caller cannot omit it by accident; `sendWeeklyPulseEmail` also refuses at
+   * runtime, because a type is not a guarantee.
+   */
+  unsubscribeUrl: string;
 }
 
 // ─── Private helpers ──────────────────────────────────────────────────────────
@@ -79,6 +86,7 @@ function trendDirectionLine(trendStatus: WeeklyDigestPayload['trendStatus']): st
 export function buildWeeklyPulseEmail({
   patientName,
   digest,
+  unsubscribeUrl,
 }: WeeklyPulseEmailOptions): string {
   const { riskBand, trendStatus, proteinTargetG, totalCheckins, streakWeeks } = digest;
 
@@ -151,6 +159,7 @@ ${continuityMeta}
     preheader: 'Your longitudinal check-in remains available. Log your weekly pulse to maintain protocol continuity.',
     content,
     variant:  'dark',
+    unsubscribeUrl,
   });
 }
 
@@ -165,6 +174,15 @@ ${continuityMeta}
  * Available for on-demand admin invocation via app/api/email/weekly-pulse.
  */
 export async function sendWeeklyPulseEmail(opts: WeeklyPulseEmailOptions) {
+  // Phase 1D-C3C: CLINICAL_CONTINUITY mail must carry a working recipient-choice
+  // link. If one could not be produced, the email does not go out — recipient
+  // choice outranks delivery. Checked at runtime as well as in the type,
+  // because the type only binds callers that compile against it.
+  if (!opts.unsubscribeUrl) {
+    console.error('[email/weekly-pulse] no unsubscribe link — refusing to send.');
+    return { id: undefined, error: new Error('Unsubscribe link unavailable — not sent.') };
+  }
+
   const html = buildWeeklyPulseEmail(opts);
   return sendEmail({
     to:      opts.to,
