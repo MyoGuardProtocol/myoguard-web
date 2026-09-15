@@ -20,6 +20,14 @@ import { sendLongitudinalSummaryEmail } from '@/src/lib/email/categories/Longitu
 import { CADENCE } from '@/src/lib/email/governance/cadence';
 import { checkLongitudinalSuppression } from '@/src/lib/email/governance/suppression';
 import { checkIdempotency } from '@/src/lib/email/governance/idempotency';
+import {
+  canSend,
+  recordCommunicationEvent,
+  markEventSent,
+} from '@/src/lib/communications/governance';
+
+/** Template identifier recorded on CommunicationEvent — never the rendered output. */
+const TEMPLATE_ID = 'clinical.longitudinal_summary.v1';
 
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
@@ -53,6 +61,10 @@ export async function GET(request: NextRequest) {
       id:         true,
       email:      true,
       fullName:   true,
+      // Added in Phase 1D-C3B for the Layer 0 verified-identity gate. Weekly
+      // Pulse already selected this; this pathway did not, which is why it had
+      // no verification gate at all.
+      isVerified: true,
       weeklyCheckins: {
         select:  { completedAt: true },
         orderBy: { completedAt: 'desc' },
@@ -76,15 +88,67 @@ export async function GET(request: NextRequest) {
   // Suppressed patients do not count toward the batch limit.
   // The limit caps the number of patients processed for send.
 
-  let suppressedCount = 0;
-  let processedCount  = 0;
-  let sentCount       = 0;
-  let errorCount      = 0;
+  let suppressedCount           = 0;
+  let governanceSuppressedCount = 0;
+  let processedCount            = 0;
+  let sentCount                 = 0;
+  let errorCount                = 0;
 
   for (const patient of allPatients) {
 
     // Batch limit — stop when we have processed enough patients for this execution
     if (processedCount >= CADENCE.BATCH_LIMIT) break;
+
+    // ── Layer 0: Communications governance (Phase 1D-C3B) ────────────────────
+    //
+    // Runs before the clinical layers below, for the same reasons as Weekly
+    // Pulse. This pathway is the one that has actually delivered — four
+    // Longitudinal Summary emails were sent to two recipients in June and July
+    // 2026, with no consent record and no verification gate of any kind.
+    //
+    // `recipientVerified` carries User.isVerified. NOTE: that column is set
+    // only by the physician-approval routes (always alongside role=PHYSICIAN)
+    // and is never set for a PATIENT — so it does not currently mean "email
+    // address verified". It is passed because it is the only verification-shaped
+    // signal the platform has, and it fails in the safe direction. See the
+    // Phase 1D-C3B report.
+    const gate = await canSend({
+      email:              patient.email,
+      communicationClass: 'CLINICAL_CONTINUITY',
+      channel:            'EMAIL',
+      userId:             patient.id,
+      recipientVerified:  patient.isVerified,
+      context:            'cron:longitudinal-summary',
+    });
+
+    // Fail closed: an outage is not a decision and must not read as one.
+    if (gate.decision === 'UNAVAILABLE') {
+      errorCount++;
+      console.error(
+        `[cron/longitudinal-summary] governance unavailable userId=${patient.id} — not sent`,
+      );
+      continue;
+    }
+
+    if (gate.decision !== 'ALLOW') {
+      governanceSuppressedCount++;
+      console.log(
+        `[cron/longitudinal-summary] governance suppressed userId=${patient.id} ` +
+        `decision=${gate.decision} reason=${gate.suppressionReason ?? gate.policyReason ?? 'n/a'}`,
+      );
+      await recordCommunicationEvent({
+        recipientKey:       gate.recipientKey!,
+        keyVersion:         gate.keyVersion,
+        userId:             patient.id,
+        communicationClass: 'CLINICAL_CONTINUITY',
+        channel:            'EMAIL',
+        templateId:         TEMPLATE_ID,
+        provider:           'RESEND',
+        state:              'SUPPRESSED',
+        suppressionReason:  gate.suppressionReason,
+      });
+      continue;
+    }
 
     // ── Layer 1: Suppression ─────────────────────────────────────────────────
     //
@@ -144,7 +208,28 @@ export async function GET(request: NextRequest) {
 
     // ── Send ─────────────────────────────────────────────────────────────────
 
-    const { error } = await sendLongitudinalSummaryEmail({
+    // Governance record established BEFORE the provider is contacted; if it
+    // cannot be written, we do not send. See Weekly Pulse for the rationale.
+    const eventId = await recordCommunicationEvent({
+      recipientKey:       gate.recipientKey!,
+      keyVersion:         gate.keyVersion,
+      userId:             patient.id,
+      communicationClass: 'CLINICAL_CONTINUITY',
+      channel:            'EMAIL',
+      templateId:         TEMPLATE_ID,
+      provider:           'RESEND',
+      state:              'REQUESTED',
+    });
+
+    if (!eventId) {
+      errorCount++;
+      console.error(
+        `[cron/longitudinal-summary] could not record communication event userId=${patient.id} — not sent`,
+      );
+      continue;
+    }
+
+    const { id: providerMessageId, error } = await sendLongitudinalSummaryEmail({
       to:          patient.email,
       patientName: patient.fullName,
       data: {
@@ -171,7 +256,7 @@ export async function GET(request: NextRequest) {
     // createdAt auto-set by @default(now()) — dedup window anchor for future queries.
     // sentAt records actual send time (informational only).
 
-    await prisma.notification.create({
+    const notification = await prisma.notification.create({
       data: {
         userId:  patient.id,
         type:    'LONGITUDINAL_SUMMARY',
@@ -185,6 +270,9 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    // Promote to SENT and link the clinical record by id — never copy it.
+    await markEventSent(eventId, providerMessageId, notification.id);
+
     sentCount++;
   }
 
@@ -193,7 +281,8 @@ export async function GET(request: NextRequest) {
   console.log(
     `[cron/longitudinal-summary] complete ` +
     `candidates=${candidateCount} processed=${processedCount} ` +
-    `sent=${sentCount} suppressed=${suppressedCount} errors=${errorCount} ` +
+    `sent=${sentCount} suppressed=${suppressedCount} ` +
+    `governanceSuppressed=${governanceSuppressedCount} errors=${errorCount} ` +
     `ms=${executionMs}`,
   );
 
@@ -209,12 +298,13 @@ export async function GET(request: NextRequest) {
       targetType: 'CronExecution',
       targetId:   null,
       metadata: {
-        cronType:          'longitudinal_summary',
+        cronType:             'longitudinal_summary',
         candidateCount,
-        patientsProcessed: processedCount,
-        emailsSent:        sentCount,
-        suppressed:        suppressedCount,
-        errors:            errorCount,
+        patientsProcessed:    processedCount,
+        emailsSent:           sentCount,
+        suppressed:           suppressedCount,
+        governanceSuppressed: governanceSuppressedCount,
+        errors:               errorCount,
         executionMs,
       },
     },
@@ -223,12 +313,13 @@ export async function GET(request: NextRequest) {
   );
 
   return Response.json({
-    ok:                true,
+    ok:                   true,
     candidateCount,
-    patientsProcessed: processedCount,
-    emailsSent:        sentCount,
-    suppressed:        suppressedCount,
-    errors:            errorCount,
+    patientsProcessed:    processedCount,
+    emailsSent:           sentCount,
+    suppressed:           suppressedCount,
+    governanceSuppressed: governanceSuppressedCount,
+    errors:               errorCount,
     executionMs,
   });
 }

@@ -17,6 +17,14 @@ import { sendWeeklyPulseEmail } from '@/src/lib/email/categories/WeeklyPulse';
 import { CADENCE } from '@/src/lib/email/governance/cadence';
 import { checkWeeklyPulseSuppression } from '@/src/lib/email/governance/suppression';
 import { checkIdempotency } from '@/src/lib/email/governance/idempotency';
+import {
+  canSend,
+  recordCommunicationEvent,
+  markEventSent,
+} from '@/src/lib/communications/governance';
+
+/** Template identifier recorded on CommunicationEvent — never the rendered output. */
+const TEMPLATE_ID = 'clinical.weekly_pulse.v1';
 
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
@@ -76,15 +84,71 @@ export async function GET(request: NextRequest) {
   // The limit caps the number of patients actually processed for send (processedCount).
   // Remaining patients wait for the next cron execution.
 
-  let suppressedCount = 0;
-  let processedCount  = 0;
-  let sentCount       = 0;
-  let errorCount      = 0;
+  let suppressedCount           = 0;
+  let governanceSuppressedCount = 0;
+  let processedCount            = 0;
+  let sentCount                 = 0;
+  let errorCount                = 0;
 
   for (const patient of allPatients) {
 
     // Batch limit — stop when we have processed enough patients for this execution
     if (processedCount >= CADENCE.BATCH_LIMIT) break;
+
+    // ── Layer 0: Communications governance (Phase 1D-C3B) ────────────────────
+    //
+    // Recipient choice and absolute suppression are evaluated BEFORE the
+    // clinical layers below. A recipient who has withdrawn consent, hard
+    // bounced or complained should not have clinical queries run against their
+    // record at all, and preference is both cheaper and more absolute than
+    // data-sufficiency.
+    //
+    // `recipientVerified` carries User.isVerified. NOTE: that column is set
+    // only by the physician-approval routes (always alongside role=PHYSICIAN)
+    // and is never set for a PATIENT — so it does not currently mean "email
+    // address verified". It is passed because it is the only verification-shaped
+    // signal the platform has, and it fails in the safe direction. See the
+    // Phase 1D-C3B report; a genuine patient email-verification source is a
+    // Founder decision, not something this layer may infer.
+    const gate = await canSend({
+      email:              patient.email,
+      communicationClass: 'CLINICAL_CONTINUITY',
+      channel:            'EMAIL',
+      userId:             patient.id,
+      recipientVerified:  patient.isVerified,
+      context:            'cron:weekly-pulse',
+    });
+
+    // Fail closed: governance could not be established, so nothing is sent.
+    // Counted as an error rather than a suppression — this is an outage, not a
+    // decision, and must not read as a recipient having been protected.
+    if (gate.decision === 'UNAVAILABLE') {
+      errorCount++;
+      console.error(`[cron/weekly-pulse] governance unavailable userId=${patient.id} — not sent`);
+      continue;
+    }
+
+    if (gate.decision !== 'ALLOW') {
+      governanceSuppressedCount++;
+      console.log(
+        `[cron/weekly-pulse] governance suppressed userId=${patient.id} ` +
+        `decision=${gate.decision} reason=${gate.suppressionReason ?? gate.policyReason ?? 'n/a'}`,
+      );
+      // Auditable refusal. Suppression was previously console-only and
+      // invisible once logs aged out.
+      await recordCommunicationEvent({
+        recipientKey:       gate.recipientKey!,
+        keyVersion:         gate.keyVersion,
+        userId:             patient.id,
+        communicationClass: 'CLINICAL_CONTINUITY',
+        channel:            'EMAIL',
+        templateId:         TEMPLATE_ID,
+        provider:           'RESEND',
+        state:              'SUPPRESSED',
+        suppressionReason:  gate.suppressionReason,
+      });
+      continue;
+    }
 
     // ── Layer 1: Suppression ─────────────────────────────────────────────────
     //
@@ -141,7 +205,30 @@ export async function GET(request: NextRequest) {
     //
     // Only governed fields are passed — never nextAction, projectedScore, or nextActionType.
 
-    const { error } = await sendWeeklyPulseEmail({
+    // Governance record is established BEFORE the provider is contacted.
+    // If it cannot be written we do not send: protecting recipient choice and
+    // the integrity of the clinical sending record outranks delivery, and an
+    // unrecorded send is one that later cannot be audited or reconciled.
+    const eventId = await recordCommunicationEvent({
+      recipientKey:       gate.recipientKey!,
+      keyVersion:         gate.keyVersion,
+      userId:             patient.id,
+      communicationClass: 'CLINICAL_CONTINUITY',
+      channel:            'EMAIL',
+      templateId:         TEMPLATE_ID,
+      provider:           'RESEND',
+      state:              'REQUESTED',
+    });
+
+    if (!eventId) {
+      errorCount++;
+      console.error(
+        `[cron/weekly-pulse] could not record communication event userId=${patient.id} — not sent`,
+      );
+      continue;
+    }
+
+    const { id: providerMessageId, error } = await sendWeeklyPulseEmail({
       to:          patient.email,
       patientName: patient.fullName,
       digest: {
@@ -166,7 +253,7 @@ export async function GET(request: NextRequest) {
     // createdAt is auto-set by @default(now()) and is the dedup window anchor.
     // sentAt records the actual send timestamp (informational only).
 
-    await prisma.notification.create({
+    const notification = await prisma.notification.create({
       data: {
         userId:  patient.id,
         type:    'WEEKLY_REMINDER',
@@ -179,6 +266,11 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    // Promote the governance record to SENT and link the clinical record by id.
+    // The clinical payload stays in Notification.body; CommunicationEvent
+    // references it and never copies it.
+    await markEventSent(eventId, providerMessageId, notification.id);
+
     sentCount++;
   }
 
@@ -187,7 +279,8 @@ export async function GET(request: NextRequest) {
   console.log(
     `[cron/weekly-pulse] complete ` +
     `candidates=${candidateCount} processed=${processedCount} ` +
-    `sent=${sentCount} suppressed=${suppressedCount} errors=${errorCount} ` +
+    `sent=${sentCount} suppressed=${suppressedCount} ` +
+    `governanceSuppressed=${governanceSuppressedCount} errors=${errorCount} ` +
     `ms=${executionMs}`,
   );
 
@@ -204,12 +297,13 @@ export async function GET(request: NextRequest) {
       targetType: 'CronExecution',
       targetId:   null,
       metadata: {
-        cronType:          'weekly_pulse',
+        cronType:             'weekly_pulse',
         candidateCount,
-        patientsProcessed: processedCount,
-        emailsSent:        sentCount,
-        suppressed:        suppressedCount,
-        errors:            errorCount,
+        patientsProcessed:    processedCount,
+        emailsSent:           sentCount,
+        suppressed:           suppressedCount,
+        governanceSuppressed: governanceSuppressedCount,
+        errors:               errorCount,
         executionMs,
       },
     },
@@ -218,12 +312,13 @@ export async function GET(request: NextRequest) {
   );
 
   return Response.json({
-    ok:               true,
+    ok:                   true,
     candidateCount,
-    patientsProcessed: processedCount,
-    emailsSent:        sentCount,
-    suppressed:        suppressedCount,
-    errors:            errorCount,
+    patientsProcessed:    processedCount,
+    emailsSent:           sentCount,
+    suppressed:           suppressedCount,
+    governanceSuppressed: governanceSuppressedCount,
+    errors:               errorCount,
     executionMs,
   });
 }

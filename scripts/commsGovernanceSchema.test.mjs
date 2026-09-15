@@ -204,9 +204,25 @@ section('-- 8. keys and constraints --');
       .every(m => /\bkeyVersion\s+Int/.test(modelBody(m) ?? '')));
 }
 
-// ── 9. Nothing in the application uses the new models yet ────────────────────
-section('-- 9. behaviour-neutral: no runtime consumer --');
+// ── 9. Only the authorised consumers use the new models ──────────────────────
+//
+// C3A shipped with this asserting ZERO consumers. Phase 1D-C3B deliberately
+// introduced the first ones, so the check was narrowed rather than deleted: it
+// now asserts that the ONLY things touching the governance models are the
+// governance layer itself and the four CLINICAL_CONTINUITY pathways C3B was
+// authorised to migrate. Anything else appearing here is an unauthorised
+// migration, which is what this guard is actually for.
+section('-- 9. only authorised consumers --');
 {
+  /** Authorised by Phase 1D-C3B. Paths are repo-relative, forward-slashed. */
+  const AUTHORISED = [
+    'src/lib/communications/governance.ts',
+    'src/lib/communications/identity.ts',
+    'app/api/cron/weekly-pulse/route.ts',
+    'app/api/cron/longitudinal-summary/route.ts',
+    'app/api/email/weekly-pulse/route.ts',
+    'app/api/email/longitudinal-summary/route.ts',
+  ];
   const roots = ['app', 'src'];
   const files = [];
   const walk = d => {
@@ -220,31 +236,36 @@ section('-- 9. behaviour-neutral: no runtime consumer --');
   // stays percent-encoded in pathname and would not resolve on disk.
   for (const r of roots) walk(fileURLToPath(new URL('../' + r, import.meta.url)));
 
-  // Prisma client accessors are camelCase; enums are referenced by type name.
-  const CONSUMERS = /\b(communicationRecipient|communicationPreference|communicationConsentEvent|consentWording|communicationSuppression|communicationEvent|CommunicationClass|CommunicationChannel|CommunicationState|CommunicationPreferenceState|CommunicationConsentAction|CommunicationSuppressionReason)\b/;
+  // Prisma accessors, enum type names, AND the governance wrappers. The
+  // wrappers matter: C3B's callers reach the models only through canSend /
+  // recordCommunicationEvent, so a regex covering only Prisma accessors would
+  // report a false pass for every migrated pathway.
+  const CONSUMERS = /\b(communicationRecipient|communicationPreference|communicationConsentEvent|consentWording|communicationSuppression|communicationEvent|CommunicationClass|CommunicationChannel|CommunicationState|CommunicationPreferenceState|CommunicationConsentAction|CommunicationSuppressionReason|canSend|recordCommunicationEvent|markEventSent|deriveRecipientIdentity)\b/;
 
-  const offenders = files.filter(f => CONSUMERS.test(readFileSync(f, 'utf8')));
-  t(`[zero-touch] no app/ or src/ file references the new models (scanned ${files.length})`,
-    offenders.length === 0);
-  if (offenders.length) offenders.forEach(o => console.log('        references: ' + o));
+  const repoRel = f => f.replace(/\\/g, '/').split('/myoguard-web/')[1] ?? f.replace(/\\/g, '/');
+  const consumers = files.filter(f => CONSUMERS.test(readFileSync(f, 'utf8'))).map(repoRel);
+  const unauthorised = consumers.filter(c => !AUTHORISED.includes(c));
 
-  // The email pathways specifically — the ones C3B will later migrate.
-  const PATHWAYS = [
+  t(`[zero-touch] only authorised files consume the governance layer ` +
+    `(${consumers.length} consumers of ${files.length} scanned)`,
+    unauthorised.length === 0);
+  if (unauthorised.length) unauthorised.forEach(o => console.log('        UNAUTHORISED: ' + o));
+
+  // The pathways C3B was explicitly told NOT to migrate must stay untouched.
+  const NOT_YET_MIGRATED = [
     'app/api/protocol-email/route.ts',
     'app/api/email-capture/route.ts',
-    'app/api/cron/weekly-pulse/route.ts',
-    'app/api/cron/longitudinal-summary/route.ts',
     'app/api/doctor/register/route.ts',
     'app/api/doctor/onboarding/route.ts',
     'app/api/invite/send/route.ts',
+    'app/api/admin/verify-physician/route.ts',
+    'app/api/admin/physician-review/route.ts',
     'src/lib/email.ts',
     'src/lib/email/index.ts',
   ];
-  const touched = PATHWAYS.filter(p => {
-    const src = readFileSync(new URL('../' + p, import.meta.url), 'utf8');
-    return CONSUMERS.test(src);
-  });
-  t(`[zero-touch] none of the ${PATHWAYS.length} existing email pathways reads the new models`,
+  const touched = NOT_YET_MIGRATED.filter(p =>
+    CONSUMERS.test(readFileSync(new URL('../' + p, import.meta.url), 'utf8')));
+  t(`[zero-touch] none of the ${NOT_YET_MIGRATED.length} unmigrated pathways was touched`,
     touched.length === 0);
   if (touched.length) touched.forEach(o => console.log('        touched: ' + o));
 }
