@@ -1,9 +1,25 @@
 import { NextResponse }  from "next/server";
 import { requireAdmin } from "@/src/lib/requireAdmin";
 import { prisma }       from "@/src/lib/prisma";
-import { Resend }       from "resend";
+import { sendServiceEmail } from "@/src/lib/communications/serviceEmail";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+/** Template identities recorded on CommunicationEvent — never rendered output. */
+const TEMPLATE_ID_APPROVED = "service.physician_approved.v1";
+const TEMPLATE_ID_REJECTED = "service.physician_rejected.v1";
+
+/**
+ * Both outcome emails are ESSENTIAL_SERVICE and both are sent AFTER the
+ * application state transition has been committed.
+ *
+ * Existing behaviour is preserved deliberately: a provider failure previously
+ * threw out of this handler and surfaced as a 500, so a failure still returns
+ * 500 — the admin needs to know the applicant was not told. What it does NOT
+ * do is roll back the decision; the status change stands either way.
+ *
+ * A governed suppression is different from a failure and does not 500. The
+ * decision was applied and the refusal to send is a recorded, legitimate
+ * outcome rather than an error.
+ */
 
 export async function POST(req: Request) {
   const { user: adminUser, error } = await requireAdmin();
@@ -119,10 +135,12 @@ export async function POST(req: Request) {
       console.error("[physician-review] AuditLog create failed:", e);
     }
 
-    await resend.emails.send({
-      from:    "MyoGuard Protocol <noreply@myoguard.health>",
-      to:      application.email,
-      subject: "Your MyoGuard Physician Account is Now Active",
+    const approved = await sendServiceEmail({
+      to:         application.email,
+      subject:    "Your MyoGuard Physician Account is Now Active",
+      from:       "MyoGuard Protocol <noreply@myoguard.health>",
+      templateId: TEMPLATE_ID_APPROVED,
+      context:    "physician:approved",
       html: `
 <div style="font-family: -apple-system, sans-serif; max-width: 580px; margin: 0 auto; background: #ffffff;">
   <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 32px 24px; border-radius: 12px 12px 0 0; text-align: center;">
@@ -175,13 +193,23 @@ export async function POST(req: Request) {
 </div>
       `,
     });
+
+    // Approval stands regardless; only the notification outcome is reported.
+    if (approved.outcome === 'failed' || approved.outcome === 'unavailable') {
+      return NextResponse.json(
+        { status: application.status, notified: false, error: 'Approval applied; notification not sent.' },
+        { status: 500 },
+      );
+    }
   }
 
   if (action === "REJECT") {
-    await resend.emails.send({
-      from:    "MyoGuard Protocol <noreply@myoguard.health>",
-      to:      application.email,
-      subject: "MyoGuard Physician Application — Update",
+    const rejected = await sendServiceEmail({
+      to:         application.email,
+      subject:    "MyoGuard Physician Application — Update",
+      from:       "MyoGuard Protocol <noreply@myoguard.health>",
+      templateId: TEMPLATE_ID_REJECTED,
+      context:    "physician:rejected",
       html: `
 <div style="font-family: -apple-system, sans-serif; max-width: 580px; margin: 0 auto;">
   <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 32px 24px; border-radius: 12px 12px 0 0; text-align: center;">
@@ -215,6 +243,14 @@ export async function POST(req: Request) {
 </div>
       `,
     });
+
+    // Rejection stands regardless; only the notification outcome is reported.
+    if (rejected.outcome === 'failed' || rejected.outcome === 'unavailable') {
+      return NextResponse.json(
+        { status: application.status, notified: false, error: 'Decision applied; notification not sent.' },
+        { status: 500 },
+      );
+    }
   }
 
   return NextResponse.json({ status: application.status });

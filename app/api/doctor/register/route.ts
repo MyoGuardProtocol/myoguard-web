@@ -41,8 +41,19 @@ import { prisma } from "@/src/lib/prisma";
 import { escapeHtml } from "@/src/lib/email/templates/BaseEmail";
 import { consumeRecipientBudget } from "@/src/lib/emailThrottle";
 import { RegistrationSchema, normaliseEmail } from "@/src/lib/onboardingIdentity";
+import { sendServiceEmail } from "@/src/lib/communications/serviceEmail";
 
+/**
+ * Retained for the admin review notification only. That send goes to the fixed
+ * literal admin@myoguard.health, which the Founder classified
+ * OPERATIONAL_INTERNAL for Phase 1D-C3E: there is no recipient choice to
+ * govern when the operator is notifying itself. It is deliberately out of
+ * scope, so this direct client stays.
+ */
 const resend = new Resend(process.env.RESEND_API_KEY);
+
+/** Template identity recorded on CommunicationEvent — never the rendered output. */
+const TEMPLATE_ID_APPLICANT = "service.physician_application_received.v1";
 
 // ---------------------------------------------------------------------------
 // Clerk user creation
@@ -436,10 +447,19 @@ export async function POST(req: Request) {
     // between registration and the activation email that arrives after approval.
     try {
       if (mayNotifyApplicant) {
-        await resend.emails.send({
-          from:    "MyoGuard Clinical <admin@myoguard.health>",
-          to:      email,
-          subject: "Your MyoGuard Physician Application — Received",
+        // Phase 1D-C3E: routed through the governed gateway. ESSENTIAL_SERVICE
+        // — the applicant asked for this by applying — so no preference is
+        // consulted and none is created, but absolute suppression now applies.
+        //
+        // Still non-fatal, and deliberately so: the application row is already
+        // persisted and the admin notification already sent. A suppressed or
+        // failed acknowledgement must never roll back a valid registration.
+        await sendServiceEmail({
+          to:         email,
+          subject:    "Your MyoGuard Physician Application — Received",
+          from:       "MyoGuard Clinical <admin@myoguard.health>",
+          templateId: TEMPLATE_ID_APPLICANT,
+          context:    "physician:application-received",
           html: `
 <div style="font-family:-apple-system,sans-serif;max-width:580px;margin:0 auto;background:#ffffff;">
   <div style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);padding:32px 24px;border-radius:12px 12px 0 0;text-align:center;">
@@ -478,7 +498,8 @@ export async function POST(req: Request) {
 </div>
           `,
         });
-        console.log("[register] physician acknowledgement email sent to", email);
+        // The previous log line here named the recipient address. The governed
+        // send records the attempt; nothing replaces the log.
       }
     } catch (ackErr: unknown) {
       // Non-fatal — admin notification already delivered; registration proceeds

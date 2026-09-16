@@ -14,7 +14,11 @@
 // No clinical values, no risk band, no SRI scores are transmitted.
 
 import { prisma }                               from '@/src/lib/prisma';
-import { buildPhysicianEmail, sendEmail, EMAIL_TOKENS } from '../index';
+import { buildPhysicianEmail, EMAIL_TOKENS }     from '../index';
+import { sendServiceEmail } from '@/src/lib/communications/serviceEmail';
+
+/** Template identity recorded on CommunicationEvent — never the rendered output. */
+const TEMPLATE_ID = 'service.physician_first_assessment.v1';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -249,17 +253,28 @@ export async function triggerPhysicianFirstAssessmentNotification(
     reviewUrl,
   });
 
-  const { error } = await sendEmail({
-    to:      physician.email,
-    subject: SUBJECT,
+  // ── Governed send (Phase 1D-C3E) ────────────────────────────────────────────
+  //
+  // ESSENTIAL_SERVICE, same reasoning as the priority-review alert: a clinical
+  // notification to the patient's supervising physician, not preference-
+  // suppressible, but now stopped by an absolute blocker on that address.
+  //
+  // userId identifies the physician being written to. The patient's name is in
+  // the rendered body and stays out of the governance record.
+  const sent = await sendServiceEmail({
+    to:         physician.email,
+    subject:    SUBJECT,
     html,
-    from:    EMAIL_TOKENS.from.physician,
+    from:       EMAIL_TOKENS.from.physician,
+    templateId: TEMPLATE_ID,
+    userId:     patient.physicianId,
+    context:    'clinical:physician-first-assessment',
   });
 
-  if (error) {
-    console.error('[physician-first-assessment] Email send failed:', error.message);
-    return;
-  }
+  // No Notification on a non-send, so the dedup window does not advance. The
+  // caller is fire-and-forget; the patient's assessment is already committed
+  // and is unaffected either way.
+  if (sent.outcome !== 'sent') return;
 
   // 5. Write Notification record — de-duplication tracking and audit trail
   //    type: REPORT_READY — first assessment report now available for physician review

@@ -16,8 +16,17 @@ import {
   decideApplicationStatus,
   shouldRefreshAdminToken,
 } from "@/src/lib/onboardingIdentity";
+import { sendServiceEmail } from "@/src/lib/communications/serviceEmail";
 
+/**
+ * Retained for the admin review notification only — a fixed send to the
+ * literal admin@myoguard.health, classified OPERATIONAL_INTERNAL and
+ * deliberately outside Phase 1D-C3E recipient-preference governance.
+ */
 const resend = new Resend(process.env.RESEND_API_KEY);
+
+/** Template identity recorded on CommunicationEvent — never the rendered output. */
+const TEMPLATE_ID_PHYSICIAN = "service.physician_onboarding_received.v1";
 
 /**
  * POST /api/doctor/onboarding
@@ -393,10 +402,20 @@ export async function POST(req: Request) {
 
     // Physician confirmation
     try {
-      await resend.emails.send({
-        from:    "MyoGuard Clinical <admin@myoguard.health>",
-        to:      verifiedEmail,
-        subject: "Your MyoGuard Physician Application — Received",
+      // Phase 1D-C3E: governed. ESSENTIAL_SERVICE, sent to `verifiedEmail` —
+      // the Clerk-verified primary address the S3 identity layer already
+      // resolved. No second resolver is introduced here; the authoritative
+      // value is reused as-is.
+      //
+      // Still after the save and still non-fatal: the application is persisted
+      // before this runs, and a suppressed or failed confirmation does not
+      // undo it.
+      await sendServiceEmail({
+        to:         verifiedEmail,
+        subject:    "Your MyoGuard Physician Application — Received",
+        from:       "MyoGuard Clinical <admin@myoguard.health>",
+        templateId: TEMPLATE_ID_PHYSICIAN,
+        context:    "physician:onboarding-received",
         html: `
 <div style="font-family:-apple-system,sans-serif;max-width:580px;margin:0 auto;background:#ffffff;">
   <div style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);padding:32px 24px;border-radius:12px 12px 0 0;text-align:center;">

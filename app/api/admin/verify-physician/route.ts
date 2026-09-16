@@ -30,9 +30,10 @@ import { timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 import { prisma } from "@/src/lib/prisma";
 import { ensureReferralProfile } from "@/src/lib/physician/ensureReferralProfile";
-import { Resend } from "resend";
+import { sendServiceEmail } from "@/src/lib/communications/serviceEmail";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+/** Template identity recorded on CommunicationEvent — never the rendered output. */
+const TEMPLATE_ID = "service.physician_account_active.v1";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -161,11 +162,21 @@ export async function GET(req: Request) {
   }
 
   // Send activation email to physician
+  //
+  // Phase 1D-C3E: governed. ESSENTIAL_SERVICE — this is the message that tells
+  // an approved clinician their account exists, so it is not preference-
+  // suppressible, but an absolute blocker on the address now stops it.
+  //
+  // Behaviour preserved exactly: the approval and role transition are already
+  // committed above, and every outcome here still falls through to the same
+  // redirect. Approval is not undone because an email did not arrive.
   try {
-    await resend.emails.send({
-      from:    "MyoGuard Clinical <admin@myoguard.health>",
-      to:      application.email,
-      subject: "Your MyoGuard Clinical Account is Active",
+    await sendServiceEmail({
+      to:         application.email,
+      subject:    "Your MyoGuard Clinical Account is Active",
+      from:       "MyoGuard Clinical <admin@myoguard.health>",
+      templateId: TEMPLATE_ID,
+      context:    "physician:account-activated",
       html: `
 <!DOCTYPE html>
 <html lang="en">

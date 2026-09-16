@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { consumeRecipientBudget } from "@/src/lib/emailThrottle";
+import { sendServiceEmail } from "@/src/lib/communications/serviceEmail";
+
+/** Template identity recorded on CommunicationEvent — never the rendered output. */
+const TEMPLATE_ID = "service.preliminary_sri.v1";
 
 /**
  * Request contract for the public preliminary-SRI protocol email.
@@ -81,13 +85,10 @@ export async function POST(req: NextRequest) {
 
     const { email, score, leanScore, recoveryScore, risk } = parsed.data;
 
-    console.log("[protocol-email] received:", { email, score, risk });
-
-    const resendKey = process.env.RESEND_API_KEY;
-    if (!resendKey) {
-      console.error("[protocol-email] RESEND_API_KEY not set");
-      return NextResponse.json({ error: "Email service unavailable" }, { status: 500 });
-    }
+    // Phase 1D-C3E: the previous line here logged the recipient address
+    // alongside the SRI value and risk band — a person and their clinical
+    // result in one log entry. Nothing replaces it; the governed send records
+    // the attempt without either.
 
     // ── Recipient throttle ────────────────────────────────────────────────────
     //
@@ -280,29 +281,36 @@ export async function POST(req: NextRequest) {
 </body>
 </html>`;
 
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${resendKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: "MyoGuard Protocol <noreply@myoguard.health>",
-        to: email,
-        subject: "Your MyoGuard Protocol Report",
-        html,
-        reply_to: "hello@myoguard.health",
-      }),
+    // ── Governed send (Phase 1D-C3E) ──────────────────────────────────────────
+    //
+    // Requested one-shot delivery, so ESSENTIAL_SERVICE: no preference is
+    // consulted and none is created. Asking for a preliminary result is not
+    // consent to anything further, and nothing here writes a recipient,
+    // preference or consent row.
+    //
+    // What this does add is the absolute blockers. Before C3E this route would
+    // mail an address that had hard-bounced or filed a spam complaint, because
+    // it never asked.
+    const sent = await sendServiceEmail({
+      to:         email,
+      subject:    "Your MyoGuard Protocol Report",
+      html,
+      from:       "MyoGuard Protocol <noreply@myoguard.health>",
+      replyTo:    "hello@myoguard.health",
+      templateId: TEMPLATE_ID,
+      context:    "public:preliminary-sri",
     });
 
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error("[protocol-email] Resend error", res.status, errText);
+    if (sent.outcome === 'suppressed') {
+      // Neutral response, matching the throttle branch above: the caller learns
+      // nothing about this address's delivery history.
+      return NextResponse.json({ ok: true });
+    }
+
+    if (sent.outcome !== 'sent') {
       return NextResponse.json({ error: "Failed to send email" }, { status: 500 });
     }
 
-    const data = await res.json() as { id?: string };
-    console.log("[protocol-email] result:", data);
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("[protocol-email] Unexpected error", err);

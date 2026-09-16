@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/src/lib/prisma';
+import { sendServiceEmail } from '@/src/lib/communications/serviceEmail';
+
+/** Template identity recorded on CommunicationEvent — never the rendered output. */
+const TEMPLATE_ID = 'service.patient_invitation.v1';
 
 const APP_URL =
   (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '') ||
@@ -22,11 +26,12 @@ function normalizePhone(v: string) {
   return stripped.startsWith('+') ? stripped : stripped;
 }
 
-// ─── Email via Resend ─────────────────────────────────────────────────────────
+// ─── Email via the governed gateway ───────────────────────────────────────────
+//
+// Renamed from `sendEmail` in Phase 1D-C3E so it cannot be mistaken for the
+// canonical gateway of the same name that now sits underneath it.
 
-async function sendEmail(to: string, doctorName: string, inviteUrl: string) {
-  const key = process.env.RESEND_API_KEY;
-  if (!key) throw new Error('RESEND_API_KEY is not configured on this server.');
+async function sendInviteEmail(to: string, doctorName: string, inviteUrl: string) {
 
   const cleanName          = doctorName.replace(/^Dr\.?\s*/i, '').trim();
   const displayDoctorName  = `Dr. ${cleanName}`;
@@ -84,25 +89,25 @@ async function sendEmail(to: string, doctorName: string, inviteUrl: string) {
 </body>
 </html>`;
 
-  const res = await fetch('https://api.resend.com/emails', {
-    method:  'POST',
-    headers: {
-      Authorization:  `Bearer ${key}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from:     `${displayDoctorName} via MyoGuard <hello@myoguard.health>`,
-      to,
-      subject:  `${displayDoctorName} has invited you to their MyoGuard Protocol`,
-      html,
-      reply_to: 'hello@myoguard.health',
-    }),
+  // ESSENTIAL_SERVICE: an invitation the recipient's own clinician initiated.
+  // This is the C2 carve-out that was specified but never implemented — the
+  // invitation is not preference-suppressible, but a hard bounce, spam
+  // complaint or admin suppression on this address is absolute and now blocks
+  // it.
+  //
+  // No userId is passed. The recipient is an invited patient with no account;
+  // the physician is the sender, not the subject, and labelling the event with
+  // the physician's id would misattribute it. The recipient stays pseudonymous
+  // — keyed by recipientKey alone, with no CommunicationRecipient row created.
+  return sendServiceEmail({
+    to,
+    subject:    `${displayDoctorName} has invited you to their MyoGuard Protocol`,
+    html,
+    from:       `${displayDoctorName} via MyoGuard <hello@myoguard.health>`,
+    replyTo:    'hello@myoguard.health',
+    templateId: TEMPLATE_ID,
+    context:    'physician:patient-invitation',
   });
-
-  if (!res.ok) {
-    const err = await res.text().catch(() => '');
-    throw new Error(`Resend error ${res.status}: ${err}`);
-  }
 }
 
 // ─── SMS via Twilio (REST, no SDK required) ───────────────────────────────────
@@ -204,8 +209,28 @@ export async function POST(req: NextRequest) {
 
   try {
     if (isEmail(trimmed)) {
-      await sendEmail(trimmed, doctorName, inviteUrl);
+      const sent = await sendInviteEmail(trimmed, doctorName, inviteUrl);
+
+      // A governed refusal is not an outage. 409 tells the physician the
+      // invitation did not go out — which they need to know, or they will wait
+      // on a patient who never heard from us — without disclosing the
+      // recipient's delivery history. Same status the governed admin send
+      // routes already use for a suppressed decision.
+      if (sent.outcome === 'suppressed') {
+        return NextResponse.json(
+          { error: 'This address cannot currently receive invitations.' },
+          { status: 409 },
+        );
+      }
+      if (sent.outcome !== 'sent') {
+        return NextResponse.json(
+          { error: 'Invitation could not be sent. Please try again shortly.' },
+          { status: 500 },
+        );
+      }
     } else {
+      // SMS is untouched by C3E and remains dormant — no Twilio credentials in
+      // production. It is deliberately NOT routed through the email gateway.
       await sendSms(trimmed, doctorName, inviteUrl);
     }
     return NextResponse.json({ ok: true });

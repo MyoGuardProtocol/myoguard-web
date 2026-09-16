@@ -14,6 +14,10 @@
 // THIS file rather than the src/lib/email/ directory, so the deep path is
 // required to reach the email layer's canonical escaper.
 import { escapeHtml } from '@/src/lib/email/templates/BaseEmail';
+import { sendServiceEmail } from '@/src/lib/communications/serviceEmail';
+
+/** Template identity recorded on CommunicationEvent — never the rendered output. */
+const TEMPLATE_ID = 'service.patient_welcome.v1';
 
 const PRODUCTION_URL = 'https://myoguard.health';
 
@@ -31,17 +35,13 @@ const APP_URL =
 export async function sendWelcomeEmail({
   email,
   firstName = 'there',
+  userId,
 }: {
   email: string;
   firstName?: string;
+  /** Internal User.id, where the caller knows one. Recorded on the event. */
+  userId?: string;
 }): Promise<void> {
-  const resendKey = process.env.RESEND_API_KEY;
-
-  if (!resendKey) {
-    console.error('[email/welcome] RESEND_API_KEY not set — email NOT sent to:', email);
-    return;
-  }
-
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/></head>
@@ -88,31 +88,28 @@ export async function sendWelcomeEmail({
 </body>
 </html>`;
 
+  // ── Governed send (Phase 1D-C3E) ────────────────────────────────────────────
+  //
+  // ESSENTIAL_SERVICE. A welcome is account-necessary correspondence, not the
+  // first message of a nurture sequence — this function sends one email and
+  // schedules nothing.
+  //
+  // Non-fatal by contract: /api/user/onboard calls this fire-and-forget and the
+  // account is already created. A suppressed or failed welcome must not undo
+  // onboarding, so every outcome returns normally. The three previous log lines
+  // here all carried the recipient address; none is replaced.
   try {
-    const res = await fetch('https://api.resend.com/emails', {
-      method:  'POST',
-      headers: {
-        Authorization:  `Bearer ${resendKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from:     'MyoGuard Health <hello@myoguard.health>',
-        to:       email,
-        subject:  'Your MyoGuard Protocol is Ready',
-        html,
-        reply_to: 'hello@myoguard.health',
-      }),
+    await sendServiceEmail({
+      to:         email,
+      subject:    'Your MyoGuard Protocol is Ready',
+      html,
+      from:       'MyoGuard Health <hello@myoguard.health>',
+      replyTo:    'hello@myoguard.health',
+      templateId: TEMPLATE_ID,
+      userId,
+      context:    'onboarding:patient-welcome',
     });
-
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error('[email/welcome] Resend error', res.status, errText);
-      return;
-    }
-
-    const result = await res.json() as { id?: string };
-    console.log('[email/welcome] Sent — id:', result.id, 'to:', email);
   } catch (err) {
-    console.error('[email/welcome] fetch threw', err);
+    console.error('[email/welcome] governed send threw', err);
   }
 }

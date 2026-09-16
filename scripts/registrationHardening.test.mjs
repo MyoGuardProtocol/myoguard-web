@@ -176,10 +176,17 @@ t('[behaviour] 12. "throttled" is not an allowed outcome', ('throttled' === 'all
 t('[behaviour] 13. "unavailable" is not an allowed outcome', ('unavailable' === 'allowed') === false);
 t('[ordering] 12/13. the gate is derived only from an "allowed" outcome',
   /const mayNotifyApplicant = throttle\.outcome === 'allowed'/.test(HANDLER));
+// Phase 1D-C3E routed the applicant email through the governed gateway
+// (sendServiceEmail); the admin notification stays on the direct client as
+// OPERATIONAL_INTERNAL. The throttle gate is unchanged and still the only thing
+// that permits the applicant send — which is what these two checks protect.
 t('[ordering] 12/13. the applicant send is inside the gate',
-  /if \(mayNotifyApplicant\)\s*\{\s*await resend\.emails\.send\(/.test(HANDLER));
+  /if \(mayNotifyApplicant\)\s*\{[\s\S]{0,600}?await sendServiceEmail\(/.test(HANDLER));
 t('[ordering] 12/13. throttle is consulted before the applicant send',
-  at(/consumeRecipientBudget/) < last(/resend\.emails\.send/));
+  at(/consumeRecipientBudget/) < at(/sendServiceEmail\(/));
+t('[safety] 12/13. the applicant send is the governed one, not a direct call',
+  /if \(mayNotifyApplicant\)\s*\{[\s\S]{0,600}?await sendServiceEmail\(/.test(HANDLER)
+  && !/if \(mayNotifyApplicant\)\s*\{[\s\S]{0,600}?resend\.emails\.send\(/.test(HANDLER));
 t('[ordering] the admin notification is NOT gated by the recipient throttle',
   at(/resend\.emails\.send/) < at(/consumeRecipientBudget/));
 
@@ -244,9 +251,12 @@ section('-- side-effect ordering --');
     ['clerk create',  at(/createClerkUser\(\{/)],
     ['user upsert',   at(/prisma\.user\.upsert/)],
     ['app upsert',    at(/physicianApplication\.upsert/)],
+    // After C3E the admin notification is the ONLY direct resend.emails.send in
+    // this route, so `at()` identifies it unambiguously — previously `at()` and
+    // `last()` had to disambiguate two sends of the same shape.
     ['admin email',   at(/resend\.emails\.send/)],
     ['throttle',      at(/consumeRecipientBudget/)],
-    ['applicant email', last(/resend\.emails\.send/)],
+    ['applicant email', at(/sendServiceEmail\(/)],
   ];
   let ok = true;
   for (let i = 1; i < steps.length; i++) if (steps[i][1] < steps[i - 1][1]) ok = false;

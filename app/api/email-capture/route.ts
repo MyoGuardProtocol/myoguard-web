@@ -9,8 +9,12 @@ import type { RiskBand } from '@/src/types';
 // rather than constrained by the schema.
 import { escapeHtml } from '@/src/lib/email/templates/BaseEmail';
 import { consumeRecipientBudget } from '@/src/lib/emailThrottle';
+import { sendServiceEmail } from '@/src/lib/communications/serviceEmail';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://myoguard.health';
+
+/** Template identity recorded on CommunicationEvent — never the rendered output. */
+const TEMPLATE_ID = 'service.protocol_delivery.v1';
 
 /**
  * POST /api/email-capture
@@ -71,53 +75,36 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ── 1. Resend email delivery ─────────────────────────────────────────────
-  const resendKey = process.env.RESEND_API_KEY;
-
-  // Track whether the email was actually delivered so the UI can show an
-  // honest confirmation vs. a "not configured" fallback message.
+  // ── 1. Governed email delivery (Phase 1D-C3E) ────────────────────────────
+  //
+  // Requested one-shot delivery, so ESSENTIAL_SERVICE. Asking for the protocol
+  // is not consent to anything further: no CommunicationRecipient, no
+  // CommunicationPreference and no CommunicationConsentEvent is written here,
+  // and none may be added later on the strength of this request.
+  //
+  // `delivered` still drives the UI's honest confirmation. A suppressed
+  // destination reports delivered:false, which is accurate — the email was not
+  // sent — without disclosing why.
   let delivered = false;
 
-  if (!resendKey) {
-    // Key is absent — log clearly so the operator knows why email is missing.
-    // Return ok:true so the request doesn't error, but delivered:false so the
-    // UI can tell the user the email was NOT sent (rather than lying to them).
-    console.warn(
-      '[email-capture] RESEND_API_KEY is not set. ' +
-      'Add it to .env to enable email delivery. Email NOT sent to:', email,
-    );
-  } else {
-    try {
-      const html = buildProtocolEmail({ email, protocolResult, formData });
+  try {
+    const html = buildProtocolEmail({ email, protocolResult, formData });
 
-      const resendRes = await fetch('https://api.resend.com/emails', {
-        method:  'POST',
-        headers: {
-          Authorization:  `Bearer ${resendKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          from:    `MyoGuard Health <hello@myoguard.health>`,
-          to:      email,
-          subject: 'Your MyoGuard Protocol is Ready',
-          html,
-          reply_to: "hello@myoguard.health",
-                  }),
-      });
+    const sent = await sendServiceEmail({
+      to:         email,
+      subject:    'Your MyoGuard Protocol is Ready',
+      html,
+      from:       'MyoGuard Health <hello@myoguard.health>',
+      replyTo:    'hello@myoguard.health',
+      templateId: TEMPLATE_ID,
+      context:    'public:protocol-delivery',
+    });
 
-      if (resendRes.ok) {
-        const result = await resendRes.json() as { id?: string };
-        console.log('[email-capture] Resend delivered — id:', result.id, 'to:', email);
-        delivered = true;
-      } else {
-        const errText = await resendRes.text();
-        console.error('[email-capture] Resend error', resendRes.status, errText);
-        // delivered stays false — UI will show a delivery-failed message.
-      }
-    } catch (err) {
-      console.error('[email-capture] Resend fetch threw', err);
-      // delivered stays false — transient network failure, UI shows error state.
-    }
+    delivered = sent.outcome === 'sent';
+  } catch (err) {
+    // Transient failure — UI shows the delivery-failed state. The error is
+    // logged without the address it concerns.
+    console.error('[email-capture] governed send threw', err);
   }
 
   // ── 2. n8n webhook (optional CRM/automation path) ───────────────────────

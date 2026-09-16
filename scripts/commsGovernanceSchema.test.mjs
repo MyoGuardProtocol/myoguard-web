@@ -232,6 +232,28 @@ section('-- 9. only authorised consumers --');
     'src/lib/communications/providerEvents.ts',
     'src/lib/communications/deliveryLifecycle.ts',
     'app/api/webhooks/resend/route.ts',
+    // Added by Phase 1D-C3E — the shared ESSENTIAL_SERVICE send sequence.
+    //
+    // Only the helper is listed, not its ten callers: they reach governance
+    // through `sendServiceEmail` and never name a model, an enum or a
+    // governance wrapper themselves. That is the point of the helper, and it is
+    // why this list did not grow by ten.
+    'src/lib/communications/serviceEmail.ts',
+    // The ten external pathways C3E migrated. Listed individually and
+    // deliberately: with `sendServiceEmail` in the CONSUMERS pattern below,
+    // this list is now an accurate registry of every file in the repository
+    // that can put governed mail on the wire. An eleventh appearing here
+    // without review is exactly what this guard should catch.
+    'app/api/protocol-email/route.ts',
+    'app/api/email-capture/route.ts',
+    'src/lib/email.ts',
+    'app/api/invite/send/route.ts',
+    'src/lib/email/categories/PhysicianPriorityReview.ts',
+    'src/lib/email/categories/PhysicianFirstAssessment.ts',
+    'app/api/doctor/register/route.ts',
+    'app/api/doctor/onboarding/route.ts',
+    'app/api/admin/verify-physician/route.ts',
+    'app/api/admin/physician-review/route.ts',
   ];
   const roots = ['app', 'src'];
   const files = [];
@@ -257,7 +279,7 @@ section('-- 9. only authorised consumers --');
   // report a clean pass, which is precisely the failure mode it exists to
   // prevent. `markEventSent` does not match `markEventFailed` — the alternation
   // is anchored on word boundaries, so each name must be listed explicitly.
-  const CONSUMERS = /\b(communicationRecipient|communicationPreference|communicationConsentEvent|consentWording|communicationSuppression|communicationEvent|CommunicationClass|CommunicationChannel|CommunicationState|CommunicationPreferenceState|CommunicationConsentAction|CommunicationSuppressionReason|canSend|recordCommunicationEvent|markEventSent|markEventFailed|deriveRecipientIdentity|verifyRecipientEmail|applyProviderEvent)\b/;
+  const CONSUMERS = /\b(communicationRecipient|communicationPreference|communicationConsentEvent|consentWording|communicationSuppression|communicationEvent|CommunicationClass|CommunicationChannel|CommunicationState|CommunicationPreferenceState|CommunicationConsentAction|CommunicationSuppressionReason|canSend|recordCommunicationEvent|markEventSent|markEventFailed|deriveRecipientIdentity|verifyRecipientEmail|applyProviderEvent|sendServiceEmail)\b/;
 
   const repoRel = f => f.replace(/\\/g, '/').split('/myoguard-web/')[1] ?? f.replace(/\\/g, '/');
   const consumers = files.filter(f => CONSUMERS.test(readFileSync(f, 'utf8'))).map(repoRel);
@@ -268,23 +290,46 @@ section('-- 9. only authorised consumers --');
     unauthorised.length === 0);
   if (unauthorised.length) unauthorised.forEach(o => console.log('        UNAUTHORISED: ' + o));
 
-  // The pathways C3B was explicitly told NOT to migrate must stay untouched.
-  const NOT_YET_MIGRATED = [
-    'app/api/protocol-email/route.ts',
-    'app/api/email-capture/route.ts',
-    'app/api/doctor/register/route.ts',
-    'app/api/doctor/onboarding/route.ts',
-    'app/api/invite/send/route.ts',
-    'app/api/admin/verify-physician/route.ts',
-    'app/api/admin/physician-review/route.ts',
-    'src/lib/email.ts',
-    'src/lib/email/index.ts',
-  ];
-  const touched = NOT_YET_MIGRATED.filter(p =>
-    CONSUMERS.test(readFileSync(new URL('../' + p, import.meta.url), 'utf8')));
-  t(`[zero-touch] none of the ${NOT_YET_MIGRATED.length} unmigrated pathways was touched`,
-    touched.length === 0);
-  if (touched.length) touched.forEach(o => console.log('        touched: ' + o));
+  // ── Post-C3E boundary ─────────────────────────────────────────────────────
+  //
+  // This block previously listed nine pathways that C3B was told NOT to migrate
+  // and asserted none of them referenced the governance layer. Phase 1D-C3E is
+  // the authorised migration of eight of them, so that premise is spent — the
+  // check is inverted rather than removed, and now asserts the boundaries that
+  // ARE still in force. A file-level "untouched" list can no longer express
+  // them anyway: register and onboarding each contain one migrated send and one
+  // deliberately excluded one.
+  const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
+
+  // 1. The canonical gateway stays a transport, not a decision point. If it
+  //    ever consults governance itself, there would be two places that decide.
+  t('[zero-touch] the canonical gateway makes no governance decision',
+    !CONSUMERS.test(read('src/lib/email/index.ts')));
+
+  // 2. The two OPERATIONAL_INTERNAL admin notifications remain ungoverned.
+  //    Founder classification: a fixed internal destination has no recipient
+  //    choice to govern. Asserted by proving the admin literal is NOT the
+  //    recipient of a governed send in either file.
+  for (const p of ['app/api/doctor/register/route.ts', 'app/api/doctor/onboarding/route.ts']) {
+    const s = read(p);
+    t(`[zero-touch] ${p.split('/').slice(-2)[0]} admin notification stays direct`,
+      /to:\s*"admin@myoguard\.health"/.test(s)
+      && /resend\.emails\.send\(/.test(s)
+      && !/sendServiceEmail\(\{[\s\S]{0,300}?to:\s*"admin@myoguard\.health"/.test(s));
+  }
+
+  // 3. SMS remains outside the email governance boundary and dormant.
+  {
+    const s = read('app/api/invite/send/route.ts');
+    t('[zero-touch] invitation SMS is not routed through the email gateway',
+      /async function sendSms/.test(s)
+      && /api\.twilio\.com/.test(s)
+      && !/sendSms[\s\S]{0,300}?sendServiceEmail\(/.test(s));
+  }
+
+  // 4. n8n stays behind its env gate.
+  t('[zero-touch] n8n remains gated',
+    /if \(webhookUrl\)/.test(read('app/api/email-capture/route.ts')));
 }
 
 console.log(`\nRESULT: ${pass} passed, ${fail} failed`);

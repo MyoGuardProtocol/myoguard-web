@@ -159,7 +159,10 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Welcome email (fire-and-forget — never blocks the response) ──────────
-    sendWelcomeEmail({ email, firstName: body.fullName.split(" ")[0] }).catch(() => {})
+    // userId added in Phase 1D-C3E so the governed CommunicationEvent is tied
+    // to the account. Still fire-and-forget: governance may suppress the send,
+    // and that must not affect a completed onboarding.
+    sendWelcomeEmail({ email, firstName: body.fullName.split(" ")[0], userId: user.id }).catch(() => {})
 
     // If the patient arrived via a preloaded Start Sheet QR, direct them to
     // /dashboard so PreloadSync can fire and inject the physician's pre-filled

@@ -8,7 +8,11 @@
 // Always: physician-aligned, CDS-positioned, institutionally restrained.
 
 import { prisma } from '@/src/lib/prisma';
-import { buildPhysicianEmail, sendEmail, EMAIL_TOKENS } from '../index';
+import { buildPhysicianEmail, EMAIL_TOKENS } from '../index';
+import { sendServiceEmail } from '@/src/lib/communications/serviceEmail';
+
+/** Template identity recorded on CommunicationEvent — never the rendered output. */
+const TEMPLATE_ID = 'service.physician_priority_review.v1';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -308,17 +312,35 @@ export async function triggerPhysicianPriorityReview(
     },
   });
 
-  const { error } = await sendEmail({
-    to:      physician.email,
-    subject: style.subject,
+  // ── Governed send (Phase 1D-C3E) ────────────────────────────────────────────
+  //
+  // ESSENTIAL_SERVICE: a clinical alert to the patient's own supervising
+  // physician. Not preference-suppressible — but an absolute blocker on the
+  // physician's address now stops it, which before C3E it did not.
+  //
+  // userId is the PHYSICIAN's account: the event records who was written to.
+  // The patient is the subject of the message, not its recipient, and their
+  // identity stays out of the ledger entirely.
+  //
+  // The event carries the template id and nothing else. No risk band, no lean
+  // velocity, no lean-loss estimate, no patient name — all of which are in the
+  // rendered body and none of which belong in governance metadata.
+  const sent = await sendServiceEmail({
+    to:         physician.email,
+    subject:    style.subject,
     html,
-    from:    EMAIL_TOKENS.from.physician,
+    from:       EMAIL_TOKENS.from.physician,
+    templateId: TEMPLATE_ID,
+    userId:     patient.physicianId,
+    context:    'clinical:physician-priority-review',
   });
 
-  if (error) {
-    console.error('[physician-priority-review] Email send failed:', error.message);
-    return;
-  }
+  // Suppressed, unavailable or refused: no Notification is written, so the
+  // de-duplication window does not advance and a later qualifying assessment
+  // may legitimately try again. Returning here preserves the existing
+  // fire-and-forget contract — the caller in /api/assessment already has its
+  // result and the patient's assessment transaction is unaffected.
+  if (sent.outcome !== 'sent') return;
 
   // 6. Write Notification record — de-duplication tracking and audit trail
   //    type: PHYSICIAN_REVIEW — dedicated semantic type (BUILD 4C-i)
