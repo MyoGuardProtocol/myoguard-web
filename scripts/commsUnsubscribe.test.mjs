@@ -366,10 +366,15 @@ section('-- 47-52. governance --');
       strip(src('src/lib/communications/consentWording.ts'))));
   t('[safety] 51-52. only CLINICAL_CONTINUITY is settable from the UI',
     /SETTABLE_CLASSES = \['CLINICAL_CONTINUITY'\]/.test(PREF));
-  t('[safety] 51. EDUCATIONAL remains inactive for sending',
+  // C3F-1B: EDUCATIONAL became preference-governed. A withdrawal must still
+  // stop it, which is what this suite actually cares about.
+  t('[safety] 51. a withdrawn EDUCATIONAL preference stops sending',
+    decideFromGovernanceState('EDUCATIONAL',
+      { activeSuppressionReasons: [], preferenceState: 'UNSUBSCRIBED', recipientVerified: true })
+      .decision === 'SUPPRESS_PREFERENCE' &&
     decideFromGovernanceState('EDUCATIONAL',
       { activeSuppressionReasons: [], preferenceState: 'SUBSCRIBED', recipientVerified: true })
-      .policyReason === 'class_not_activated');
+      .decision === 'ALLOW');
   t('[safety] 52. MARKETING remains inactive for sending',
     decideFromGovernanceState('MARKETING',
       { activeSuppressionReasons: [], preferenceState: 'SUBSCRIBED', recipientVerified: true })

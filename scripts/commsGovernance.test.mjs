@@ -210,8 +210,16 @@ t('[safety] hard bounce blocks even ESSENTIAL_SERVICE',
     === 'SUPPRESS_HARD_BOUNCE');
 
 // Prospective classes must not be activatable by accident.
-t('[safety] EDUCATIONAL is not activated -> SUPPRESS_POLICY',
-  decide('EDUCATIONAL', { ...VERIFIED, preferenceState: 'SUBSCRIBED' }).decision === 'SUPPRESS_POLICY');
+//
+// C3F-1B activated EDUCATIONAL in the engine, so the blanket block no longer
+// holds. The safety property it was protecting is unchanged and is asserted
+// directly instead: nothing sends without an affirmative row of this class.
+t('[safety] EDUCATIONAL without an affirmative preference cannot send',
+  decide('EDUCATIONAL', { ...VERIFIED, preferenceState: null }).decision === 'SUPPRESS_POLICY' &&
+  decide('EDUCATIONAL', { ...VERIFIED, preferenceState: 'NEVER_SET' }).decision === 'SUPPRESS_POLICY' &&
+  decide('EDUCATIONAL', { ...VERIFIED, preferenceState: 'UNSUBSCRIBED' }).decision === 'SUPPRESS_PREFERENCE');
+t('[safety] EDUCATIONAL sends only on an affirmative preference',
+  decide('EDUCATIONAL', { ...VERIFIED, preferenceState: 'SUBSCRIBED' }).decision === 'ALLOW');
 t('[safety] MARKETING is not activated -> SUPPRESS_POLICY',
   decide('MARKETING', { ...VERIFIED, preferenceState: 'SUBSCRIBED' }).decision === 'SUPPRESS_POLICY');
 

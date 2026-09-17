@@ -210,9 +210,50 @@ export function decideFromGovernanceState(
       return { decision: 'ALLOW' };
     }
 
-    // No production sender exists for either class. Fail closed so that wiring
-    // one up without the consent capture it requires cannot silently send.
-    case 'EDUCATIONAL':
+    // Phase 1D-C3F-1B: governed by the recipient's own EDUCATIONAL preference,
+    // exactly as CLINICAL_CONTINUITY is governed by theirs. Permission is
+    // class-specific and read from this class's own preference row — nothing
+    // here consults another class, an account, an assessment, a physician
+    // relationship, research consent, or a prior delivery.
+    //
+    // WHY NO VERIFICATION GATE, UNLIKE CLINICAL_CONTINUITY
+    // That gate exists for recurring *clinically loaded* patient mail, and it
+    // resolves through Clerk. An EDUCATIONAL subscriber is an anonymous
+    // recipient with no account, so `verifyRecipientEmail` could only ever
+    // answer `recipient_identity_unavailable` for them — applying it here would
+    // permanently block the exact population this class exists to serve, while
+    // protecting nothing clinical. Affirmative consent, recorded in the ledger
+    // with the wording the person read, is what authorises this class.
+    //
+    // ACTIVATING THE ENGINE IS NOT ACTIVATING THE PRODUCT. Reaching ALLOW still
+    // requires a SUBSCRIBED preference row, and after this phase no public
+    // surface can create one: there is no grant endpoint, no capture UI, and no
+    // approved Guide wording. The preference table is empty in production.
+    case 'EDUCATIONAL': {
+      // Written as an allowlist, not a sequence of blocks: ALLOW is reachable
+      // only from the literal SUBSCRIBED, so any state the store could not
+      // resolve falls through to a refusal rather than to a send. The type says
+      // `PreferenceStateName | null` and `canSend` coerces with `?? null`, so
+      // there is no third case today — this shape is what keeps that true if a
+      // future state name is added to the enum and not to this switch.
+      if (state.preferenceState === 'SUBSCRIBED') {
+        return { decision: 'ALLOW' };
+      }
+      if (state.preferenceState === 'UNSUBSCRIBED') {
+        return { decision: 'SUPPRESS_PREFERENCE' };
+      }
+      // The absence of a row and an explicit NEVER_SET are the same fact —
+      // nobody has said yes — and both block. They report different reasons so
+      // the ledger can tell "never asked" from "asked, not answered".
+      if (state.preferenceState === 'NEVER_SET') {
+        return { decision: 'SUPPRESS_POLICY', policyReason: 'preference_never_set' };
+      }
+      return { decision: 'SUPPRESS_POLICY', policyReason: 'no_preference_on_record' };
+    }
+
+    // No production sender exists, and no consent capture authorises this
+    // class. Fail closed so that wiring one up cannot silently send — the
+    // preference state is deliberately not consulted.
     case 'MARKETING':
       return { decision: 'SUPPRESS_POLICY', policyReason: 'class_not_activated' };
 

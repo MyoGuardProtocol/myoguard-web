@@ -347,9 +347,16 @@ section('-- 19-23. pathways + preserved C3B behaviour --');
     decide('CLINICAL_CONTINUITY',
       { recipientVerified: false, preferenceState: 'SUBSCRIBED',
         activeSuppressionReasons: ['HARD_BOUNCE'] }).decision === 'SUPPRESS_HARD_BOUNCE');
-  t('[safety] 22. EDUCATIONAL still inactive',
-    decide('EDUCATIONAL', { ...V, preferenceState: 'SUBSCRIBED' }).policyReason
-      === 'class_not_activated');
+  // C3F-1B: EDUCATIONAL is preference-governed and deliberately NOT
+  // verification-gated — its subscribers are anonymous and have no Clerk
+  // identity to verify, so the gate could only ever block them.
+  t('[safety] 22. EDUCATIONAL is governed by preference, not the verification gate',
+    decide('EDUCATIONAL', { ...V, preferenceState: 'SUBSCRIBED' }).decision === 'ALLOW' &&
+    decide('EDUCATIONAL',
+      { recipientVerified: false, preferenceState: 'SUBSCRIBED',
+        activeSuppressionReasons: [] }).decision === 'ALLOW' &&
+    decide('EDUCATIONAL', { ...V, preferenceState: 'NEVER_SET' }).policyReason
+      === 'preference_never_set');
   t('[safety] 22. MARKETING still inactive',
     decide('MARKETING', { ...V, preferenceState: 'SUBSCRIBED' }).policyReason
       === 'class_not_activated');

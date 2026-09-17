@@ -184,13 +184,19 @@ section('-- G. EDUCATIONAL and MARKETING remain closed --');
 {
   const state = { activeSuppressionReasons: [], preferenceState: 'SUBSCRIBED', recipientVerified: true };
 
-  t('[safety] EDUCATIONAL is still class_not_activated',
-    decideFromGovernanceState('EDUCATIONAL', state).policyReason === 'class_not_activated');
+  // C3F-1B activated EDUCATIONAL in the engine. What this suite must keep
+  // proving is that no wording surface exists to create the permission it now
+  // reads — the engine can allow, the product still cannot grant.
+  t('[safety] EDUCATIONAL without an affirmative preference cannot send',
+    decideFromGovernanceState('EDUCATIONAL',
+      { ...state, preferenceState: 'NEVER_SET' }).decision === 'SUPPRESS_POLICY' &&
+    decideFromGovernanceState('EDUCATIONAL',
+      { ...state, preferenceState: null }).decision === 'SUPPRESS_POLICY');
+  t('[safety] no declared surface can grant EDUCATIONAL permission',
+    declaredSurfaces().every(s => s === CLINICAL_CONTINUITY_SURFACE));
   t('[safety] MARKETING is still class_not_activated',
     decideFromGovernanceState('MARKETING', state).policyReason === 'class_not_activated');
-  t('[safety] EDUCATIONAL is suppressed, not allowed',
-    decideFromGovernanceState('EDUCATIONAL', state).decision === 'SUPPRESS_POLICY');
-  t('[safety] MARKETING is suppressed, not allowed',
+  t('[safety] MARKETING is suppressed even with an affirmative preference',
     decideFromGovernanceState('MARKETING', state).decision === 'SUPPRESS_POLICY');
   t('[safety] only CLINICAL_CONTINUITY is settable from the UI',
     /SETTABLE_CLASSES = \['CLINICAL_CONTINUITY'\]/.test(PREF));
