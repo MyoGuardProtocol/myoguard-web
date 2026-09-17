@@ -254,6 +254,10 @@ section('-- 9. only authorised consumers --');
     'app/api/doctor/onboarding/route.ts',
     'app/api/admin/verify-physician/route.ts',
     'app/api/admin/physician-review/route.ts',
+    // Added by Phase 1D-C3F-2 — the eleventh governed sender: requested
+    // one-time delivery of the Protein Guide. ESSENTIAL_SERVICE, like the ten
+    // above, and it creates no preference, consent or wording row.
+    'app/api/guide-request/route.ts',
   ];
   const roots = ['app', 'src'];
   const files = [];

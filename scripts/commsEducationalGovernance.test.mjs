@@ -217,7 +217,10 @@ section('-- O. No public surface can grant EDUCATIONAL permission --');
     /SETTABLE_CLASSES = \['CLINICAL_CONTINUITY'\]/.test(PREF));
   t('[safety] O. the only grant surface still requires a Clerk session',
     /auth\(\)/.test(PREF) && /status: 401/.test(PREF));
-  t('[safety] O. grantConsent is reachable from no public route',
+  // Comments are stripped before matching: a route that documents "never calls
+  // grantConsent" must not be counted as calling it. C3F-2 added exactly such a
+  // comment, and an unstripped scan read it as a call site.
+  t('[safety] O. grantConsent is called from no public route but the authenticated one',
     (() => {
       const root = fileURLToPath(new URL('../app', import.meta.url));
       const hits = [];
@@ -225,7 +228,7 @@ section('-- O. No public surface can grant EDUCATIONAL permission --');
         for (const e of readdirSync(d)) {
           const p = join(d, e);
           if (statSync(p).isDirectory()) walk(p);
-          else if (e === 'route.ts' && /grantConsent/.test(readFileSync(p, 'utf8'))) hits.push(p);
+          else if (e === 'route.ts' && /grantConsent\s*\(/.test(strip(readFileSync(p, 'utf8')))) hits.push(p);
         }
       })(root);
       return hits.length === 1 && hits[0].includes('preferences');
@@ -236,14 +239,26 @@ section('-- O. No public surface can grant EDUCATIONAL permission --');
         .map(p => strip(src(p))).join('\n')));
   t('[safety] O. no consent wording surface exists that could grant EDUCATIONAL',
     declaredSurfaces().length === 1);
-  t('[safety] O. no Guide request route was added',
+  // C3F-2 added the Guide requested-delivery route under Founder authorisation,
+  // so its absence is no longer the invariant. What must stay true is that it
+  // grants nothing: the route is ESSENTIAL_SERVICE only and writes no
+  // permission of any kind.
+  t('[safety] O. the Guide request route grants no communication permission',
     (() => {
-      const root = fileURLToPath(new URL('../app/api', import.meta.url));
+      const p = fileURLToPath(new URL('../app/api/guide-request/route.ts', import.meta.url));
+      const s = strip(readFileSync(p, 'utf8'));
+      return !/grantConsent\s*\(/.test(s) &&
+             !/communicationPreference|communicationConsentEvent|consentWording/i.test(s) &&
+             !/EDUCATIONAL|MARKETING/.test(s);
+    })());
+  t('[safety] O. no /learn surface exists',
+    (() => {
+      const root = fileURLToPath(new URL('../app', import.meta.url));
       let found = false;
       (function walk(d) {
         for (const e of readdirSync(d)) {
           const p = join(d, e);
-          if (statSync(p).isDirectory()) { if (/guide|learn/i.test(e)) found = true; walk(p); }
+          if (statSync(p).isDirectory()) { if (/^learn$/i.test(e)) found = true; walk(p); }
         }
       })(root);
       return !found;
