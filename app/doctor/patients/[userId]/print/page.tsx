@@ -238,7 +238,10 @@ export default async function PrintPage({
                   <tr>
                     <td>Protein Intake</td>
                     <td className="mono" style={{ fontWeight: 700 }}>{Math.round(latest.proteinGrams)}g / day</td>
-                    <td className="mono">{ms?.proteinTargetG ? `≥ ${Math.round(ms.proteinTargetG)}g` : `≥ ${Math.round(latest.weightKg * 1.4)}g`}</td>
+                    {/* SRI-R1C: proteinTargetG is proteinAggressive — the upper end of the
+                        calculated range. The previous "≥" presented that ceiling as a
+                        minimum. Number unchanged; only the operator is corrected. */}
+                    <td className="mono">{ms?.proteinTargetG ? `up to ${Math.round(ms.proteinTargetG)}g` : `up to ${Math.round(latest.weightKg * 1.4)}g`}</td>
                     <td>
                       {latest.proteinGrams >= latest.weightKg * 1.4
                         ? <span style={{ color: '#065F46', fontWeight: 600 }}>✓ Meeting target</span>

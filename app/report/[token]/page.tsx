@@ -20,6 +20,7 @@ import { notFound }             from 'next/navigation';
 import Link                     from 'next/link';
 import { auth }                 from '@clerk/nextjs/server';
 import { prisma }               from '@/src/lib/prisma';
+import { PROTEIN_GUIDANCE_PENDING_SHORT } from '@/src/lib/clinical/proteinContainment';
 import { generateWeeklyDigest } from '@/src/lib/weeklyDigest';
 import AnalyticsMount           from '@/src/components/analytics/AnalyticsMount';
 import { AnalyticsEvents }      from '@/src/lib/posthog';
@@ -309,8 +310,9 @@ export default async function PublicReportPage({
                   </p>
                 </div>
                 <div className="bg-white/70 rounded-lg px-3 py-2.5 border border-slate-200">
-                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Daily Protein Target</p>
-                  <p className="text-sm font-bold text-slate-900 tabular-nums">{Math.round(ms.proteinTargetG)} g/day</p>
+                  {/* SRI-R1C: individualized figure withheld pending review. */}
+                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Daily Protein</p>
+                  <p className="text-xs font-semibold text-slate-900 leading-snug">{PROTEIN_GUIDANCE_PENDING_SHORT}</p>
                 </div>
               </div>
             </div>
@@ -720,7 +722,8 @@ export default async function PublicReportPage({
           </section>
 
           {/* ── EVERYDAY PROTEIN REFERENCE ───────────────────────────────────── */}
-          <EverydayProteinReference proteinTargetG={ms.proteinTargetG} variant="print" />
+          {/* SRI-R1C: individualized anchor withheld; food reference kept. */}
+          <EverydayProteinReference variant="print" />
 
           {/* Check-in adherence */}
           {user.weeklyCheckins.length > 0 && (

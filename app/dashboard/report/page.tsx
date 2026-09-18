@@ -2,6 +2,10 @@ import { auth }                  from '@clerk/nextjs/server';
 import { redirect }              from 'next/navigation';
 import Link                      from 'next/link';
 import { prisma }                from '@/src/lib/prisma';
+import {
+  PROTEIN_GUIDANCE_PENDING_SHORT,
+  PROTEIN_GUIDANCE_PENDING_DETAIL,
+} from '@/src/lib/clinical/proteinContainment';
 import { generateWeeklyDigest }  from '@/src/lib/weeklyDigest';
 import AnalyticsMount            from '@/src/components/analytics/AnalyticsMount';
 import { AnalyticsEvents }       from '@/src/lib/posthog';
@@ -599,12 +603,13 @@ export default async function ReportPage() {
                 </div>
                 <div style={{ background: '#080C14', border: '1px solid #1A2744',
                   borderRadius: '12px', padding: '12px 16px' }}>
+                  {/* SRI-R1C: individualized figure withheld pending review. */}
                   <p style={{ fontSize: '10px', color: '#94A3B8', textTransform: 'uppercase',
                     letterSpacing: '0.06em', marginBottom: '4px' }}>
-                    Daily Protein Target
+                    Daily Protein
                   </p>
-                  <p style={{ fontSize: '14px', fontWeight: '600', color: '#2DD4BF' }}>
-                    {Math.round(ms.proteinTargetG)} g/day
+                  <p style={{ fontSize: '13px', fontWeight: '600', color: '#F1F5F9', lineHeight: 1.4 }}>
+                    {PROTEIN_GUIDANCE_PENDING_SHORT}
                   </p>
                 </div>
               </div>
@@ -651,7 +656,8 @@ export default async function ReportPage() {
               fontWeight: '600',
               color: '#2DD4BF',
             }}>
-              Daily protein target: {ms.proteinTargetG}g
+              {/* SRI-R1C */}
+              Daily protein: {PROTEIN_GUIDANCE_PENDING_SHORT}
             </div>
           </div>
 
@@ -684,12 +690,13 @@ export default async function ReportPage() {
                   <span style={{ fontSize: '11px', color: '#2DD4BF', fontWeight: '700' }}>1</span>
                 </div>
                 <div>
+                  {/* SRI-R1C: individualized figure and the supplement
+                      recommendation attached to it are withheld pending review. */}
                   <p style={{ fontSize: '14px', fontWeight: '600', color: '#F1F5F9', marginBottom: '4px' }}>
-                    Hit your protein target daily
+                    Keep protein intake consistent
                   </p>
                   <p style={{ fontSize: '13px', color: '#94A3B8', lineHeight: '1.5' }}>
-                    {ms.proteinTargetG}g/day — spread across 4–5 meals.
-                    Whey protein supplement recommended if dietary intake falls short.
+                    {PROTEIN_GUIDANCE_PENDING_DETAIL}
                   </p>
                 </div>
               </div>
@@ -1089,7 +1096,8 @@ export default async function ReportPage() {
           </section>
 
           {/* ── EVERYDAY PROTEIN REFERENCE ───────────────────────────────────── */}
-          <EverydayProteinReference proteinTargetG={ms.proteinTargetG} variant="clinical" />
+          {/* SRI-R1C: individualized anchor withheld; food reference kept. */}
+          <EverydayProteinReference variant="clinical" />
 
           {/* ══════════════════════════════════════════════════════════════════ */}
           {/* CHECK-IN ADHERENCE — moved to Odyssey                             */}

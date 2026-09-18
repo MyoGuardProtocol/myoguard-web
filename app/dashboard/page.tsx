@@ -1,6 +1,7 @@
 import { auth }        from '@clerk/nextjs/server';
 import { redirect }    from 'next/navigation';
 import { prisma }      from '@/src/lib/prisma';
+import { PROTEIN_GUIDANCE_PENDING_SHORT } from '@/src/lib/clinical/proteinContainment';
 import SanctuaryScoreOrb from '@/src/components/ui/SanctuaryScoreOrb';
 import ReferralSync  from '@/src/components/ui/ReferralSync';
 import PreloadSync   from '@/src/components/ui/PreloadSync';
@@ -64,7 +65,8 @@ export default async function PatientDashboardPage() {
   const ms           = user?.assessments?.[0]?.muscleScore ?? null;
   const latestScore  = ms ? Math.round(ms.score) : 0;
   const latestRisk   = ms?.riskBand ?? 'LOW';
-  const proteinTarget = ms?.proteinTargetG ? Math.round(ms.proteinTargetG) : 0;
+  // SRI-R1C: individualized protein figure no longer rendered to the patient.
+  // The value remains stored and available to the physician surfaces.
   const hasAssessment = !!(latestScore && latestScore > 0);
   const firstName    = user?.fullName?.split(' ')[0] ?? 'there';
   const initials     = user?.fullName?.split(" ").map((n: string) => n[0]).join("").slice(0,2).toUpperCase() ?? "P";
@@ -229,12 +231,13 @@ export default async function PatientDashboardPage() {
             alignItems: "center", marginBottom: "32px"
           }}>
             <div>
+              {/* SRI-R1C: individualized figure withheld pending physician review. */}
               <p style={{ fontSize: "10px", color: "#94A3B8",
                 textTransform: "uppercase", letterSpacing: "0.06em",
-                marginBottom: "2px" }}>Protein Target</p>
-              <p style={{ fontSize: "14px", fontWeight: "600",
-                color: "#F1F5F9", fontFamily: "Georgia, serif" }}>
-                {proteinTarget ? `${proteinTarget}g/day` : "—"}
+                marginBottom: "2px" }}>Protein</p>
+              <p style={{ fontSize: "13px", fontWeight: "600",
+                color: "#F1F5F9", fontFamily: "Georgia, serif", lineHeight: 1.3 }}>
+                {PROTEIN_GUIDANCE_PENDING_SHORT}
               </p>
             </div>
             <div style={{ textAlign: "center" }}>

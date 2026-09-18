@@ -6,6 +6,7 @@
 // Always: physician-aligned, CDS-positioned, institutionally restrained.
 
 import { buildPatientEmail, sendEmail, EMAIL_TOKENS } from '../index';
+import { PROTEIN_GUIDANCE_PENDING_REVIEW } from '@/src/lib/clinical/proteinContainment';
 import {
   unsubscribeUrlFor,
   listUnsubscribeHeaders,
@@ -123,15 +124,19 @@ export function buildLongitudinalSummaryEmail({
     bestStreak > streakWeeks && bestStreak > 1 ? `${bestStreak}-week longest continuity` : null,
   ].filter(Boolean).join(' &middot; ');
 
+  // SRI-R1C: the individualized numeric protein figure is withheld from
+  // recurring patient mail pending physician review. Everything else in the
+  // summary is unchanged; the value is still computed, stored and visible to
+  // physicians.
   const proteinRow = proteinTargetG != null
     ? `
         <tr>
           <td style="padding-top:12px;border-top:1px solid ${T.border};">
             <p style="margin:0 0 4px;font-size:${EMAIL_TOKENS.size.caption};color:${T.textMuted};font-family:${font};letter-spacing:0.08em;text-transform:uppercase;line-height:1;">
-              Protocol Protein Target
+              Protein
             </p>
             <p style="margin:0;font-size:${EMAIL_TOKENS.size.body};color:${T.textPrimary};font-family:${font};line-height:1.4;">
-              ${Math.round(proteinTargetG)}&thinsp;g/day
+              ${PROTEIN_GUIDANCE_PENDING_REVIEW}
             </p>
           </td>
         </tr>`

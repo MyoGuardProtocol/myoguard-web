@@ -8,6 +8,11 @@ import ClinicalAlert from '@/src/components/ui/ClinicalAlert';
 import RecoverySignalCard from '@/src/components/ui/RecoverySignalCard';
 import SupplementCTA from '@/src/components/ui/SupplementCTA';
 import EverydayProteinReference from '@/src/components/protein/EverydayProteinReference';
+import {
+  PROTEIN_GUIDANCE_PENDING_REVIEW,
+  PROTEIN_GUIDANCE_PENDING_SHORT,
+  PROTEIN_GUIDANCE_PENDING_DETAIL,
+} from '@/src/lib/clinical/proteinContainment';
 
 // ─── Band config ───────────────────────────────────────────────────────────────
 type Band = 'CRITICAL' | 'HIGH' | 'MODERATE' | 'LOW';
@@ -151,7 +156,8 @@ export default async function ResultsPage({
 
   // Delta values — only rendered when a previous assessment exists
   const scoreDelta      = prev ? signedDelta(ms.score,          prev.score)          : null;
-  const proteinDelta    = prev ? signedDelta(ms.proteinTargetG, prev.proteinTargetG) : null;
+  // SRI-R1C: proteinDelta removed with the patient-facing protein figure it
+  // annotated. The underlying values are unchanged and still stored.
   const prevBand        = prev ? (prev.riskBand as Band)                              : null;
   const bandImproved    = prev ? (score > Math.round(prev.score))                     : null;
 
@@ -280,22 +286,14 @@ export default async function ResultsPage({
                 </span>
               </div>
 
-              {/* Protein delta */}
+              {/* Protein — SRI-R1C: individualized figure and its delta withheld
+                  pending physician review. The value is still computed and
+                  stored; only this patient-facing render is contained. */}
               <div className="px-4 py-4 flex flex-col gap-1" style={{ background: '#0D1421' }}>
-                <p className="text-[10px] font-medium text-slate-500">Protein Target</p>
-                <p className="font-mono text-lg font-black text-white tabular-nums leading-none">
-                  {Math.round(ms.proteinTargetG)}
-                  <span className="font-sans text-slate-600 font-light text-sm">g</span>
+                <p className="text-[10px] font-medium text-slate-500">Protein</p>
+                <p className="text-sm font-semibold text-slate-200 leading-snug">
+                  {PROTEIN_GUIDANCE_PENDING_SHORT}
                 </p>
-                <span className={`font-mono text-xs font-bold tabular-nums ${
-                  proteinDelta && !proteinDelta.startsWith('−')
-                    ? 'text-teal-400'
-                    : proteinDelta === '±0'
-                    ? 'text-slate-500'
-                    : 'text-slate-400'
-                }`}>
-                  {proteinDelta}g / day
-                </span>
               </div>
 
               {/* Risk band — replaces the former bare lean-loss percentage.
@@ -355,38 +353,31 @@ export default async function ResultsPage({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] mb-1">
-                  Daily Protein Target
+                  Daily Protein
                 </p>
                 <p className="text-xs text-slate-500 leading-snug">
-                  Activity-adjusted · {assessment.weightKg}kg body weight
+                  Individualised with your clinician
                 </p>
               </div>
               <span className="text-xl">🥩</span>
             </div>
           </div>
+          {/* SRI-R1C: the individualized figure, its progress bar and the
+              adherence claim that accompanied it are withheld pending physician
+              review. Nothing is recalculated — this render is contained. */}
           <div className="px-5 py-5">
-            <div className="flex items-baseline gap-2 mb-3">
-              <span className="font-mono text-5xl font-black text-white tabular-nums leading-none">
-                {Math.round(ms.proteinTargetG)}
-              </span>
-              <span className="text-xl text-slate-500 font-light">g/day</span>
-            </div>
-            <div className="h-2 rounded-full overflow-hidden mb-3" style={{ background: '#1A2744' }}>
-              <div
-                className="myg-bar-grow h-full rounded-full bg-teal-500"
-                style={{ width: `${Math.min(100, (ms.proteinTargetG / 250) * 100)}%` }}
-              />
-            </div>
+            <p className="text-base font-semibold text-slate-100 leading-snug mb-2">
+              {PROTEIN_GUIDANCE_PENDING_REVIEW}
+            </p>
             <p className="text-xs text-slate-400 leading-relaxed">
-              This is your aggressive target — the upper bound that maximises lean-mass
-              preservation. Reaching even 80–90% of this figure meaningfully reduces
-              muscle-loss risk at your current GLP-1 dose.
+              {PROTEIN_GUIDANCE_PENDING_DETAIL}
             </p>
           </div>
         </div>
 
         {/* ── EVERYDAY PROTEIN REFERENCE ─────────────────────────────────────── */}
-        <EverydayProteinReference proteinTargetG={ms.proteinTargetG} variant="clinical" />
+        {/* SRI-R1C: individualized anchor withheld; generic food reference kept. */}
+        <EverydayProteinReference variant="clinical" />
 
         {/* ══════════════════════════════════════════════════════════════════════ */}
         {/* ── SUPPLEMENT STACK — placed after protein target per clinical flow ── */}

@@ -6,6 +6,7 @@
 // Always: physician-aligned, CDS-positioned, institutionally restrained.
 
 import { buildPatientEmail, sendEmail, EMAIL_TOKENS } from '../index';
+import { PROTEIN_GUIDANCE_PENDING_REVIEW } from '@/src/lib/clinical/proteinContainment';
 import type { WeeklyDigestPayload } from '@/src/lib/weeklyDigest';
 import {
   unsubscribeUrlFor,
@@ -106,11 +107,15 @@ export function buildWeeklyPulseEmail({
   // First name only — clinical correspondence style; defensive cap at 40 chars
   const firstName = patientName.split(' ')[0].slice(0, 40);
 
+  // SRI-R1C: the individualized numeric protein figure is withheld from
+  // recurring patient mail pending physician review. The rest of the message —
+  // risk band, trend, continuity, the check-in prompt — is unchanged. The value
+  // is still computed and stored, and physicians still see it.
   const proteinBlock = proteinTargetG != null
     ? `
 <p style="margin:0 0 16px;font-size:${EMAIL_TOKENS.size.body};color:${T.textSecondary};font-family:${font};line-height:1.6;">
-  Your current protocol protein target is <strong style="color:${T.textPrimary};">${Math.round(proteinTargetG)}&thinsp;g/day</strong>.
-  Logging your weekly check-in records dietary adherence against this target for longitudinal tracking.
+  ${PROTEIN_GUIDANCE_PENDING_REVIEW}
+  Logging your weekly check-in records dietary intake for longitudinal tracking.
 </p>`
     : '';
 

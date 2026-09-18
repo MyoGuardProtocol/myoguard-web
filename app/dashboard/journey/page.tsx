@@ -1,6 +1,10 @@
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/src/lib/prisma';
+import {
+  PROTEIN_GUIDANCE_PENDING_SHORT,
+  PROTEIN_GUIDANCE_PENDING_DETAIL,
+} from '@/src/lib/clinical/proteinContainment';
 import Link from 'next/link';
 import { generateWeeklyDigest } from '@/src/lib/weeklyDigest';
 
@@ -101,10 +105,14 @@ function getSmartNextAction(
   if (proteinTargetG != null && latestCheckin?.avgProteinG != null) {
     const gap = proteinTargetG - latestCheckin.avgProteinG;
     if (gap > 20) {
+      // SRI-R1C: the prompt no longer states a gram gap or a personal figure.
+      // It still surfaces that protein is the area to discuss, which is the
+      // useful part, without instructing an intake increase that has not been
+      // reviewed against this patient's renal status.
       return {
         icon:     '🥩',
-        title:    `Add ${Math.round(gap)}g protein today to stay on track`,
-        subtitle: `Your recent average is ${Math.round(latestCheckin.avgProteinG)}g vs your ${Math.round(proteinTargetG)}g daily target. Closing this gap is the fastest route to a higher SRI.`,
+        title:    'Protein is worth reviewing with your clinician',
+        subtitle: PROTEIN_GUIDANCE_PENDING_DETAIL,
         cta:      'Log Weekly Pulse →',
         ctaHref:  '/checkin',
         type:     'recommended',
@@ -141,7 +149,8 @@ function getSmartNextAction(
   if (band === 'MODERATE') {
     return {
       icon:     '🥩',
-      title:    'Hit your daily protein target consistently',
+      // SRI-R1C: no longer refers to a personal target MyoGuard now withholds.
+      title:    'Keep protein intake consistent',
       subtitle: 'Sustained protein adherence over 4–6 weeks is the most reliable path out of the Moderate Risk zone.',
       cta:      'Log Weekly Pulse →',
       ctaHref:  '/checkin',
@@ -224,7 +233,10 @@ function buildRecentWins(
       wins.push({
         icon:    '✓',
         iconCls: 'text-teal-400 bg-teal-900/40 border-teal-800',
-        text:    `Protein target achieved — ${Math.round(ci.avgProteinG)}g/day`,
+        // SRI-R1C: the figure shown is the patient's OWN logged intake, not a
+        // MyoGuard-derived target, so it stays. The label no longer claims a
+        // "target" was achieved, since that target is now withheld.
+        text:    `Protein intake logged — ${Math.round(ci.avgProteinG)}g/day`,
         date:    shortDate(ci.weekStart),
       });
       continue;
@@ -542,13 +554,13 @@ export default async function JourneyPage() {
             <div className="flex items-center gap-2.5">
               <span className="text-base leading-none">🥩</span>
               <p className="text-xs text-slate-400 font-medium">
-                Daily protein target
+                Daily protein
               </p>
             </div>
+            {/* SRI-R1C: individualized figure withheld pending physician review. */}
             {digest.proteinTargetG != null ? (
-              <span className="text-sm font-extrabold text-white tabular-nums">
-                {Math.round(digest.proteinTargetG)}
-                <span className="text-xs font-semibold text-slate-400 ml-0.5">g/day</span>
+              <span className="text-xs font-semibold text-slate-200 text-right max-w-[58%] leading-snug">
+                {PROTEIN_GUIDANCE_PENDING_SHORT}
               </span>
             ) : (
               <Link
@@ -974,9 +986,7 @@ export default async function JourneyPage() {
                 const s    = Math.round(a.muscleScore!.score);
                 const b    = (a.muscleScore!.riskBand as Band) ?? 'HIGH';
                 const bm   = BAND_META[b];
-                const prot = a.muscleScore!.proteinTargetG
-                  ? Math.round(a.muscleScore!.proteinTargetG)
-                  : null;
+                // SRI-R1C: individualized protein figure no longer listed here.
                 const isLatest = i === 0;
                 return (
                   <div key={a.id} className={`px-5 py-4 flex items-center justify-between gap-4 ${isLatest ? 'bg-slate-800/50' : ''}`}>
@@ -994,11 +1004,7 @@ export default async function JourneyPage() {
                           <span className={`w-1 h-1 rounded-full ${bm.dot}`} />
                           {bm.label}
                         </span>
-                        {prot != null && (
-                          <span className="text-[10px] text-slate-500 tabular-nums">
-                            🥩 {prot}g/day target
-                          </span>
-                        )}
+                        {/* SRI-R1C: per-assessment protein figure withheld. */}
                       </div>
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0">

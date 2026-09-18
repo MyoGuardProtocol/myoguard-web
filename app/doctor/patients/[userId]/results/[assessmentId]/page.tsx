@@ -1,4 +1,5 @@
 import { auth } from '@clerk/nextjs/server';
+import { PROTEIN_CEILING_LABEL } from '@/src/lib/clinical/proteinContainment';
 import { redirect, notFound } from 'next/navigation';
 import { prisma } from '@/src/lib/prisma';
 import Link from 'next/link';
@@ -170,7 +171,7 @@ export default async function PhysicianAssessmentResultPage({
           {/* Key stats */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '12px' }}>
             {[
-              { label: 'Protein Target', value: ms?.proteinTargetG != null ? `${Math.round(ms.proteinTargetG)}g/day` : '—' },
+              { label: PROTEIN_CEILING_LABEL, value: ms?.proteinTargetG != null ? `${Math.round(ms.proteinTargetG)}g/day` : '—' },
               { label: 'Lean Loss Risk', value: ms?.leanLossEstPct != null ? `${ms.leanLossEstPct.toFixed(1)}%` : '—' },
               { label: 'Body Weight',    value: `${assessment.weightKg}kg` },
             ].map(stat => (

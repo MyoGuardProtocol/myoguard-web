@@ -28,6 +28,7 @@
 //   - Add patient-facing routes
 
 import { auth }               from '@clerk/nextjs/server';
+import { PROTEIN_CEILING_LABEL } from '@/src/lib/clinical/proteinContainment';
 import { redirect, notFound } from 'next/navigation';
 import Link                   from 'next/link';
 import { prisma }                        from '@/src/lib/prisma';
@@ -490,7 +491,7 @@ export default async function PatientEvidencePage({
 
               {/* Protein Target */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '13px', color: '#94A3B8' }}>Protein Target</span>
+                <span style={{ fontSize: '13px', color: '#94A3B8' }}>{PROTEIN_CEILING_LABEL}</span>
                 <span style={{ fontSize: '13px', color: '#F1F5F9', fontWeight: '500' }}>
                   {record.patientSummary.proteinTargetG != null
                     ? `${record.patientSummary.proteinTargetG}g/day`

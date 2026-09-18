@@ -10,6 +10,7 @@ import type { RiskBand } from '@/src/types';
 import { escapeHtml } from '@/src/lib/email/templates/BaseEmail';
 import { consumeRecipientBudget } from '@/src/lib/emailThrottle';
 import { sendServiceEmail } from '@/src/lib/communications/serviceEmail';
+import { PROTEIN_GUIDANCE_PENDING_SHORT } from '@/src/lib/clinical/proteinContainment';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://myoguard.health';
 
@@ -317,7 +318,7 @@ function buildProtocolEmail({ protocolResult, formData }: TemplateData): string 
           <!-- Protocol targets — 3 cards -->
           <tr>
             <td style="padding-bottom:16px;">
-              <p style="margin:0 0 10px;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.08em;">Your Daily Targets</p>
+              <p style="margin:0 0 10px;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.08em;">Your Daily Protocol</p>
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <!-- Protein -->
@@ -325,9 +326,12 @@ function buildProtocolEmail({ protocolResult, formData }: TemplateData): string 
                     <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdfa;border:1px solid #99f6e4;border-radius:12px;">
                       <tr>
                         <td style="padding:16px 14px;">
+                          <!-- SRI-R1C: the individualized protein range is withheld
+                               from this public, unauthenticated pathway. No renal
+                               information exists for these recipients and no clinician
+                               is involved, so no personal figure is asserted. -->
                           <p style="margin:0 0 4px;font-size:10px;font-weight:700;color:#0d9488;text-transform:uppercase;">Protein</p>
-                          <p style="margin:0;font-size:20px;font-weight:900;color:#0f172a;line-height:1.1;">${Math.round(protocolResult.proteinStandard)}–${Math.round(protocolResult.proteinAggressive)}<span style="font-size:12px;font-weight:400;color:#64748b;">g</span></p>
-                          <p style="margin:4px 0 0;font-size:10px;color:#64748b;">per day</p>
+                          <p style="margin:0;font-size:12px;font-weight:600;color:#0f172a;line-height:1.35;">${PROTEIN_GUIDANCE_PENDING_SHORT}</p>
                         </td>
                       </tr>
                     </table>
@@ -371,7 +375,7 @@ function buildProtocolEmail({ protocolResult, formData }: TemplateData): string 
                     <p style="margin:0 0 4px;font-size:12px;font-weight:700;color:#b45309;">⚠ Lean Mass Loss Risk</p>
                     <p style="margin:0;font-size:13px;color:#78350f;line-height:1.5;">
                       Your current risk band is <strong>${RISK_LABELS[band] ?? band}</strong>, based on your GLP-1 dose and activity pattern.
-                      Following the protein and exercise targets above significantly reduces lean mass loss risk.
+                      Protein needs differ between individuals and should be set with a clinician.
                     </p>
                   </td>
                 </tr>

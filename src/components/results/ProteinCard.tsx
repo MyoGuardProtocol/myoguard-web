@@ -1,18 +1,21 @@
 import type { ProtocolResult } from '@/src/types';
+import { PROTEIN_GUIDANCE_PENDING_REVIEW } from '@/src/lib/clinical/proteinContainment';
 
 type ProteinCardProps = Pick<ProtocolResult, 'proteinStandard' | 'proteinAggressive'>;
 
 /**
  * Protein Shield result card — verbatim from app/page.tsx lines 281–295.
  */
-export default function ProteinCard({ proteinStandard, proteinAggressive }: ProteinCardProps) {
+export default function ProteinCard(_props: ProteinCardProps) {
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
       <div className="flex items-start justify-between">
         <div>
           <p className="text-xs font-semibold text-teal-600 uppercase tracking-wide mb-1">The Protein Shield</p>
-          <p className="text-3xl font-bold text-slate-800">{proteinStandard}g <span className="text-slate-400 text-lg font-normal">– {proteinAggressive}g</span></p>
-          <p className="text-sm text-slate-500 mt-1">per day · activity-adjusted target range</p>
+          {/* SRI-R1C: individualized range withheld pending physician review.
+              Values are still computed and passed in; only this render is contained. */}
+          <p className="text-base font-semibold text-slate-800 leading-snug">{PROTEIN_GUIDANCE_PENDING_REVIEW}</p>
+          <p className="text-sm text-slate-500 mt-1">Individualised with your clinician</p>
         </div>
         <span className="text-2xl">🛡️</span>
       </div>

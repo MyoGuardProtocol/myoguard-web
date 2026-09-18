@@ -74,8 +74,15 @@ const PROTEIN_ITEMS: ReadonlyArray<ProteinFoodItem> = [
 // ── Props ──────────────────────────────────────────────────────────────────────
 
 type EverydayProteinReferenceProps = {
-  /** Protein target in grams from the patient's most recent SRI assessment */
-  proteinTargetG: number;
+  /**
+   * Protein figure in grams from the patient's most recent SRI assessment.
+   *
+   * OPTIONAL since SRI-R1C. When omitted, the generic food reference renders
+   * without any individualized anchor — no personal figure in the header and no
+   * servings-to-figure equivalency. The per-food protein contents below are
+   * generic nutrition information and are unaffected either way.
+   */
+  proteinTargetG?: number | null;
   /**
    * Visual variant.
    * "clinical" → Midnight Silk dark theme, collapsed by default (default).
@@ -96,7 +103,8 @@ export default function EverydayProteinReference({
   // Print variant is always expanded (no interaction); clinical starts collapsed.
   const [expanded, setExpanded] = useState(isPrint);
 
-  const rounded = Math.round(proteinTargetG);
+  // SRI-R1C: null when no individualized figure may be shown on this surface.
+  const rounded = proteinTargetG != null ? Math.round(proteinTargetG) : null;
 
   return (
     <div
@@ -129,11 +137,17 @@ export default function EverydayProteinReference({
             margin:     0,
           }}
         >
-          Approximate protein values from common foods to contextualise your{' '}
-          <strong style={{ color: isClinical ? '#F1F5F9' : '#1e293b' }}>
-            {rounded}g/day
-          </strong>{' '}
-          protein target. Educational reference only.
+          {rounded != null ? (
+            <>
+              Approximate protein values from common foods to contextualise your{' '}
+              <strong style={{ color: isClinical ? '#F1F5F9' : '#1e293b' }}>
+                {rounded}g/day
+              </strong>{' '}
+              protein figure. Educational reference only.
+            </>
+          ) : (
+            <>Approximate protein values from common foods. Educational reference only.</>
+          )}
         </p>
       </div>
 
@@ -176,7 +190,8 @@ export default function EverydayProteinReference({
             {PROTEIN_ITEMS.map(({ food, portion, proteinG }) => {
               // Approximate Equivalency — informational math only.
               // This is NOT a recommendation or suggested serving schedule.
-              const approxServings = Math.ceil(rounded / proteinG);
+              // SRI-R1C: null when no individualized figure may be shown.
+              const approxServings = rounded != null ? Math.ceil(rounded / proteinG) : null;
 
               return (
                 <div
@@ -245,7 +260,7 @@ export default function EverydayProteinReference({
                         margin:        '0 0 2px 0',
                       }}
                     >
-                      Approx. Equivalency
+                      {approxServings != null ? 'Approx. Equivalency' : 'Per portion'}
                     </p>
                     <p
                       style={{
@@ -255,7 +270,9 @@ export default function EverydayProteinReference({
                         margin:     0,
                       }}
                     >
-                      ~{approxServings} servings ≈ {rounded}g
+                      {approxServings != null
+                        ? `~${approxServings} servings ≈ ${rounded}g`
+                        : `${proteinG}g protein per ${portion}`}
                     </p>
                   </div>
                 </div>
