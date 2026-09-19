@@ -29,7 +29,7 @@ export default function PrivacyPolicy() {
       <div className="max-w-3xl mx-auto px-6 py-10">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-slate-800">Privacy Policy</h1>
-          <p className="text-sm text-slate-500 mt-2">Last updated: April 2026 · Governing law: Wyoming, USA</p>
+          <p className="text-sm text-slate-500 mt-2">Last updated: September 2026 · Governing law: Wyoming, USA</p>
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 space-y-8 text-sm text-slate-600 leading-relaxed">
@@ -44,7 +44,7 @@ export default function PrivacyPolicy() {
           {/* 1. Data We Collect */}
           <section>
             <h2 className="text-base font-semibold text-slate-800 mb-3">1. Data We Collect</h2>
-            <p className="mb-3">We collect only the information you voluntarily enter into the SRI assessment. This may include:</p>
+            <p className="mb-3">We collect only information you voluntarily provide. Through the SRI assessment, this may include:</p>
             <ul className="list-disc list-inside space-y-1.5 text-slate-600 pl-2">
               <li><span className="font-medium text-slate-700">Email address:</span> collected if you choose to have your protocol emailed to you</li>
               <li><span className="font-medium text-slate-700">Body weight:</span> used solely to generate personalised nutritional targets</li>
@@ -53,6 +53,9 @@ export default function PrivacyPolicy() {
               <li><span className="font-medium text-slate-700">Activity level:</span> sedentary, moderate, or active</li>
               <li><span className="font-medium text-slate-700">Symptoms:</span> any self-reported symptoms selected from the checklist</li>
             </ul>
+            <p className="mt-3">
+              You may also give us your email address when you ask us to send you an educational resource, such as the MyoGuard Protein Guide. If you do, your email address is the only information we collect. You do not need to complete the SRI assessment, create an account, register as a physician, or be a patient of ours in order to request it.
+            </p>
             <p className="mt-3">
               No account registration is required. We do not collect names, phone numbers, or payment information directly through this tool.
             </p>
@@ -66,7 +69,11 @@ export default function PrivacyPolicy() {
               <li>To generate your personalised protein, fibre, and hydration protocol outputs</li>
               <li>To send your protocol results to the email address you provide, if requested</li>
               <li>To improve the accuracy and relevance of our SRI and protocol methodologies over time</li>
+              <li>To send you an educational resource, such as the MyoGuard Protein Guide, when you ask us for it</li>
             </ul>
+            <p className="mt-3">
+              Asking us for an educational resource is a one-time request. By itself it does not subscribe you to ongoing educational or marketing email, and it does not add you to a mailing list.
+            </p>
             <p className="mt-3">
               We do not use your data for automated decision-making or profiling that produces legal or similarly significant effects.
             </p>
@@ -131,6 +138,12 @@ export default function PrivacyPolicy() {
             <h2 className="text-base font-semibold text-slate-800 mb-3">7. Data Retention</h2>
             <p>
               Email addresses collected through the protocol delivery feature are retained for a maximum of 12 months from the date of submission. After this period, email addresses are permanently deleted from our systems unless you have actively re-engaged with our service.
+            </p>
+            <p className="mt-3">
+              Email addresses given to request an educational resource, such as the MyoGuard Protein Guide, are handled differently. We use the address to send you the resource, and we do not store it in our own database on this pathway. Our email delivery provider processes it in order to deliver the message, as described in section 3.
+            </p>
+            <p className="mt-3">
+              We do keep a pseudonymous record of the send — a one-way code derived from the address rather than the address itself — so that we can show a message was requested and sent, and so that safeguards such as sending limits work. We also keep pseudonymous suppression information, so that if a message bounces or is reported as spam, we continue to honour that and stop sending to it. We have not set a fixed retention period for these pseudonymous records, and the 12-month period above does not apply to them.
             </p>
             <p className="mt-3">
               SRI assessment inputs (weight, dose, symptoms, etc.) are processed in-browser and are not stored on our servers beyond what is necessary to generate and deliver your protocol.
