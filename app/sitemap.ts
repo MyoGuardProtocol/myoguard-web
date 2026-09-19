@@ -71,5 +71,20 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.5,
     },
+    // ── Patient education layer ─────────────────────────────────────────────
+    // The patient-led discovery pathway. Separate from the research layer
+    // above, which addresses clinicians.
+    {
+      url: `${BASE_URL}/learn`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
+    {
+      url: `${BASE_URL}/learn/protein-on-glp-1`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.9,
+    },
   ];
 }

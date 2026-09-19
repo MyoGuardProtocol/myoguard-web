@@ -26,7 +26,7 @@
  * Touches no database, contacts no provider, sends no email.
  */
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { decideFromGovernanceState } from '../src/lib/communications/governance.ts';
@@ -251,17 +251,33 @@ section('-- O. No public surface can grant EDUCATIONAL permission --');
              !/communicationPreference|communicationConsentEvent|consentWording/i.test(s) &&
              !/EDUCATIONAL|MARKETING/.test(s);
     })());
-  t('[safety] O. no /learn surface exists',
+  // C3F-3D added the public /learn surface under Founder authorisation, so its
+  // absence is no longer the invariant — exactly as with the Guide route above.
+  // What must stay true is that nothing on it can grant a permission: no
+  // consent control, no preference write, no class identifier, and no path to
+  // any delivery pathway but the ESSENTIAL_SERVICE Guide request. A checkbox
+  // appearing here later is the specific regression this guards against.
+  t('[safety] O. the public /learn surface grants no communication permission',
     (() => {
-      const root = fileURLToPath(new URL('../app', import.meta.url));
-      let found = false;
+      const root = fileURLToPath(new URL('../app/learn', import.meta.url));
+      if (!existsSync(root)) return true;
+      const sources = [];
       (function walk(d) {
         for (const e of readdirSync(d)) {
           const p = join(d, e);
-          if (statSync(p).isDirectory()) { if (/^learn$/i.test(e)) found = true; walk(p); }
+          if (statSync(p).isDirectory()) walk(p);
+          else if (/\.tsx?$/.test(e)) sources.push(strip(readFileSync(p, 'utf8')));
         }
       })(root);
-      return !found;
+      // The request panel lives outside app/, so include it explicitly.
+      const form = fileURLToPath(new URL('../src/components/guide/GuideRequestForm.tsx', import.meta.url));
+      if (existsSync(form)) sources.push(strip(readFileSync(form, 'utf8')));
+      const all = sources.join('\n');
+      return !/grantConsent\s*\(/.test(all)
+          && !/communicationPreference|communicationConsentEvent|consentWording/i.test(all)
+          && !/\bEDUCATIONAL\b|\bMARKETING\b/.test(all)
+          && !/type="checkbox"|<input[^>]*checkbox/i.test(all)
+          && !/\/api\/(?!guide-request)[a-z-]+/i.test(all);
     })());
 }
 
