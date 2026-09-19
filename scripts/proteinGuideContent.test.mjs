@@ -260,17 +260,46 @@ section('-- F. Rendering, accessibility and print --');
   t('[render] headings descend h1 → h2 → h3 without skipping a level',
     /<h1[\s>]/.test(HTML) && /<h2[\s>]/.test(HTML) && /<h3[\s>]/.test(HTML)
     && HTML.indexOf('<h1') < HTML.indexOf('<h2') && HTML.indexOf('<h2') < HTML.indexOf('<h3'));
-  t('[render] teal is never used as body text on the light ground',
-    !/color:#2DD4BF;?"[^>]*>(?![\s]*<)/.test(HTML.replace(/background-color:#0F172A[\s\S]*?<\/table>/, '')));
+  // Readability overrides brand purity: teal marks structure, cream carries the
+  // reading. A paragraph set in the accent colour would be the first thing to
+  // go wrong if the palette were ever loosened.
+  // The cover subtitle is teal and should be — it is a deck line, one of the
+  // "selected structural elements" the direction allows. What must never be
+  // teal is long-form reading, which is identifiable by its body line height.
+  t('[render] teal never carries long-form body text',
+    !(HTML.match(/<p [^>]*>/g) || []).some(
+      tag => /line-height:1\.7[0-9]/.test(tag) && /color:#2DD4BF/.test(tag)));
+  t('[render] body copy is the warm off-white, not pure white',
+    /color:#F0EBE1/.test(HTML) && !/color:#FFFFFF/i.test(HTML));
   t('[render] the document stays well inside the Gmail clipping threshold',
     Buffer.byteLength(HTML, 'utf8') < 102000);
 
   // Amber is reserved for the two genuine safety passages. If it spread, the
   // document would stop reading as calm clinical education and start reading as
   // a warning notice — the opposite of the approved register.
-  const amberFields = (HTML.match(/#FFFBEB/g) || []).length;
+  const amberFields = (HTML.match(/#261B0E/g) || []).length;
   t('[render] amber emphasis stays restrained — three passages at most',
     amberFields > 0 && amberFields <= 3);
+
+  // ── Midnight Silk, on every page ─────────────────────────────────────────
+  //
+  // The Founder's C3F-3C visual decision. Asserted rather than eyeballed,
+  // because a later edit that returns one page to a light card would otherwise
+  // pass review unnoticed.
+  const pageSurfaces = (HTML.match(/class="mg-page"[^>]*background-color:#0F172A/g) || []).length;
+  t('[render] all eight pages sit on the Midnight Navy surface',
+    pageSurfaces === 8);
+  t('[render] no light card surface survives anywhere in the document',
+    !/background-color:#FFFFFF/i.test(HTML) && !/background-color:#F7F7F5/i.test(HTML));
+  t('[render] the document declares itself dark, so mail clients do not invert it',
+    /name="color-scheme" content="dark"/.test(HTML));
+
+  // Printing a dark document without this leaves cream text on white paper.
+  t('[render] print-color-adjust keeps the navy when printing or saving as PDF',
+    /print-color-adjust:exact/.test(HTML)
+    && /-webkit-print-color-adjust:exact/.test(HTML));
+  t('[render] the print sheet keeps a navy ground rather than reverting to white',
+    /@media print\{body\{background:#0F172A!important\}/.test(HTML));
 }
 
 section('-- G. The asset is declared and bound to its version --');
