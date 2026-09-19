@@ -1,0 +1,294 @@
+/**
+ * scripts/proteinGuideContent.test.mjs
+ *
+ * Phase C3F-3C — content lock for the Protein Guide production asset.
+ *
+ * Run:  node --import ./scripts/_resolve-ts.mjs scripts/proteinGuideContent.test.mjs
+ *
+ * WHAT THIS PROVES, AND WHY IT IS NOT CIRCULAR
+ * The fixture at scripts/fixtures/proteinGuideV1_2.manuscript.txt was extracted
+ * mechanically from the approved MyoGuard_Protein_Guide_Manuscript_v1.2.docx —
+ * not written by the implementation, and not derived from the content module.
+ * Section A renders the shipped Guide, reduces it to the text a patient can
+ * actually see, and requires that text to be the manuscript: every approved line
+ * present, in order, and nothing else visible beyond a declared allowlist of
+ * presentational furniture.
+ *
+ * That is a two-way lock. Losing a sentence fails it. Softening one fails it.
+ * Adding a heading, a reassurance, a protein target or a call to action fails
+ * it, because the addition lands in the leftover check with nothing to match.
+ *
+ *   [lock]     — visible text equals the approved manuscript.
+ *   [safety]   — an invariant whose violation would put an unapproved clinical
+ *                claim, or an unapproved commercial ask, in front of a patient.
+ *   [render]   — the document is usable on a phone, in a mail client, on paper.
+ *
+ * Touches no database, contacts no provider, sends no email.
+ */
+
+import { readFileSync } from 'node:fs';
+import { renderProteinGuideHtml } from '../src/lib/guide/renderProteinGuide.ts';
+import { currentProteinGuide, proteinGuideAvailable } from '../src/lib/guide/proteinGuide.ts';
+import { GUIDE_PAGES, GUIDE_COVER } from '../src/lib/guide/proteinGuideContent.ts';
+
+let pass = 0, fail = 0;
+const t = (name, cond) => {
+  if (cond) { pass++; console.log('  PASS  ' + name); }
+  else      { fail++; console.log('  FAIL  ' + name); }
+};
+const section = s => console.log('\n' + s);
+
+const src = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
+
+const HTML = renderProteinGuideHtml();
+
+// ── Reduce the document to what a patient can see ────────────────────────────
+//
+// Body only, minus the hidden preheader; entities decoded; tags removed;
+// whitespace collapsed. What remains is the readable surface, which is the only
+// thing the content lock has an opinion about.
+const visible = (() => {
+  let s = HTML.slice(HTML.indexOf('<body'));
+  s = s.replace(/<div style="display:none[\s\S]*?<\/div>/, ' ');
+  s = s.replace(/<[^>]+>/g, ' ');
+  s = s
+    .replace(/&bull;/g, ' • ')
+    .replace(/&copy;/g, '©')
+    .replace(/&middot;/g, '·')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&');
+  return s.replace(/\s+/g, ' ').trim();
+})();
+
+// ── The manuscript, as approved ──────────────────────────────────────────────
+//
+// '@@PAGE n' markers and the '•  ' list prefixes are manuscript layout, not
+// wording: the renderer draws the bullet as a glyph and the page number as a
+// numeral, so both are normalised away here. A citation marker is reattached to
+// its sentence exactly where the manuscript sets it — a marker that drifted to a
+// different sentence would misattribute a source, and must fail.
+const fixtureLines = src('scripts/fixtures/proteinGuideV1_2.manuscript.txt')
+  .split('\n')
+  .map(l => l.trim())
+  .filter(Boolean)
+  .filter(l => !l.startsWith('@@PAGE'))
+  .map(l => l.replace(/^•\s+/, ''))
+  .map(l => l.replace(/\[\[CITE([^\]]+)\]\]/g, ' $1'))
+  .map(l => l.replace(/^\d+\.\s+/, ''))
+  .map(l => l.replace(/\s+/g, ' '));
+
+section('-- A. The visible document is Manuscript v1.2 and nothing else --');
+{
+  // Every approved line, in manuscript order.
+  let cursor = 0, missing = null, outOfOrder = null;
+  const spans = [];
+  for (const line of fixtureLines) {
+    const at = visible.indexOf(line, cursor);
+    if (at === -1) {
+      if (visible.includes(line)) { outOfOrder ??= line; }
+      else { missing ??= line; }
+      break;
+    }
+    spans.push([at, at + line.length]);
+    cursor = at + line.length;
+  }
+  t('[lock]   every approved manuscript line is present, verbatim'
+    + (missing ? ` — missing: "${missing.slice(0, 70)}..."` : ''), missing === null);
+  t('[lock]   approved lines appear in manuscript order'
+    + (outOfOrder ? ` — moved: "${outOfOrder.slice(0, 70)}..."` : ''), outOfOrder === null);
+
+  // Nothing else is visible. Anything between two approved lines must be
+  // presentational furniture that this phase declared in advance.
+  const ALLOWED = new Set([
+    '',
+    '•',                                            // list glyph
+    'MyoGuard Protocol',                                 // cover eyebrow
+    '© 2026 Meridian Wellness Systems LLC · myoguard.health',
+  ]);
+  const isAllowedGap = g => {
+    const s = g.trim();
+    if (ALLOWED.has(s)) return true;
+    if (/^\d{2}$/.test(s)) return true;                  // page numeral, 02–08
+    if (/^\d\.$/.test(s)) return true;                   // reference numeral
+    return false;
+  };
+  const gaps = [];
+  let prev = 0;
+  for (const [a, b] of spans) { gaps.push(visible.slice(prev, a)); prev = b; }
+  gaps.push(visible.slice(prev));
+  const intruders = gaps.filter(g => !isAllowedGap(g)).map(g => g.trim());
+  t('[lock]   no unapproved text is visible anywhere in the document'
+    + (intruders.length ? ` — found: "${intruders[0].slice(0, 90)}"` : ''), intruders.length === 0);
+
+  t('[lock]   all eight manuscript pages are represented',
+    GUIDE_PAGES.length === 7 && GUIDE_PAGES[0].n === 2 && GUIDE_PAGES[6].n === 8
+    && typeof GUIDE_COVER.title === 'string');
+}
+
+section('-- B. The nine references and the verified Page 7 values --');
+{
+  const refs = GUIDE_PAGES.at(-1).blocks.find(b => b.k === 'refs');
+  t('[lock]   the reference library carries exactly nine references',
+    refs !== undefined && refs.items.length === 9);
+  t('[lock]   every reference is visible in the rendered document',
+    refs.items.every(r => visible.includes(r.replace(/\s+/g, ' '))));
+  t('[safety] no reference was invented — each carries a DOI',
+    refs.items.every(r => /DOI\s10\./.test(r)));
+
+  // The Page 7 amounts were verified against USDA FoodData Central in M2 and
+  // carried unchanged through M2B. They are asserted individually because a
+  // silent digit change here is the highest-consequence, lowest-visibility
+  // defect this asset can carry.
+  const P7 = [
+    '1 large egg — around 6 g',
+    '100 g plain Greek yogurt — around 10 g',
+    '100 g cottage cheese — around 10–12 g',
+    'A glass of milk (about 250 ml) — around 8 g',
+    '100 g cooked chicken breast — around 31 g',
+    '100 g canned tuna in water, drained — around 20 g',
+    '100 g cooked white fish — around 20–25 g',
+    '100 g lean cooked beef — around 26–30 g, depending on the cut',
+    '100 g cooked lentils — around 9 g',
+    '100 g cooked beans — around 8–9 g',
+    '100 g tofu — around 10–17 g, depending on firmness and brand. Check the label.',
+  ];
+  t('[lock]   all eleven verified Page 7 protein amounts are unchanged',
+    P7.every(v => visible.includes(v)));
+  t('[lock]   the USDA source line accompanies the food values',
+    visible.includes('Food composition values: USDA FoodData Central.'));
+}
+
+section('-- C. Renal safety and SRI wording are untouched --');
+{
+  t('[safety] the renal checkpoint states guidance is bidirectional',
+    visible.includes('In some situations clinicians advise reducing protein. In others — including dialysis, and in some older adults who are frail or have low muscle — clinicians advise the opposite.'));
+  t('[safety] the renal instruction to speak with a clinician first survives',
+    visible.includes('If you have kidney disease or any prescribed diet, do not substantially increase your protein intake before speaking with your clinician.'));
+  // The manuscript discusses kidney health at length and must keep doing so.
+  // What C3F-3C prohibits is an *assessment instruction* — a number to look up,
+  // a test to request, a threshold to act on. That is what this matches.
+  t('[safety] no eGFR or kidney-assessment instruction was introduced',
+    !/\b(eGFR|creatinine|albumin[- ]to[- ]creatinine|\bACR\b|CKD stage|kidney function (test|result|number))\b/i.test(visible));
+  t('[safety] the SRI description is the approved one, unaltered',
+    visible.includes('The Sarcopenia Risk Index (SRI) is a physician-led Clinical Decision Support tool that helps clinicians consider factors associated with vulnerability to sarcopenia and muscle compromise during treatment.'));
+  t('[safety] the clinical disclaimer is intact',
+    visible.includes('This guide is general education. It is not medical advice, it is not a diet plan, and it does not create a clinician–patient relationship.'));
+}
+
+section('-- D. No new clinical claim, target or commercial ask --');
+{
+  // Dossier §14 prohibitions, asserted against the rendered surface.
+  t('[safety] no protein target, ratio or gram-per-kilogram figure',
+    !/g\s*\/\s*kg|grams? per kilo|per kg of body|1\.\d\s*g\/kg/i.test(visible));
+  t('[safety] no hydration, calorie or macro target',
+    !/\b(calorie target|macro|kcal|\d+\s*(ml|litres?|liters?|glasses)\s+(of\s+)?(water|fluid) (a|per) day)\b/i.test(visible));
+  t('[safety] no supplement recommendation',
+    !/\b(supplement|whey|creatine|collagen|protein powder|shake)s?\b/i.test(visible));
+  t('[safety] no titration or dose-adjustment guidance',
+    !/\b(titrat|increase your dose|reduce your dose|adjust your dose|skip a dose)/i.test(visible));
+  t('[safety] no digestibility rating or protein-quality scoring',
+    !/\b(DIAAS|PDCAAS|biological value|digestibility (score|rating)|complete protein)\b/i.test(visible));
+  // Page 2 explains what a body-composition scan does and does not measure, and
+  // that explanation is the guide's most important clinical framing. The
+  // prohibition is on telling a patient to obtain or track one.
+  t('[safety] no body-composition testing or lean-mass tracking instruction',
+    !/\b(DEXA|DXA|InBody|bioimpedance)\b/i.test(visible)
+    && !/\b(ask for|request|get|book|arrange|repeat) (a |an )?(scan|body[- ]composition)/i.test(visible)
+    && !/\b(track|monitor|check) your (lean|muscle|body composition)/i.test(visible));
+  // Page 7 disclaims guarantees, which is the opposite of promising one, so the
+  // bare word must not fail. Only an actual promise does.
+  t('[safety] no preventive or protective promise',
+    !/\b(prevents? sarcopenia|protects? your muscle|preserves? (your )?muscle|will (protect|preserve|prevent)|guarantees? (that|you|results))/i.test(visible));
+  t('[safety] no "clinically proven" or "doctor-approved" framing',
+    !/\b(clinically proven|doctor[- ]approved|physician[- ]approved|medically proven)\b/i.test(visible));
+  t('[safety] the asset contains no link, button or call to action',
+    !/<a\s|href=|Click here|Get started|Book a|Sign up|Subscribe|Upgrade/i.test(HTML));
+
+  // The visual specification's internal production labels. These name sections
+  // for the design unit and were never patient copy; if one reached the page it
+  // would read as a clinical heading the manuscript never approved.
+  const INTERNAL_LABELS = [
+    'Lean Mass vs. Muscle Quality',
+    'Nutrition & Physical Activity',
+    'Gastrointestinal Tolerability & Safety',
+    'Educational Safety Checkpoint',
+    'Whole-Food Protein Reference',
+    'renal monitoring alerts',
+  ];
+  t('[safety] no internal production label leaked into patient-facing copy',
+    INTERNAL_LABELS.every(l => !visible.toLowerCase().includes(l.toLowerCase())));
+
+  // Part Two is the dossier reconciliation record. Patients must never see it.
+  t('[safety] the internal citation closure record is not shipped',
+    !/CITATION CLOSURE|Evidence Map|Dossier|GENERAL-EXTRAPOLATED|INCRETIN-SPECIFIC|Founder/i.test(visible));
+}
+
+section('-- E. House terminology --');
+{
+  t('[safety] the instrument is never called a calculator',
+    !/calculator/i.test(visible));
+  t('[safety] the SRI is never described as a score in patient copy',
+    !/\bscores?\b/i.test(visible));
+  t('[safety] the entity is named in full, never as "Meridian Health"',
+    !/Meridian Health/i.test(visible) && visible.includes('Meridian Wellness Systems LLC'));
+}
+
+section('-- F. Rendering, accessibility and print --');
+{
+  t('[render] the document declares a charset and a mobile viewport',
+    /charset="utf-8"/.test(HTML) && /width=device-width/.test(HTML));
+  t('[render] layout is table-based and fluid below its 660px measure',
+    /max-width:660px/.test(HTML) && /width="100%"/.test(HTML));
+  t('[render] a narrow-viewport rule reduces page padding on phones',
+    /@media only screen and \(max-width:620px\)/.test(HTML));
+  t('[render] print rules break one manuscript page to a sheet',
+    /@media print/.test(HTML) && /page-break-after:always/.test(HTML));
+  t('[render] structural styling is inlined, so a client that drops <style> still renders',
+    (HTML.match(/style="/g) || []).length > 150);
+  // Tables here are layout, not data. Left unmarked, a screen reader would
+  // announce the whole guide as forty tables and read it cell by cell.
+  t('[render] every layout table is hidden from assistive technology',
+    (HTML.match(/<table[^>]*>/g) || []).every(tag => /role="presentation"/.test(tag)));
+  t('[render] the document is well-formed — every element is closed',
+    ['table', 'tr', 'td', 'p', 'h1', 'h2', 'h3', 'sup'].every(tag =>
+      (HTML.match(new RegExp('<' + tag + '[ >]', 'g')) || []).length ===
+      (HTML.match(new RegExp('</' + tag + '>', 'g')) || []).length));
+  t('[render] one superscript marker per manuscript citation, and no more',
+    (HTML.match(/<sup/g) || []).length === 11);
+  t('[render] headings descend h1 → h2 → h3 without skipping a level',
+    /<h1[\s>]/.test(HTML) && /<h2[\s>]/.test(HTML) && /<h3[\s>]/.test(HTML)
+    && HTML.indexOf('<h1') < HTML.indexOf('<h2') && HTML.indexOf('<h2') < HTML.indexOf('<h3'));
+  t('[render] teal is never used as body text on the light ground',
+    !/color:#2DD4BF;?"[^>]*>(?![\s]*<)/.test(HTML.replace(/background-color:#0F172A[\s\S]*?<\/table>/, '')));
+  t('[render] the document stays well inside the Gmail clipping threshold',
+    Buffer.byteLength(HTML, 'utf8') < 102000);
+
+  // Amber is reserved for the two genuine safety passages. If it spread, the
+  // document would stop reading as calm clinical education and start reading as
+  // a warning notice — the opposite of the approved register.
+  const amberFields = (HTML.match(/#FFFBEB/g) || []).length;
+  t('[render] amber emphasis stays restrained — three passages at most',
+    amberFields > 0 && amberFields <= 3);
+}
+
+section('-- G. The asset is declared and bound to its version --');
+{
+  const guide = currentProteinGuide();
+  t('[safety] an approved Guide asset is now declared',
+    guide !== null && proteinGuideAvailable() === true);
+  t('[safety] the template id names the manuscript version it delivers',
+    guide.templateId === 'service.protein_guide.v1_2' && guide.version === 'v1.2');
+  t('[safety] the subject line is fixed and carries no clinical claim',
+    guide.subject === 'The MyoGuard Protein Guide');
+  t('[safety] renderHtml takes no argument, so nothing recipient-supplied reaches the body',
+    guide.renderHtml.length === 0);
+  t('[safety] rendering is deterministic',
+    guide.renderHtml() === guide.renderHtml());
+  t('[safety] the content module holds no markup of its own',
+    !/<html|<body|<!DOCTYPE|<table/i.test(src('src/lib/guide/proteinGuideContent.ts')));
+}
+
+console.log(`\n${pass} passed, ${fail} failed`);
+process.exit(fail ? 1 : 0);

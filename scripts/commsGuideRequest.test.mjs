@@ -220,13 +220,24 @@ section('-- F. Logging minimisation and neutral responses --');
 }
 
 // ── G. The Guide asset gate ──────────────────────────────────────────────────
-section('-- G. No approved asset means no delivery --');
+//
+// C3F-2 wrote this section against an undeclared asset, and asserted the
+// refusal. C3F-3C declared Manuscript v1.2, so the first two assertions are
+// inverted deliberately — that is the phase landing, not a regression. What must
+// not change is the gate itself: the route still refuses when nothing is
+// approved, still checks before spending a recipient's budget, and the registry
+// still holds no markup of its own. Content lock for the declared asset lives in
+// scripts/proteinGuideContent.test.mjs.
+section('-- G. An approved asset is declared, and the gate still governs --');
 {
-  t('[behaviour] no approved Protein Guide asset is declared in this build',
-    currentProteinGuide() === null);
-  t('[behaviour] availability reports false',
-    proteinGuideAvailable() === false);
-  t('[safety]    the route refuses rather than sending a placeholder',
+  t('[behaviour] an approved Protein Guide asset is declared in this build',
+    currentProteinGuide() !== null);
+  t('[behaviour] availability reports true',
+    proteinGuideAvailable() === true);
+  t('[safety]    the declared asset is bound to the approved manuscript version',
+    currentProteinGuide().version === 'v1.2'
+    && currentProteinGuide().templateId === 'service.protein_guide.v1_2');
+  t('[safety]    the route still refuses rather than sending a placeholder',
     /if \(!guide\)[\s\S]{0,260}?status: 503/.test(ROUTE));
   t('[ordering]  availability is checked before budget is consumed',
     /currentProteinGuide\([\s\S]*?consumeRecipientBudget\(/.test(ROUTE));
@@ -234,6 +245,8 @@ section('-- G. No approved asset means no delivery --');
     !/lorem|placeholder|TODO content|coming soon/i.test(ASSET));
   t('[safety]    the asset module renders nothing on its own',
     !/<html|<body|<!DOCTYPE/i.test(ASSET));
+  t('[safety]    the subject line is fixed by the asset, never by the caller',
+    /subject:\s*guide\.subject/.test(ROUTE));
 }
 
 // ── H. Existing pathways unchanged ───────────────────────────────────────────

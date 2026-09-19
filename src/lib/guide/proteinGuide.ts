@@ -3,28 +3,22 @@
  *
  * The Protein Guide delivery asset, and the one place it is declared.
  *
- * WHY THIS EXISTS WITH NOTHING IN IT
- * Phase 1D-C3F-2 builds the requested-delivery pathway for the Guide. The Guide
- * itself is clinical content that has not been written or approved, and C3F-2 is
- * explicitly not the phase that writes it.
+ * WHY THE DECLARATION IS INDIRECT
+ * C3F-2 built the requested-delivery pathway while the Guide itself was still
+ * unwritten, and made the pathway refuse to deliver until an approved asset was
+ * declared here. The alternative would have been a placeholder — an email
+ * arriving under the Guide's title carrying nothing a clinician approved — and
+ * for someone asking about protein at a GLP-1 dose, that is worse than sending
+ * nothing.
  *
- * The alternative to an empty declaration is a placeholder — an email that
- * arrives titled "Your MyoGuard Protein Guide" and contains nothing a clinician
- * approved. Someone asked for protein guidance at a GLP-1 dose; sending them
- * filler under that title is worse than sending nothing, so the pathway refuses
- * to deliver until a real asset is declared here.
+ * C3F-3C declared the asset. The indirection proved its worth: the pathway
+ * needed no change at all, and the route's refusal branch still stands as the
+ * behaviour whenever no approved content exists.
  *
  * This is the same shape as the consent-wording registry from C3F-1A, for the
  * same reason: the thing that must exist before the system acts is declared in
  * code, reviewable and attributable to a commit, and its absence is a refusal
  * rather than an improvisation.
- *
- * DECLARING THE ASSET (a future phase)
- * Set CURRENT_GUIDE to a ProteinGuideAsset. The pathway then works with no
- * further change — that is the whole point of the indirection. Never edit a
- * shipped asset's body in place once it has been delivered: bump `version` and
- * the `templateId` with it, so CommunicationEvent rows keep naming the exact
- * artefact that was sent.
  *
  * WHAT AN ASSET MAY NOT BE
  * `renderHtml` takes no arguments. The Guide is one fixed document sent to
@@ -32,6 +26,9 @@
  * supplied reaches the body, so the pathway cannot be used to render attacker
  * text into an email from MyoGuard.
  */
+
+import { GUIDE_MANUSCRIPT_VERSION } from './proteinGuideContent';
+import { renderProteinGuideHtml } from './renderProteinGuide';
 
 export type ProteinGuideAsset = {
   /**
@@ -53,10 +50,27 @@ export type ProteinGuideAsset = {
 /**
  * The approved Guide, or null when none has been approved.
  *
- * NULL TODAY — no approved Protein Guide content exists in this repository.
- * See C3F-2: PROTEIN GUIDE ASSET REQUIRED BEFORE PUBLIC DELIVERY.
+ * DECLARED — Manuscript v1.2 (C3F-3A-M2B Citation Closure), whose ten citation
+ * markers are resolved against the C3F-3A-E Evidence Dossier v1.0 and whose
+ * nine-reference library is attached in full. C3F-3C declared it.
+ *
+ * The content lives in `proteinGuideContent.ts` and its presentation in
+ * `renderProteinGuide.ts`. This file stays a registry and nothing else: it
+ * names which approved artefact is current, and the ledger's templateId is
+ * bound to that version, so a CommunicationEvent always identifies the exact
+ * document a recipient was sent.
+ *
+ * REISSUING
+ * Never edit v1.2's wording in place. A new approved manuscript is a new
+ * content module, a new `version`, and a new `templateId` — so the ledger can
+ * still distinguish what was delivered before it from what was delivered after.
  */
-const CURRENT_GUIDE: ProteinGuideAsset | null = null;
+const CURRENT_GUIDE: ProteinGuideAsset | null = {
+  templateId: 'service.protein_guide.v1_2',
+  version:    GUIDE_MANUSCRIPT_VERSION,
+  subject:    'The MyoGuard Protein Guide',
+  renderHtml: renderProteinGuideHtml,
+};
 
 /**
  * Returns the approved Guide asset, or null when delivery is not yet possible.
