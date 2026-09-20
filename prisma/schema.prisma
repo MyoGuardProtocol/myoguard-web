@@ -37,6 +37,25 @@ model User {
   shareCards          ShareCard[]
   referredBy          User?                @relation("Referrals", fields: [referredById], references: [id])
   referrals           User[]               @relation("Referrals")
+  /// The patient's treating physician. SetNull, never Cascade: deleting a
+  /// physician must never delete their patients, and must never leave a patient
+  /// pointing at a row that no longer exists.
+  ///
+  /// `physicianId` carried no foreign key until Phase 1D-R2A, so a deleted
+  /// physician left a dangling value behind. Both re-linking guards test the
+  /// value's PRESENCE rather than its resolvability — `referral/link` skips the
+  /// write on `if (!patient.physicianId)` and `accept-patient` 409s on any
+  /// non-null mismatch — so a stranded patient could never be linked to a new
+  /// physician again, while their report still read "Shared with your
+  /// physician". Nulling the link at the database level is what makes those
+  /// existing guards correct rather than something a future delete path has to
+  /// remember.
+  ///
+  /// Becoming unlinked is the whole intent: the patient returns to the state a
+  /// newly registered patient occupies and waits for a deliberate new link.
+  /// This is NOT a transfer of care and must never be built into one here.
+  physician           User?                @relation("PatientPhysician", fields: [physicianId], references: [id], onDelete: SetNull)
+  patients            User[]               @relation("PatientPhysician")
   profile             UserProfile?
   weeklyCheckins      WeeklyCheckin[]
 }
