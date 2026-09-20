@@ -74,6 +74,28 @@ const AMBER_INK   = '#FBDCA7';
 
 const SERIF = "Georgia, 'Iowan Old Style', 'Times New Roman', Times, serif";
 
+// ── Print pagination, inlined ────────────────────────────────────────────────
+//
+// These properties exist only in paged media. A browser ignores them on screen,
+// so inlining them changes nothing about the Midnight Silk presentation — and
+// inlining is the only way they survive, because Gmail discards the <style>
+// block outright. Measured: the document prints to 12 sheets with the style
+// block stripped and 16 with it applied, against 8 conceptual pages.
+//
+// `KEEP_TOGETHER` stops a callout or a safety panel being sliced across the
+// fold; `KEEP_WITH_NEXT` stops a heading stranding itself at the foot of a
+// sheet. Both are free in sheet count — measured at 12 sheets with and without
+// them in the style-stripped path — so they are safe to inline everywhere.
+//
+// A forced page break per manuscript page is NOT inlined, and that is a
+// measured decision rather than an oversight. Inlined, it starts each page on a
+// fresh sheet but cannot also shrink the body text, so every page then overflows
+// and the style-stripped document goes from 12 sheets to 16. The break only pays
+// for itself alongside the print sizing in the stylesheet below, so that is
+// where it lives.
+const KEEP_TOGETHER  = 'page-break-inside:avoid;break-inside:avoid;';
+const KEEP_WITH_NEXT = 'page-break-after:avoid;break-after:avoid;';
+
 /** Escapes text for an HTML text node. Content is trusted; correctness is not optional. */
 const esc = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -105,7 +127,7 @@ const LI_STYLE = `margin:0 0 9px;font-family:${SERIF};font-size:16px;line-height
 function renderBlock(b: GuideBlock): string {
   switch (b.k) {
     case 'h3':
-      return `<h3 style="margin:32px 0 12px;font-family:${SERIF};font-size:18px;line-height:1.35;font-weight:700;color:${TEAL};">${esc(b.text)}</h3>`;
+      return `<h3 style="${KEEP_WITH_NEXT}margin:32px 0 12px;font-family:${SERIF};font-size:18px;line-height:1.35;font-weight:700;color:${TEAL};">${esc(b.text)}</h3>`;
 
     case 'p':
       return `<p style="${P_STYLE}">${esc(b.text)}${cite(b.cite)}</p>`;
@@ -114,7 +136,7 @@ function renderBlock(b: GuideBlock): string {
     // a teal rule and a lift in size — no words added, none taken away.
     case 'pull':
       return (
-        `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:26px 0 6px;">` +
+        `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="${KEEP_TOGETHER}margin:26px 0 6px;">` +
         `<tr><td style="border-left:3px solid ${TEAL};padding:4px 0 4px 18px;">` +
         `<p style="margin:0;font-family:${SERIF};font-size:17px;line-height:1.66;color:${CREAM};font-style:italic;">${esc(b.text)}</p>` +
         `</td></tr></table>`
@@ -156,7 +178,7 @@ function renderBlock(b: GuideBlock): string {
 
     case 'alert':
       return (
-        `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:24px 0 6px;background-color:${AMBER_FIELD};border-radius:6px;">` +
+        `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="mg-amber" style="${KEEP_TOGETHER}margin:24px 0 6px;background-color:${AMBER_FIELD};border-radius:6px;">` +
         `<tr><td style="border-left:3px solid ${AMBER_EDGE};padding:16px 20px;">` +
         `<p style="margin:0;font-family:${SERIF};font-size:16px;line-height:1.62;color:${AMBER_INK};font-weight:700;">${esc(b.text)}</p>` +
         `</td></tr></table>`
@@ -164,7 +186,7 @@ function renderBlock(b: GuideBlock): string {
 
     case 'alertList':
       return (
-        `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0 0 20px;background-color:${AMBER_FIELD};border-radius:6px;">` +
+        `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="mg-amber" style="${KEEP_TOGETHER}margin:0 0 20px;background-color:${AMBER_FIELD};border-radius:6px;">` +
         `<tr><td style="border-left:3px solid ${AMBER_EDGE};padding:16px 20px 8px;">` +
         b.items
           .map(
@@ -235,11 +257,16 @@ function renderCover(): string {
  * anything this phase invented.
  */
 function renderPage(p: (typeof GUIDE_PAGES)[number]): string {
+  // The final page is marked explicitly rather than left to `:last-of-type`,
+  // which does not match it: the document footer is a later table sibling, so
+  // the selector found nothing and page 8 took a break of its own, pushing the
+  // footer onto an extra sheet.
+  const last = p.n === GUIDE_PAGES[GUIDE_PAGES.length - 1].n ? ' mg-page-last' : '';
   return (
-    `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="mg-page" style="margin-top:22px;background-color:${PAGE};border:1px solid ${PAGE_EDGE};border-radius:10px;">` +
+    `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="mg-page${last}" style="margin-top:22px;background-color:${PAGE};border:1px solid ${PAGE_EDGE};border-radius:10px;">` +
     `<tr><td class="mg-pad" style="padding:42px 40px 38px;">` +
     `<p style="margin:0 0 7px;font-family:${SERIF};font-size:11px;letter-spacing:2.4px;color:${TEAL};">${p.n < 10 ? '0' : ''}${p.n}</p>` +
-    `<h2 style="margin:0 0 10px;font-family:${SERIF};font-size:26px;line-height:1.3;font-weight:700;color:${CREAM};">${esc(p.title)}</h2>` +
+    `<h2 style="${KEEP_WITH_NEXT}margin:0 0 10px;font-family:${SERIF};font-size:26px;line-height:1.3;font-weight:700;color:${CREAM};">${esc(p.title)}</h2>` +
     `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px;"><tr><td width="52" style="height:2px;background-color:${TEAL};line-height:2px;font-size:0;">&nbsp;</td></tr></table>` +
     p.blocks.map(renderBlock).join('') +
     `</td></tr></table>`
@@ -268,26 +295,51 @@ export function renderProteinGuideHtml(): string {
     `<title>${esc(GUIDE_COVER.title)}</title>` +
     // Enhancement only. Everything load-bearing is inlined above.
     `<style>` +
-    // Without this, printing a dark document is a coin toss: browsers drop
-    // background colours by default and would leave cream text on white paper.
-    // `print-color-adjust:exact` is what keeps the navy — it overrides the
-    // "Background graphics" default in Chromium, Safari and Firefox 97+.
-    `html,body,table,td,div,p,h1,h2,h3{-webkit-print-color-adjust:exact;print-color-adjust:exact;}` +
     `@media only screen and (max-width:620px){` +
     `.mg-pad{padding:30px 22px 26px!important}` +
     `.mg-shell{padding:14px 10px!important}` +
     `}` +
-    // Printing is a first-class outcome: patients are expected to take this to
-    // an appointment. One manuscript page per sheet, bled to the sheet edge so
-    // the navy carries rather than floating in a white margin.
-    `@page{margin:0}` +
+    // ── Clinical Parchment: the approved printed form ────────────────────────
+    //
+    // Printing is a first-class outcome — patients take this to an appointment.
+    // An earlier revision forced the navy onto paper with print-color-adjust.
+    // Gmail discards this block, converts the document to a light sheet of its
+    // own accord, and that is the treatment the Founder reviewed and approved.
+    // So this block now produces the same thing rather than fighting it, and a
+    // browser print matches what Gmail already produces.
+    //
+    // Every rule needs !important: the document's colours are inlined, and an
+    // inline style outranks a stylesheet. Cream body text left unconverted
+    // would print white-on-white, which is why the text rules come first and
+    // the amber panels — dark field, light text — are converted as a unit.
+    `@page{margin:12mm 12mm}` +
     `@media print{` +
-    `body{background:${PAGE}!important}` +
+    `html,body{background:#FFFFFF!important}` +
     `.mg-shell{padding:0!important}` +
-    `.mg-page{margin-top:0!important;border:0!important;border-radius:0!important;page-break-after:always;break-after:page}` +
-    `.mg-pad{padding:18mm 16mm!important}` +
-    `.mg-page:last-of-type{page-break-after:auto;break-after:auto}` +
-    `.mg-foot{padding:10mm 16mm!important}` +
+    `.mg-page{background:#FFFFFF!important;border:0!important;border-radius:0!important;margin-top:0!important;page-break-after:always;break-after:page}` +
+    `.mg-page-last{page-break-after:auto!important;break-after:auto!important}` +
+    `.mg-pad{padding:0 0 4mm!important}` +
+    `.mg-page p,.mg-page span,.mg-page td,.mg-page li{color:#1F2937!important}` +
+    // Paper reads smaller than a screen. 10.5pt with 1.45 leading is ordinary
+    // clinical-handout body size — comfortably readable, and what brings each
+    // manuscript page inside a single sheet. Anything below 10pt would be
+    // buying pagination with legibility, which the brief rules out.
+    `.mg-page p,.mg-page span,.mg-page td,.mg-page li{font-size:10.5pt!important;line-height:1.45!important}` +
+    `.mg-page p{margin:0 0 5pt!important}` +
+    // The list cells and the safety panels carry screen-scale padding. Left
+    // alone they are what pushes the two dense pages — the everyday foods and
+    // the safety checkpoint — over the fold.
+    `.mg-page tr>td[valign=top]{padding-bottom:3pt!important}` +
+    `.mg-amber td{padding:8pt 11pt!important}` +
+    `.mg-page h1{font-size:19pt!important;margin:0 0 6pt!important}` +
+    `.mg-page h2{font-size:14pt!important;margin:0 0 5pt!important}` +
+    `.mg-page h3{font-size:11.5pt!important;margin:9pt 0 3pt!important}` +
+    `.mg-page sup{font-size:7.5pt!important}` +
+    `.mg-page h1,.mg-page h2{color:#0F172A!important}` +
+    `.mg-page h3,.mg-page sup{color:#0F766E!important}` +
+    `.mg-amber{background-color:#FFF8E7!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}` +
+    `.mg-amber td,.mg-amber p{color:#78350F!important}` +
+    `.mg-foot p{color:#6B7280!important}` +
     `}` +
     `</style>` +
     `</head>` +

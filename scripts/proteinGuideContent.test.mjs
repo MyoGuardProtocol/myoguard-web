@@ -286,7 +286,9 @@ section('-- F. Rendering, accessibility and print --');
   // The Founder's C3F-3C visual decision. Asserted rather than eyeballed,
   // because a later edit that returns one page to a light card would otherwise
   // pass review unnoticed.
-  const pageSurfaces = (HTML.match(/class="mg-page"[^>]*background-color:#0F172A/g) || []).length;
+  // The final page also carries mg-page-last, so the class attribute is matched
+  // loosely rather than exactly.
+  const pageSurfaces = (HTML.match(/class="mg-page[^"]*"[^>]*background-color:#0F172A/g) || []).length;
   t('[render] all eight pages sit on the Midnight Navy surface',
     pageSurfaces === 8);
   t('[render] no light card surface survives anywhere in the document',
@@ -294,12 +296,37 @@ section('-- F. Rendering, accessibility and print --');
   t('[render] the document declares itself dark, so mail clients do not invert it',
     /name="color-scheme" content="dark"/.test(HTML));
 
-  // Printing a dark document without this leaves cream text on white paper.
-  t('[render] print-color-adjust keeps the navy when printing or saving as PDF',
-    /print-color-adjust:exact/.test(HTML)
-    && /-webkit-print-color-adjust:exact/.test(HTML));
-  t('[render] the print sheet keeps a navy ground rather than reverting to white',
-    /@media print\{body\{background:#0F172A!important\}/.test(HTML));
+  // ── Clinical Parchment: the approved printed form ────────────────────────
+  //
+  // Screen and paper deliberately diverge. Gmail converts the document to a
+  // light sheet when printing and the Founder approved that result, so the
+  // print stylesheet produces the same thing rather than forcing navy onto
+  // paper. The screen assertions above are what guard the Midnight Silk
+  // presentation; these guard the printed one.
+  t('[render] the print sheet is light, not navy',
+    /@media print\{html,body\{background:#FFFFFF!important\}/.test(HTML)
+    && !/@media print\{body\{background:#0F172A/.test(HTML));
+  t('[render] every inlined text colour is converted for paper',
+    /\.mg-page p,\.mg-page span,\.mg-page td,\.mg-page li\{color:#1F2937!important\}/.test(HTML)
+    && /\.mg-page h1,\.mg-page h2\{color:#0F172A!important\}/.test(HTML)
+    && /\.mg-page h3,\.mg-page sup\{color:#0F766E!important\}/.test(HTML));
+  // The amber panels are a dark field with light text. Converted as a unit or
+  // not at all — a half-conversion prints amber text on an amber-dark ground.
+  t('[render] the safety panels convert as a unit, never half-converted',
+    /\.mg-amber\{background-color:#FFF8E7!important/.test(HTML)
+    && /\.mg-amber td,\.mg-amber p\{color:#78350F!important\}/.test(HTML)
+    && (HTML.match(/class="mg-amber"/g) || []).length === 3);
+  t('[render] each manuscript page starts a fresh sheet, and the last does not',
+    /\.mg-page\{[^}]*page-break-after:always/.test(HTML)
+    && /\.mg-page-last\{page-break-after:auto!important/.test(HTML)
+    && (HTML.match(/class="mg-page mg-page-last"/g) || []).length === 1);
+  // Paged-media only, so inlining them cannot touch the screen. They stop a
+  // safety panel being sliced across a fold or a heading stranding itself.
+  t('[render] callouts and headings carry inline keep-together rules',
+    (HTML.match(/page-break-inside:avoid/g) || []).length >= 5
+    && (HTML.match(/page-break-after:avoid/g) || []).length >= 25);
+  t('[render] print body text stays at a readable size',
+    /font-size:10\.5pt!important/.test(HTML) && !/font-size:[0-9]pt!important/.test(HTML));
 }
 
 section('-- G. The asset is declared and bound to its version --');
