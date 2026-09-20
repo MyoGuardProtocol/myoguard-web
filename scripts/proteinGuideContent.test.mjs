@@ -303,19 +303,65 @@ section('-- F. Rendering, accessibility and print --');
   // print stylesheet produces the same thing rather than forcing navy onto
   // paper. The screen assertions above are what guard the Midnight Silk
   // presentation; these guard the printed one.
-  t('[render] the print sheet is light, not navy',
-    /@media print\{html,body\{background:#FFFFFF!important\}/.test(HTML)
-    && !/@media print\{body\{background:#0F172A/.test(HTML));
-  t('[render] every inlined text colour is converted for paper',
-    /\.mg-page p,\.mg-page span,\.mg-page td,\.mg-page li\{color:#1F2937!important\}/.test(HTML)
-    && /\.mg-page h1,\.mg-page h2\{color:#0F172A!important\}/.test(HTML)
-    && /\.mg-page h3,\.mg-page sup\{color:#0F766E!important\}/.test(HTML));
-  // The amber panels are a dark field with light text. Converted as a unit or
-  // not at all — a half-conversion prints amber text on an amber-dark ground.
-  t('[render] the safety panels convert as a unit, never half-converted',
-    /\.mg-amber\{background-color:#FFF8E7!important/.test(HTML)
-    && /\.mg-amber td,\.mg-amber p\{color:#78350F!important\}/.test(HTML)
-    && (HTML.match(/class="mg-amber"/g) || []).length === 3);
+  // ── The blank-band defect, locked shut ──────────────────────────────────
+  //
+  // The printed Guide came back as ten sheets with four dark bands that read
+  // as inserted blank pages. The cause was a colour split: print whitened
+  // `html`, `body` and `.mg-page`, but the wrapper table carries #080C14
+  // inline and was never overridden, so it painted the column Midnight Silk
+  // under every white page box and showed through wherever a page fell short.
+  //
+  // The band cannot come back while the ground and the page surface are the
+  // same colour. That is what this asserts — not a shade, but the identity.
+  t('[render] the sheet ground and the page surface are the same colour in print',
+    /@media print\{html,body\{background-color:#0F172A!important\}/.test(HTML)
+    && /\.mg-ground\{background-color:#0F172A!important\}/.test(HTML)
+    && !/@media print\{[^@]*\.mg-page\{[^}]*background/.test(HTML));
+  // Midnight Silk is preserved on paper rather than converted to a light
+  // sheet, so nothing may re-whiten a surface or re-colour the inlined text.
+  t('[render] print preserves Midnight Silk instead of converting it',
+    !/#FFFFFF!important/.test(HTML)
+    && !/color:#1F2937!important/.test(HTML)
+    && !/background-color:#FFF8E7!important/.test(HTML));
+  // Load-bearing. Browsers drop backgrounds when printing by default; without
+  // this the navy would not paint and the cream body text would print
+  // white-on-white. Every surface that carries a background needs it.
+  t('[render] every printed surface forces its background to paint',
+    /html,body,\.mg-ground,\.mg-page,\.mg-amber\{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important\}/.test(HTML));
+  // Three amber passages, unchanged in count, now split across two classes:
+  // the panel carries mg-alert for its top margin, the list does not.
+  t('[render] amber emphasis stays restrained — three passages, still a dark field',
+    (HTML.match(/class="mg-amber mg-alert"/g) || []).length === 2
+    && (HTML.match(/class="mg-amber"/g) || []).length === 1
+    && /class="mg-amber[^"]*" style="[^"]*background-color:#261B0E/.test(HTML));
+  // Pagination is bought with layout — paper margins, furniture margins and
+  // apparatus sizing — never by shrinking what the patient actually reads.
+  t('[render] print body text stays at a readable size', (() => {
+    const print = HTML.slice(HTML.indexOf('@media print'), HTML.indexOf('</style>'));
+    if (!/\.mg-page p,\.mg-page span,\.mg-page td,\.mg-page li\{font-size:10\.5pt!important/.test(print)) return false;
+    // Everything that carries reading text must be 8pt or more. The only
+    // declarations allowed below that are the superscript citation marker,
+    // which is a marker rather than text, and the two hairline spacer cells.
+    return print
+      .split('}')
+      .filter(r => /font-size:[\d.]+pt/.test(r))
+      .filter(r => !/\.mg-page sup\{/.test(r))
+      .every(r => parseFloat(r.match(/font-size:([\d.]+)pt/)[1]) >= 8);
+  })());
+  // The references are apparatus and set smaller than body copy, but they are
+  // a patient's route to the evidence and must not shrink to footnote dust.
+  t('[render] references are apparatus, but not below 8pt',
+    /\.mg-refs td\{font-size:8pt!important/.test(HTML));
+  // The hairlines are spacer cells holding font-size:0. The blanket cell rule
+  // overrode both and inflated them into ~19px slabs on paper.
+  t('[render] hairline rules survive the blanket print cell rule',
+    /\.mg-hr td\{font-size:0!important;line-height:1px!important/.test(HTML)
+    && /\.mg-rule td\{font-size:0!important;line-height:2px!important/.test(HTML));
+  // The 660px reading measure is a screen constraint; on paper it only buys
+  // extra lines, which is height the two dense pages cannot spare.
+  t('[render] the column opens to the full printable width on paper',
+    /\.mg-wrap\{width:100%!important;max-width:none!important\}/.test(HTML)
+    && (HTML.match(/class="mg-wrap"/g) || []).length === 1);
   t('[render] each manuscript page starts a fresh sheet, and the last does not',
     /\.mg-page\{[^}]*page-break-after:always/.test(HTML)
     && /\.mg-page-last\{page-break-after:auto!important/.test(HTML)
@@ -325,8 +371,6 @@ section('-- F. Rendering, accessibility and print --');
   t('[render] callouts and headings carry inline keep-together rules',
     (HTML.match(/page-break-inside:avoid/g) || []).length >= 5
     && (HTML.match(/page-break-after:avoid/g) || []).length >= 25);
-  t('[render] print body text stays at a readable size',
-    /font-size:10\.5pt!important/.test(HTML) && !/font-size:[0-9]pt!important/.test(HTML));
 }
 
 section('-- G. The asset is declared and bound to its version --');

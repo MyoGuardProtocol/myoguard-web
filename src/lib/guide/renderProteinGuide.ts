@@ -136,7 +136,7 @@ function renderBlock(b: GuideBlock): string {
     // a teal rule and a lift in size — no words added, none taken away.
     case 'pull':
       return (
-        `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="${KEEP_TOGETHER}margin:26px 0 6px;">` +
+        `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="mg-pull" style="${KEEP_TOGETHER}margin:26px 0 6px;">` +
         `<tr><td style="border-left:3px solid ${TEAL};padding:4px 0 4px 18px;">` +
         `<p style="margin:0;font-family:${SERIF};font-size:17px;line-height:1.66;color:${CREAM};font-style:italic;">${esc(b.text)}</p>` +
         `</td></tr></table>`
@@ -147,7 +147,7 @@ function renderBlock(b: GuideBlock): string {
 
     case 'ul':
       return (
-        `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0 0 18px;">` +
+        `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="mg-list" style="margin:0 0 18px;">` +
         b.items
           .map(
             it =>
@@ -178,7 +178,7 @@ function renderBlock(b: GuideBlock): string {
 
     case 'alert':
       return (
-        `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="mg-amber" style="${KEEP_TOGETHER}margin:24px 0 6px;background-color:${AMBER_FIELD};border-radius:6px;">` +
+        `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="mg-amber mg-alert" style="${KEEP_TOGETHER}margin:24px 0 6px;background-color:${AMBER_FIELD};border-radius:6px;">` +
         `<tr><td style="border-left:3px solid ${AMBER_EDGE};padding:16px 20px;">` +
         `<p style="margin:0;font-family:${SERIF};font-size:16px;line-height:1.62;color:${AMBER_INK};font-weight:700;">${esc(b.text)}</p>` +
         `</td></tr></table>`
@@ -205,7 +205,7 @@ function renderBlock(b: GuideBlock): string {
     // abbreviated: a public clinical claim carries its visible source.
     case 'refs':
       return (
-        `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:4px 0 0;">` +
+        `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="mg-refs" style="margin:4px 0 0;">` +
         b.items
           .map(
             (it, i) =>
@@ -237,7 +237,7 @@ function renderCover(): string {
     `<p style="margin:0 0 28px;font-family:${SERIF};font-size:11px;letter-spacing:2.4px;text-transform:uppercase;color:${TEAL};">MyoGuard Protocol</p>` +
     `<h1 style="margin:0 0 14px;font-family:${SERIF};font-size:33px;line-height:1.24;font-weight:700;color:${CREAM};">${esc(GUIDE_COVER.title)}</h1>` +
     `<p style="margin:0 0 32px;font-family:${SERIF};font-size:18px;line-height:1.5;color:${TEAL};">${esc(GUIDE_COVER.subtitle)}</p>` +
-    `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0 0 32px;"><tr><td style="height:1px;background-color:${PAGE_EDGE};line-height:1px;font-size:0;">&nbsp;</td></tr></table>` +
+    `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="mg-hr" style="margin:0 0 32px;"><tr><td style="height:1px;background-color:${PAGE_EDGE};line-height:1px;font-size:0;">&nbsp;</td></tr></table>` +
     GUIDE_COVER.lede
       .map(
         l =>
@@ -267,7 +267,7 @@ function renderPage(p: (typeof GUIDE_PAGES)[number]): string {
     `<tr><td class="mg-pad" style="padding:42px 40px 38px;">` +
     `<p style="margin:0 0 7px;font-family:${SERIF};font-size:11px;letter-spacing:2.4px;color:${TEAL};">${p.n < 10 ? '0' : ''}${p.n}</p>` +
     `<h2 style="${KEEP_WITH_NEXT}margin:0 0 10px;font-family:${SERIF};font-size:26px;line-height:1.3;font-weight:700;color:${CREAM};">${esc(p.title)}</h2>` +
-    `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px;"><tr><td width="52" style="height:2px;background-color:${TEAL};line-height:2px;font-size:0;">&nbsp;</td></tr></table>` +
+    `<table role="presentation" cellpadding="0" cellspacing="0" border="0" class="mg-rule" style="margin:0 0 26px;"><tr><td width="52" style="height:2px;background-color:${TEAL};line-height:2px;font-size:0;">&nbsp;</td></tr></table>` +
     p.blocks.map(renderBlock).join('') +
     `</td></tr></table>`
   );
@@ -299,47 +299,80 @@ export function renderProteinGuideHtml(): string {
     `.mg-pad{padding:30px 22px 26px!important}` +
     `.mg-shell{padding:14px 10px!important}` +
     `}` +
-    // ── Clinical Parchment: the approved printed form ────────────────────────
+    // ── The printed form: Midnight Silk, one page per sheet ────────────────
     //
     // Printing is a first-class outcome — patients take this to an appointment.
-    // An earlier revision forced the navy onto paper with print-color-adjust.
-    // Gmail discards this block, converts the document to a light sheet of its
-    // own accord, and that is the treatment the Founder reviewed and approved.
-    // So this block now produces the same thing rather than fighting it, and a
-    // browser print matches what Gmail already produces.
     //
-    // Every rule needs !important: the document's colours are inlined, and an
-    // inline style outranks a stylesheet. Cream body text left unconverted
-    // would print white-on-white, which is why the text rules come first and
-    // the amber panels — dark field, light text — are converted as a unit.
-    `@page{margin:12mm 12mm}` +
+    // WHAT WAS WRONG BEFORE, precisely. An earlier revision whitened `html`,
+    // `body` and `.mg-page` for print but not the wrapper table, which carries
+    // `background-color:#080C14` inline. With background graphics enabled that
+    // table painted the whole printable column Midnight Silk, each white page
+    // box sat on top of it, and the unused remainder below a short page showed
+    // through as a dark band — which reads exactly like an inserted blank page.
+    // Four of them, between pages 04/05, 05/06, 06/07 and 07/08.
+    //
+    // The fix is not to chase every surface white. It is to let the document
+    // print as what it already is. Ground, wrapper and page all resolve to the
+    // same Midnight Navy, so a page that does not quite fill its sheet leaves
+    // no visible band — there is nothing for the eye to read as a break.
+    //
+    // Because the palette is now preserved rather than converted, every colour
+    // rule that used to live here is gone: the inline styles already say navy,
+    // cream and teal. What remains is geometry, plus `print-color-adjust`.
+    //
+    // THAT PROPERTY IS LOAD-BEARING. Browsers drop background colours when
+    // printing by default. Without it the navy would not paint and the cream
+    // body text would print white-on-white — invisible. It is declared on every
+    // surface that carries a background, not just the amber panels.
+    `@page{margin:8mm 10mm}` +
     `@media print{` +
-    `html,body{background:#FFFFFF!important}` +
+    `html,body{background-color:${PAGE}!important}` +
+    `html,body,.mg-ground,.mg-page,.mg-amber{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}` +
+    `.mg-ground{background-color:${PAGE}!important}` +
     `.mg-shell{padding:0!important}` +
-    `.mg-page{background:#FFFFFF!important;border:0!important;border-radius:0!important;margin-top:0!important;page-break-after:always;break-after:page}` +
+    // 660px is a reading measure for a screen. On paper the sheet already
+    // supplies the margin, and holding the column 65px narrower than the page
+    // only buys extra lines — which is height the dense pages cannot spare.
+    `.mg-wrap{width:100%!important;max-width:none!important}` +
+    `.mg-page{margin-top:0!important;border:0!important;border-radius:0!important;page-break-after:always;break-after:page}` +
     `.mg-page-last{page-break-after:auto!important;break-after:auto!important}` +
-    `.mg-pad{padding:0 0 4mm!important}` +
-    `.mg-page p,.mg-page span,.mg-page td,.mg-page li{color:#1F2937!important}` +
-    // Paper reads smaller than a screen. 10.5pt with 1.45 leading is ordinary
-    // clinical-handout body size — comfortably readable, and what brings each
-    // manuscript page inside a single sheet. Anything below 10pt would be
-    // buying pagination with legibility, which the brief rules out.
-    `.mg-page p,.mg-page span,.mg-page td,.mg-page li{font-size:10.5pt!important;line-height:1.45!important}` +
-    `.mg-page p{margin:0 0 5pt!important}` +
-    // The list cells and the safety panels carry screen-scale padding. Left
-    // alone they are what pushes the two dense pages — the everyday foods and
-    // the safety checkpoint — over the fold.
-    `.mg-page tr>td[valign=top]{padding-bottom:3pt!important}` +
-    `.mg-amber td{padding:8pt 11pt!important}` +
+    `.mg-pad{padding:0!important}` +
+    // Paper reads smaller than a screen. 10.5pt with 1.42 leading is ordinary
+    // clinical-handout body size, and 1.38 leading is 14.5pt on 10.5pt type —
+    // ordinary book setting. Body size is held constant across every page: the
+    // pagination below is bought with layout, never by shrinking body copy.
+    `.mg-page p,.mg-page span,.mg-page td,.mg-page li{font-size:10.5pt!important;line-height:1.38!important}` +
+    `.mg-page p{margin:0 0 4pt!important}` +
+    `.mg-page tr>td[valign=top]{padding-bottom:2pt!important}` +
+    // The hairlines are spacer cells: a 1px cover divider and the 2px teal rule
+    // under each page title, each holding `font-size:0;line-height:1px`. The
+    // blanket cell rule above overrode both, inflating every hairline into a
+    // ~19px slab on paper. They are restored to hairlines explicitly.
+    `.mg-hr td{font-size:0!important;line-height:1px!important;padding:0!important}` +
+    `.mg-rule td{font-size:0!important;line-height:2px!important;padding:0!important}` +
+    `.mg-amber td{padding:7pt 10pt!important}` +
     `.mg-page h1{font-size:19pt!important;margin:0 0 6pt!important}` +
-    `.mg-page h2{font-size:14pt!important;margin:0 0 5pt!important}` +
-    `.mg-page h3{font-size:11.5pt!important;margin:9pt 0 3pt!important}` +
+    `.mg-page h2{font-size:14pt!important;margin:0 0 4pt!important}` +
+    `.mg-page h3{font-size:11.5pt!important;margin:6pt 0 3pt!important}` +
     `.mg-page sup{font-size:7.5pt!important}` +
-    `.mg-page h1,.mg-page h2{color:#0F172A!important}` +
-    `.mg-page h3,.mg-page sup{color:#0F766E!important}` +
-    `.mg-amber{background-color:#FFF8E7!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}` +
-    `.mg-amber td,.mg-amber p{color:#78350F!important}` +
-    `.mg-foot p{color:#6B7280!important}` +
+    // The references are apparatus, not reading. The blanket body rule above
+    // was in fact enlarging them — from 13px on screen to 10.5pt on paper —
+    // which is what pushed page 08 onto a second sheet. Setting them back to
+    // apparatus size restores the manuscript's own hierarchy and reclaims it.
+    `.mg-refs td{font-size:8pt!important;line-height:1.3!important;padding-bottom:1pt!important}` +
+    // Structural furniture carries screen-scale margins inline — the rule under
+    // each title, the gaps around lists, pull quotes and safety panels. None of
+    // it was overridden for print, so every page paid 26px under its title and
+    // 18px after each list. Reclaiming that is pure layout: not one character
+    // of clinical copy moves, and no type gets smaller.
+    `.mg-rule{margin:0 0 8pt!important}` +
+    `.mg-list{margin:0 0 7pt!important}` +
+    `.mg-pull{margin:8pt 0 3pt!important}` +
+    `.mg-amber{margin-bottom:4pt!important}` +
+    `.mg-alert{margin-top:10pt!important}` +
+    `.mg-foot-wrap{margin-top:3pt!important}` +
+    `.mg-foot{padding:0!important}` +
+    `.mg-foot p{font-size:8.5pt!important;line-height:1.3!important}` +
     `}` +
     `</style>` +
     `</head>` +
@@ -347,15 +380,15 @@ export function renderProteinGuideHtml(): string {
     // Preheader: the manuscript's own subtitle, so the inbox preview is approved
     // content rather than a line written for the inbox.
     `<div style="display:none;font-size:1px;color:${SHELL};line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">${esc(GUIDE_COVER.subtitle)}</div>` +
-    `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:${SHELL};">` +
+    `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="mg-ground" style="background-color:${SHELL};">` +
     `<tr><td align="center" class="mg-shell" style="padding:28px 16px 40px;">` +
-    `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="660" style="width:100%;max-width:660px;">` +
+    `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="660" class="mg-wrap" style="width:100%;max-width:660px;">` +
     `<tr><td>` +
     renderCover() +
     GUIDE_PAGES.map(renderPage).join('') +
     // Document identity. Not clinical content, and deliberately not marketing:
     // no call to action, no link, nothing to click.
-    `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-top:24px;">` +
+    `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="mg-foot-wrap" style="margin-top:24px;">` +
     `<tr><td align="center" class="mg-foot" style="padding:4px 12px;">` +
     `<p style="margin:0;font-family:${SERIF};font-size:12px;line-height:1.6;color:${MUTED};">&copy; 2026 Meridian Wellness Systems LLC &middot; myoguard.health</p>` +
     `</td></tr></table>` +
