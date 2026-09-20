@@ -122,25 +122,38 @@ export function GuideRequestForm() {
     }
   }
 
+  // ── Confirmed ──────────────────────────────────────────────────────────────
+  //
+  // Deliberately compact, and visually a smaller object than the request panel
+  // it replaces. The article continues below this point, and a tall celebratory
+  // block here would read as though the Guide itself had arrived on the page.
+  // It has not: it is in the recipient's inbox, and the copy says so plainly.
   if (status === 'sent') {
     return (
-      <section style={PANEL_STYLE} aria-live="polite">
-        <p style={LABEL_STYLE}>Request received</p>
-        <h2
+      <section
+        aria-live="polite"
+        style={{
+          background: '#0D1421',
+          border: '1px solid #1A2744',
+          borderLeft: '3px solid #2DD4BF',
+          borderRadius: '12px',
+          padding: '18px 22px',
+        }}
+      >
+        <p
           style={{
             fontFamily: 'Georgia, serif',
-            fontSize: '1.25rem',
+            fontSize: '1.0625rem',
             fontWeight: 700,
             color: '#F1F5F9',
-            margin: '0 0 12px 0',
-            lineHeight: 1.35,
+            margin: '0 0 6px 0',
+            lineHeight: 1.4,
           }}
         >
-          Thank you — your request has been received
-        </h2>
-        <p style={{ fontSize: '0.9375rem', color: '#94A3B8', lineHeight: 1.8, margin: 0 }}>
-          If the Guide can be delivered to that address, it is on its way. It may take a few
-          minutes to arrive, and it is worth checking your spam folder if you do not see it.
+          Your Guide is on its way.
+        </p>
+        <p style={{ fontSize: '0.875rem', color: '#94A3B8', lineHeight: 1.7, margin: 0 }}>
+          Check your inbox in the next few minutes.
         </p>
       </section>
     );
@@ -150,6 +163,10 @@ export function GuideRequestForm() {
     <section style={PANEL_STYLE}>
       <p style={LABEL_STYLE}>Free educational guide</p>
 
+      {/* The article explains what is happening. The Guide is what you do with
+          it — so the ask names the practical material the page does not carry,
+          rather than promising a better version of what the reader just read.
+          Every item listed is content the Guide actually contains. */}
       <h2
         style={{
           fontFamily: 'Georgia, serif',
@@ -160,7 +177,7 @@ export function GuideRequestForm() {
           lineHeight: 1.3,
         }}
       >
-        Get the MyoGuard Protein Guide
+        Want the practical version?
       </h2>
 
       <p
@@ -180,8 +197,21 @@ export function GuideRequestForm() {
           fontSize: '0.9375rem',
           color: '#94A3B8',
           lineHeight: 1.8,
+          margin: '0 0 8px 0',
+          maxWidth: '540px',
+        }}
+      >
+        Get the MyoGuard Protein Guide, including the safety checkpoint, everyday protein foods,
+        strategies for low-appetite days, and questions to discuss with your clinician.
+      </p>
+
+      <p
+        style={{
+          fontSize: '0.9375rem',
+          color: '#94A3B8',
+          lineHeight: 1.8,
           margin: '0 0 20px 0',
-          maxWidth: '520px',
+          maxWidth: '540px',
         }}
       >
         A physician-led educational guide to help you understand protein, nutrition and muscle

@@ -228,12 +228,69 @@ function Block({ b }: { b: GuideBlock }) {
 const pageNumber = (n: number): GuidePage | undefined =>
   GUIDE_PAGES.find(p => p.n === n);
 
+/**
+ * The manuscript pages this article carries, and the line between the two
+ * assets.
+ *
+ * Pages 2, 3 and 4 are understanding: what happens to lean tissue, why lean
+ * mass is not skeletal muscle, what the evidence does and does not establish,
+ * why protein is not the whole picture, and why eating becomes harder. Someone
+ * who reads only this page and never gives an address leaves genuinely better
+ * informed, which is the point — the article is not a teaser.
+ *
+ * Pages 5 through 8 are the practical reference and stay with the emailed
+ * Guide: the safety checkpoint and renal considerations, the protein-smart
+ * eating principles, the everyday foods and their approximate amounts, the
+ * low-appetite strategies, and the questions to take to a clinician. Those are
+ * what someone keeps, returns to and prints, and they are the reason the Guide
+ * is worth asking for.
+ *
+ * WHY DROPPING PAGE 5 IS SAFE HERE, AND WOULD NOT BE ELSEWHERE
+ * Page 5 governs *increasing* protein intake — it is the checkpoint a reader
+ * must pass before acting on protein advice. This article gives no protein
+ * advice: no target, no amount, no instruction to eat more of anything. Pages
+ * 2–4 describe what is happening to the body and why eating is harder, and the
+ * only action any of them recommends is talking to your own clinician. The
+ * moment this page acquires a practical protein instruction, Page 5 has to come
+ * back with it.
+ *
+ * Page 4 keeps its symptom list in full for the same reason, inverted: telling
+ * someone that losing their appetite is expected, without telling them which
+ * symptoms need a clinician, would be worse than saying nothing.
+ */
+const ARTICLE_PAGES = [2, 3, 4] as const;
+
 /** Manuscript Page 8 from "About MyoGuard" onward — the positioning tail. */
 function positioningTail(): readonly GuideBlock[] {
   const p8 = pageNumber(8);
   if (!p8) return [];
   const at = p8.blocks.findIndex(b => b.k === 'h3' && b.text === 'About MyoGuard');
   return at === -1 ? [] : p8.blocks.slice(at);
+}
+
+/**
+ * The reference numbers actually cited by the pages this article carries.
+ *
+ * The full nine-reference library belongs to the Guide. Printing all nine here
+ * would list sources for claims the article never makes. Renumbering the subset
+ * would be worse still: the marker-to-source mapping was clinically reconciled
+ * in C3F-3A-M2B, and a renumbered list would silently attribute a claim to the
+ * wrong paper. So the cited subset is shown at its original numbers, gaps and
+ * all — every marker on the page resolves, and none points anywhere new.
+ */
+function citedReferenceNumbers(): number[] {
+  const cited = new Set<number>();
+  for (const n of ARTICLE_PAGES) {
+    for (const b of pageNumber(n)?.blocks ?? []) {
+      if (b.k === 'p' && b.cite) {
+        for (const part of b.cite.split(',')) {
+          const v = Number(part.trim());
+          if (Number.isInteger(v)) cited.add(v);
+        }
+      }
+    }
+  }
+  return [...cited].sort((a, b) => a - b);
 }
 
 function ManuscriptSection({ n, label }: { n: number; label: string }) {
@@ -340,14 +397,24 @@ export default function ProteinOnGlp1Page() {
 
         {/* ── Approved manuscript material ────────────────────────────── */}
         <ManuscriptSection n={2} label="What the evidence shows" />
+        <ManuscriptSection n={3} label="Beyond protein" />
         <ManuscriptSection n={4} label="Eating during treatment" />
-        <ManuscriptSection n={5} label="Before you change what you eat" />
 
-        {/* ── Positioning and disclaimer ──────────────────────────────── */}
+        {/* ── Positioning, disclaimer and the cited sources ───────────── */}
         <section style={CARD_STYLE}>
-          {positioningTail().map((b, i) => (
-            <Block key={i} b={b} />
-          ))}
+          {positioningTail().map((b, i) =>
+            b.k === 'refs' ? (
+              <ol key={i} style={{ paddingLeft: '26px', margin: 0 }}>
+                {citedReferenceNumbers().map(n => (
+                  <li key={n} value={n} style={REF_STYLE}>
+                    {b.items[n - 1]}
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <Block key={i} b={b} />
+            ),
+          )}
         </section>
 
         {/* ── Footer ──────────────────────────────────────────────────── */}

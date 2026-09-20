@@ -61,8 +61,10 @@ section('-- A. Clinical wording comes from the approved manuscript --');
     'Protein and Muscle Health During GLP-1 Treatment',
     'Plain-language education for people being treated with GLP-1 and related medicines, intended to be read alongside advice from your own clinician.',
     'Read the education page and request the MyoGuard Protein Guide by email →',
-    'Thank you — your request has been received',
-    'If the Guide can be delivered to that address, it is on its way. It may take a few minutes to arrive, and it is worth checking your spam folder if you do not see it.',
+    'Want the practical version?',
+    'Get the MyoGuard Protein Guide, including the safety checkpoint, everyday protein foods, strategies for low-appetite days, and questions to discuss with your clinician.',
+    'Your Guide is on its way.',
+    'Check your inbox in the next few minutes.',
     'This is a one-time delivery. Requesting the Guide does not subscribe you to anything. See our',
     // House footer, per the project footer standard.
     'MyoGuard Protocol &middot; Physician-led Clinical Decision Support',
@@ -78,22 +80,56 @@ section('-- A. Clinical wording comes from the approved manuscript --');
     + (undeclared.length ? ` — found: "${undeclared[0].slice(0, 80)}"` : ''),
     undeclared.length === 0);
 
-  // Safety material must travel with the protein material. Page 5 is the renal
-  // checkpoint; rendering the protein pages without it would strip the caveat
-  // that governs everything else on the page.
-  t('[safety] the renal safety page is rendered on the public page',
-    /ManuscriptSection n=\{5\}/.test(TOPIC));
+  // ── The article / Guide separation (C3F-3C funnel refinement) ────────────
+  //
+  // The article carries understanding; the Guide carries the practical
+  // reference. These assertions hold that line in both directions — the page
+  // must stay useful without an email, and must not become the Guide by
+  // scrolling.
+  t('[lock]   the article carries manuscript pages 2, 3 and 4',
+    /ARTICLE_PAGES = \[2, 3, 4\]/.test(TOPIC)
+    && /ManuscriptSection n=\{2\}/.test(TOPIC)
+    && /ManuscriptSection n=\{3\}/.test(TOPIC)
+    && /ManuscriptSection n=\{4\}/.test(TOPIC));
+  t('[safety] the practical Guide pages are NOT rendered publicly',
+    !/ManuscriptSection n=\{5\}/.test(TOPIC)
+    && !/ManuscriptSection n=\{6\}/.test(TOPIC)
+    && !/ManuscriptSection n=\{7\}/.test(TOPIC));
+
+  // Page 5 governs increasing protein intake. Dropping it is safe only while
+  // the article recommends no protein action — if a practical instruction ever
+  // lands here, the checkpoint has to come back with it.
+  const ARTICLE_TEXT = [2, 3, 4]
+    .flatMap(n => GUIDE_PAGES.find(p => p.n === n)?.blocks ?? [])
+    .flatMap(b => ('text' in b ? [b.text] : 'items' in b ? [...b.items] : []))
+    .join(' ');
+  t('[safety] the article gives no protein instruction, so the checkpoint is not owed',
+    !/eat more protein|increase your protein|aim for|include a protein food at each|start the meal with the protein/i
+      .test(ARTICLE_TEXT));
+  t('[safety] no everyday-food amounts appear on the public page',
+    !/around \d+\s*g|100 g cooked|1 large egg/i.test(ARTICLE_TEXT));
+
+  // Page 4 is the inverse case: its symptom list must travel with it, because
+  // "losing your appetite is expected" without "here is when to call" is worse
+  // than silence.
+  t('[safety] page 4 keeps its clinical-attention symptoms',
+    /Vomiting that keeps returning/.test(ARTICLE_TEXT)
+    && /Signs of dehydration/.test(ARTICLE_TEXT));
   t('[safety] the page renders whole manuscript pages, not selected sentences',
     /page\.blocks\.map/.test(TOPIC) && !/blocks\.slice\(0/.test(TOPIC));
   t('[safety] the clinical disclaimer and positioning tail are rendered',
     /positioningTail/.test(TOPIC) && /About MyoGuard/.test(TOPIC));
 
-  // Every citation marker shown must resolve to a visible source.
+  // Every citation marker shown must resolve to a visible source, and the
+  // subset must keep its original numbering — renumbering would reattribute a
+  // claim to the wrong paper.
   const refs = GUIDE_PAGES.at(-1).blocks.find(b => b.k === 'refs');
-  t('[lock]   the nine references reach the public page with the tail',
-    refs.items.length === 9
-    && GUIDE_PAGES.at(-1).blocks.findIndex(b => b.k === 'h3' && b.text === 'About MyoGuard')
-       < GUIDE_PAGES.at(-1).blocks.findIndex(b => b.k === 'refs'));
+  t('[lock]   the full nine-reference library remains with the Guide',
+    refs.items.length === 9);
+  t('[lock]   the article shows only the sources it cites, at original numbers',
+    /citedReferenceNumbers/.test(TOPIC)
+    && /b\.items\[n - 1\]/.test(TOPIC)
+    && /<li key=\{n\} value=\{n\}/.test(TOPIC));
   t('[lock]   citation markers are rendered for cited claims',
     /sup/.test(TOPIC) && /b\.cite/.test(TOPIC));
 
@@ -135,9 +171,16 @@ section('-- B. The request panel is not a subscription --');
 
   // The route answers a suppressed send exactly as a delivered one. The UI must
   // not undo that by asserting delivery.
-  t('[safety] success copy does not assert that mail was sent',
-    /If the Guide can be delivered to that address/.test(FORM)
-    && !/We have sent|Check your inbox now|Your Guide has been sent/i.test(FORM));
+  // The API answers a suppressed send exactly as a delivered one, and the UI
+  // must not reintroduce the difference: one success state, no branch on
+  // outcome, nothing said about the address itself.
+  t('[safety] there is exactly one success state, with no branch on send outcome',
+    (FORM.match(/status === 'sent'/g) || []).length === 1
+    && !/suppressed|bounce|complaint/i.test(FORM));
+  t('[safety] the success state does not imply the Guide is on the page',
+    /Your Guide is on its way\./.test(FORM)
+    && /Check your inbox in the next few minutes\./.test(FORM)
+    && !/below|keep reading|scroll/i.test(FORM));
   t('[safety] failure copy never describes the address',
     !/that address is already|already registered|not found|unknown address/i.test(FORM));
 }
