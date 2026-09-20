@@ -6,11 +6,14 @@
  *
  * THE DIVISION THIS FILE HONOURS
  * The manuscript is the clinical authority; this file controls appearance only.
- * It therefore contains no patient-facing sentence of its own. Every visible
- * string originates in `proteinGuideContent.ts`, and the only text this module
- * introduces is the document's own footer identity and the numerals of the
- * manuscript's own pagination. If a clinical sentence ever needs to change, it
- * changes in a new approved manuscript — never here.
+ * Every clinical string originates in `proteinGuideContent.ts`. The text this
+ * module introduces is limited, declared and non-clinical: the document's own
+ * footer identity, the numerals of the manuscript's own pagination, and the two
+ * strings of the save/print action (`PDF_ACTION_LABEL`, `PDF_ACTION_NOTE`),
+ * added by the Founder's C3F-3C delivery-format decision. The content-lock
+ * suite allows exactly those and fails on anything further. If a clinical
+ * sentence ever needs to change, it changes in a new approved manuscript —
+ * never here.
  *
  * WHY INLINE STYLES RATHER THAN A STYLESHEET
  * This document is delivered as email. Several clients discard <style> blocks
@@ -58,6 +61,7 @@ import {
   GUIDE_PAGES,
   type GuideBlock,
 } from './proteinGuideContent';
+import { proteinGuidePdfUrl } from './proteinGuidePdf';
 
 // ── Midnight Silk tokens ─────────────────────────────────────────────────────
 
@@ -73,6 +77,21 @@ const AMBER_FIELD = '#261B0E'; // amber as a deep warm field, not a bright panel
 const AMBER_INK   = '#FBDCA7';
 
 const SERIF = "Georgia, 'Iowan Old Style', 'Times New Roman', Times, serif";
+
+// ── The only two patient-facing strings this module owns ─────────────────────
+//
+// Everything else visible in the Guide comes from the approved manuscript. The
+// Founder's C3F-3C delivery-format decision added one action to the email, and
+// these are its words. They are declared here, as named constants, so that the
+// content-lock suite can allow exactly these two strings and nothing else: any
+// further sentence written into this file fails the lock.
+//
+// The label is the Founder's wording verbatim. The note exists because a
+// recipient now receives the same Guide twice, in two formats, and without one
+// factual line the second copy reads as a duplicate rather than the printable
+// one. It states what the PDF is. It does not sell it.
+const PDF_ACTION_LABEL = 'Download / Print the Protein Guide (PDF)';
+const PDF_ACTION_NOTE  = 'The fixed eight-page version, for saving or printing.';
 
 // ── Print pagination, inlined ────────────────────────────────────────────────
 //
@@ -99,6 +118,17 @@ const KEEP_WITH_NEXT = 'page-break-after:avoid;break-after:avoid;';
 /** Escapes text for an HTML text node. Content is trusted; correctness is not optional. */
 const esc = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+/**
+ * Escapes a value destined for a quoted attribute.
+ *
+ * The only attribute value this document builds from configuration is the PDF
+ * URL, which comes from an environment variable. A stray quote there would
+ * close the attribute and let the rest of the value become markup, so the
+ * quotes are escaped rather than assumed absent.
+ */
+const escAttr = (s: string): string =>
+  esc(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
 /**
  * A superscript citation marker.
@@ -274,6 +304,41 @@ function renderPage(p: (typeof GUIDE_PAGES)[number]): string {
 }
 
 /**
+ * The canonical save/print action.
+ *
+ * WHY THIS EXISTS AT ALL
+ * Gmail's native print does not preserve this document's print stylesheet, so
+ * its eight-page pagination cannot be guaranteed through the recipient's own
+ * client. The PDF is paginated once, under a browser we control, and shipped
+ * fixed. The email stays the readable surface; the PDF is what to save or
+ * print. Measured, not assumed: Gmail printed the styled document to twelve
+ * sheets both before and after the print CSS was corrected.
+ *
+ * WHY IT IS NOT MARKETING, AND MUST NOT BECOME IT
+ * It offers the same document the recipient just asked for, in the format they
+ * would print. It carries no subscription, no second ask, no tracking
+ * parameter and no destination other than the Guide itself. The delivery stays
+ * ESSENTIAL_SERVICE because nothing here requests or implies any further
+ * permission — a second link, an offer or an invitation would change that, and
+ * the governance suite fails if one appears.
+ *
+ * WHY IT IS HIDDEN IN PRINT
+ * The PDF is generated from this same HTML. Left visible it would paginate
+ * into the artifact, adding a ninth element to an eight-page document and
+ * printing a link to the very file being read.
+ */
+function renderPdfAction(): string {
+  const url = proteinGuidePdfUrl();
+  return (
+    `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="mg-action" style="margin-top:22px;background-color:${PAGE};border:1px solid ${PAGE_EDGE};border-radius:10px;">` +
+    `<tr><td style="padding:20px 40px;">` +
+    `<a href="${escAttr(url)}" style="font-family:${SERIF};font-size:16.5px;line-height:1.6;color:${TEAL};font-weight:700;text-decoration:underline;">${esc(PDF_ACTION_LABEL)}</a>` +
+    `<p style="margin:8px 0 0;font-family:${SERIF};font-size:13.5px;line-height:1.62;color:${MUTED};">${esc(PDF_ACTION_NOTE)}</p>` +
+    `</td></tr></table>`
+  );
+}
+
+/**
  * Renders the complete Guide.
  *
  * Takes no arguments, and must not grow any: the Guide is one fixed document
@@ -373,6 +438,10 @@ export function renderProteinGuideHtml(): string {
     `.mg-foot-wrap{margin-top:3pt!important}` +
     `.mg-foot{padding:0!important}` +
     `.mg-foot p{font-size:8.5pt!important;line-height:1.3!important}` +
+    // The save/print action is a screen affordance. The PDF is printed from
+    // this same document, so leaving it visible would paginate a link to the
+    // artifact into the artifact, and make an eight-page Guide nine.
+    `.mg-action{display:none!important}` +
     `}` +
     `</style>` +
     `</head>` +
@@ -385,6 +454,7 @@ export function renderProteinGuideHtml(): string {
     `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="660" class="mg-wrap" style="width:100%;max-width:660px;">` +
     `<tr><td>` +
     renderCover() +
+    renderPdfAction() +
     GUIDE_PAGES.map(renderPage).join('') +
     // Document identity. Not clinical content, and deliberately not marketing:
     // no call to action, no link, nothing to click.

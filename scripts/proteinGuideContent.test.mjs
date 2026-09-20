@@ -107,8 +107,18 @@ section('-- A. The visible document is Manuscript v1.2 and nothing else --');
     'MyoGuard Protocol',                                 // cover eyebrow
     '© 2026 Meridian Wellness Systems LLC · myoguard.health',
   ]);
+  // The save/print action, added by the Founder's C3F-3C delivery-format
+  // decision. Declared here as the exact strings the renderer owns: they are
+  // subtracted from a gap before it is judged, so these two may appear and
+  // nothing else may travel with them. A third sentence fails the lock.
+  const DECLARED_ACTION_TEXT = [
+    'Download / Print the Protein Guide (PDF)',
+    'The fixed eight-page version, for saving or printing.',
+  ];
   const isAllowedGap = g => {
-    const s = g.trim();
+    let s = g.trim();
+    for (const declared of DECLARED_ACTION_TEXT) s = s.split(declared).join(' ');
+    s = s.replace(/\s+/g, ' ').trim();
     if (ALLOWED.has(s)) return true;
     if (/^\d{2}$/.test(s)) return true;                  // page numeral, 02–08
     if (/^\d\.$/.test(s)) return true;                   // reference numeral
@@ -203,8 +213,28 @@ section('-- D. No new clinical claim, target or commercial ask --');
     !/\b(prevents? sarcopenia|protects? your muscle|preserves? (your )?muscle|will (protect|preserve|prevent)|guarantees? (that|you|results))/i.test(visible));
   t('[safety] no "clinically proven" or "doctor-approved" framing',
     !/\b(clinically proven|doctor[- ]approved|physician[- ]approved|medically proven)\b/i.test(visible));
-  t('[safety] the asset contains no link, button or call to action',
-    !/<a\s|href=|Click here|Get started|Book a|Sign up|Subscribe|Upgrade/i.test(HTML));
+  // The Guide carried no link at all until the canonical PDF existed. It now
+  // carries exactly one, and the point of this assertion is that it stays one:
+  // a requested document offering itself in a printable format is still the
+  // requested document, but a second destination would make the email a
+  // surface that acquires rather than delivers, and would put the
+  // ESSENTIAL_SERVICE classification in question.
+  t('[safety] the asset carries exactly one link, and it is this Guide as a PDF',
+    (HTML.match(/<a\s/g) || []).length === 1
+    && (HTML.match(/href=/g) || []).length === 1
+    && /href="https:\/\/[^"]*\/guides\/myoguard-protein-guide-v1\.2\.pdf"/.test(HTML));
+  t('[safety] the link carries no tracking, no redirect and no recipient identity',
+    !/href="[^"]*[?&]/.test(HTML)
+    && !/href="[^"]*(utm_|token=|t=|e=|uid=|email=|rid=)/i.test(HTML)
+    && !/href="(mailto:|tel:)/i.test(HTML));
+  t('[safety] the asset contains no button or commercial call to action',
+    !/Click here|Get started|Book a|Sign up|Subscribe|Upgrade|Buy|Order now|Learn more|Free trial/i.test(HTML));
+  // The action is a screen affordance. The canonical PDF is printed from this
+  // same HTML, so if it were not hidden in print it would paginate into the
+  // artifact — a ninth element, and a link to the file being read.
+  t('[safety] the save/print action is excluded from the printed artifact',
+    /\.mg-action\{display:none!important\}/.test(HTML)
+    && (HTML.match(/class="mg-action"/g) || []).length === 1);
 
   // The visual specification's internal production labels. These name sections
   // for the design unit and were never patient copy; if one reached the page it
