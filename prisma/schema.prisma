@@ -195,15 +195,39 @@ model WeeklyCheckin {
   user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+/// A patient-initiated, unauthenticated read link to their own clinical summary.
+///
+/// The token is a BEARER CREDENTIAL, not an identifier. Anyone holding the URL
+/// reads the record, so its lifetime is bounded in two independent ways:
+/// `expiresAt` (30 days absolute from creation — never sliding, because a link
+/// that renews on every open would never expire at all) and `revokedAt`, which
+/// the owning patient controls.
+///
+/// `shareToken` carries no `@default`. There is exactly one create site, and
+/// removing the default makes it a compile error for a future one to mint a
+/// token without choosing its entropy — the previous `cuid()` default was a
+/// collision-resistant identifier being used as a secret.
+///
+/// `expiresAt` is nullable so enforcement and backfill stay independent: a
+/// legacy row reads as non-expiring until the transition backfill stamps it,
+/// so a partial backfill degrades to today's behaviour rather than locking
+/// patients out of their own links.
 model ShareCard {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   userId     String
   score      Float
   riskBand   RiskBand
   imageUrl   String?
-  shareToken String   @unique @default(cuid())
-  createdAt  DateTime @default(now())
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shareToken String    @unique
+  createdAt  DateTime  @default(now())
+  /// Absolute expiry. Null = legacy row, pending the transition backfill.
+  expiresAt  DateTime?
+  /// Set by the owning patient. Closes the bearer channel; never unlinks a
+  /// treating physician, who holds authenticated access independently.
+  revokedAt  DateTime?
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
 }
 
 model ReferralInvite {

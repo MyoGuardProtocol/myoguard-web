@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/src/lib/prisma";
+import { resolveActiveShareCard } from "@/src/lib/share/shareAccess";
 
 export async function GET(req: Request) {
   const { userId: clerkId } = await auth();
@@ -21,15 +22,19 @@ export async function GET(req: Request) {
   const invite = searchParams.get("invite");
   if (!invite) return NextResponse.json({ ok: false, error: "invite required" }, { status: 422 });
 
-  const shareCard = await prisma.shareCard.findUnique({
-    where:  { shareToken: invite },
-    select: { userId: true },
-  });
+  // Expiry and revocation are enforced here, not only on the report page.
+  // Without this a physician holding a withdrawn link could still retrieve the
+  // patient's name and risk band from this endpoint.
+  const access = await resolveActiveShareCard(invite);
 
-  if (!shareCard) return NextResponse.json({ ok: false, error: "Invalid invitation" }, { status: 404 });
+  // One answer for unknown, expired and revoked — this endpoint must not
+  // report which, or it becomes an oracle for probing tokens.
+  if (!access.ok) {
+    return NextResponse.json({ ok: false, error: "Invalid invitation" }, { status: 404 });
+  }
 
   const patient = await prisma.user.findUnique({
-    where:  { id: shareCard.userId },
+    where:  { id: access.card.userId },
     select: {
       id:          true,
       fullName:    true,

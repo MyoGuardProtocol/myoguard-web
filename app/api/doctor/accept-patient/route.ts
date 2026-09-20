@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/src/lib/prisma";
+import { resolveActiveShareCard } from "@/src/lib/share/shareAccess";
 
 export async function POST(req: Request) {
   try {
@@ -30,17 +31,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "shareToken required" }, { status: 422 });
     }
 
-    const shareCard = await prisma.shareCard.findUnique({
-      where:  { shareToken },
-      select: { userId: true },
-    });
+    // The linkage write below is permanent, so share access is checked before
+    // anything is read or written. An expired or revoked link must not be able
+    // to establish a treating-physician relationship.
+    const access = await resolveActiveShareCard(shareToken);
 
-    if (!shareCard) {
+    if (!access.ok) {
       return NextResponse.json({ ok: false, error: "Invalid invitation token" }, { status: 404 });
     }
 
     const patient = await prisma.user.findUnique({
-      where:  { id: shareCard.userId },
+      where:  { id: access.card.userId },
       select: { id: true, physicianId: true, role: true },
     });
 

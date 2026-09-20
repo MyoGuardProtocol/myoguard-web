@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { Resend } from "resend";
 import { prisma } from "@/src/lib/prisma";
+import { resolveActiveShareCard } from "@/src/lib/share/shareAccess";
 import { escapeHtml } from "@/src/lib/email/templates/BaseEmail";
 import { consumeRecipientBudget } from "@/src/lib/emailThrottle";
 import {
@@ -218,11 +219,9 @@ export async function POST(req: Request) {
     // ── 8. Pending patient invitation (physician arrived from a shared report) ─
     if (inviteToken) {
       try {
-        const shareCard = await prisma.shareCard.findUnique({
-          where:  { shareToken: inviteToken },
-          select: { userId: true },
-        });
-        if (shareCard) {
+        // Same rule as registration: no pending invitation from a lapsed link.
+        const access = await resolveActiveShareCard(inviteToken);
+        if (access.ok) {
           const physicianRow = await prisma.user.findUnique({
             where:  { clerkId: userId },
             select: { id: true },
@@ -236,7 +235,7 @@ export async function POST(req: Request) {
               await prisma.physicianPatientInvitation.create({
                 data: {
                   shareToken:      inviteToken,
-                  patientUserId:   shareCard.userId,
+                  patientUserId:   access.card.userId,
                   status:          "PENDING",
                   claimedByUserId: physicianRow.id,
                   expiresAt:       new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),

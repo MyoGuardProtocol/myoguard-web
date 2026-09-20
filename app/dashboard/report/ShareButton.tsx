@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import QRCode from 'react-qr-code';
+import { SHARE_NOTICE_TEXT } from '@/src/lib/share/shareNotice';
 
 // ─── Share message templates ──────────────────────────────────────────────────
 const WHATSAPP_MSG =
@@ -15,8 +16,13 @@ const EMAIL_BODY =
   "I'm sharing my MyoGuard Protocol summary with you as my treating physician.\n\n" +
   'MyoGuard Protocol is a physician-led Clinical Decision Support platform for muscle preservation during GLP-1 therapy. This summary was generated using the Sarcopenia Risk Index (SRI) framework and is shared for your clinical review.';
 
-// ─── sessionStorage key for consent (persists within the browser tab session) ─
-const CONSENT_KEY = 'myoguard_share_consent';
+// Consent is deliberately NOT persisted across dialogs.
+//
+// It used to live in sessionStorage so the tick survived reopening. Since 1D-R1
+// the acknowledgement is what causes the link to be generated and is recorded
+// server-side as evidence of the patient's act, so a remembered tick would
+// mean a link could be minted without the patient affirming anything on that
+// occasion. It resets every time the dialog opens.
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Stage = 'idle' | 'loading' | 'open' | 'error';
@@ -33,35 +39,77 @@ export default function ShareButton({ physicianLinked = false, physicianName = n
   const [copied, setCopied]       = useState(false);
   const [errorMsg, setErrorMsg]   = useState('');
   const [consented, setConsented] = useState(false);
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
+  const [revoking, setRevoking]   = useState(false);
+  const [revoked, setRevoked]     = useState(false);
   const closeBtnRef               = useRef<HTMLButtonElement>(null);
 
-  // ── Restore consent from sessionStorage after mount (avoids hydration mismatch)
-  useEffect(() => {
-    setConsented(sessionStorage.getItem(CONSENT_KEY) === 'true');
-  }, []);
+  // The link exists AND the patient has acknowledged on this occasion. Every
+  // share action is gated on this, not on the tick alone — between ticking and
+  // the link arriving there is nothing to copy.
+  const ready = consented && shareUrl !== '';
 
-  const toggleConsent = () => {
-    setConsented(prev => {
-      const next = !prev;
-      sessionStorage.setItem(CONSENT_KEY, String(next));
-      return next;
-    });
-  };
-
-  // ── Fetch share token + open modal ─────────────────────────────────────────
-  const open = async () => {
-    setStage('loading');
+  // ── Generate — only ever called from the acknowledgement ──────────────────
+  //
+  // The acknowledgement is what creates the link. That ordering is the point:
+  // the server records the act against the notice version the patient was
+  // shown, so "the patient intentionally generated this" is evidenced rather
+  // than assumed.
+  const generate = async () => {
     setErrorMsg('');
     try {
-      const res  = await fetch('/api/report/share', { method: 'POST' });
+      const res = await fetch('/api/report/share', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ acknowledged: true }),
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Failed to generate link');
       setShareUrl(data.url);
-      setStage('open');
+      setExpiresAt(data.expiresAt ?? null);
+      setRevoked(false);
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : 'Something went wrong');
-      setStage('error');
+      setConsented(false);
     }
+  };
+
+  const toggleConsent = () => {
+    const next = !consented;
+    setConsented(next);
+    if (next && shareUrl === '') void generate();
+  };
+
+  // ── Revoke ────────────────────────────────────────────────────────────────
+  //
+  // Closes the bearer channel everywhere. It does not affect a linked
+  // physician, who reads the record through authenticated access — so this is
+  // safe to offer plainly, without warning the patient away from using it.
+  const revoke = async () => {
+    setRevoking(true);
+    setErrorMsg('');
+    try {
+      const res = await fetch('/api/report/share', { method: 'DELETE' });
+      if (!res.ok) throw new Error('Could not revoke the link');
+      setShareUrl('');
+      setExpiresAt(null);
+      setConsented(false);
+      setRevoked(true);
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : 'Something went wrong');
+    } finally {
+      setRevoking(false);
+    }
+  };
+
+  // ── Open the dialog. No link is generated until the notice is acknowledged.
+  const open = () => {
+    setConsented(false);
+    setShareUrl('');
+    setExpiresAt(null);
+    setRevoked(false);
+    setErrorMsg('');
+    setStage('open');
   };
 
   const close = useCallback(() => setStage('idle'), []);
@@ -88,20 +136,20 @@ export default function ShareButton({ physicianLinked = false, physicianName = n
 
   // ── Share actions ───────────────────────────────────────────────────────────
   const copy = async () => {
-    if (!consented) return;
+    if (!ready) return;
     await navigator.clipboard.writeText(shareUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
   };
 
   const shareWhatsApp = () => {
-    if (!consented) return;
+    if (!ready) return;
     const text = encodeURIComponent(`${WHATSAPP_MSG}\n\n${shareUrl}`);
     window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener,noreferrer');
   };
 
   const shareEmail = () => {
-    if (!consented) return;
+    if (!ready) return;
     const subject = encodeURIComponent(EMAIL_SUBJECT);
     const body    = encodeURIComponent(`${EMAIL_BODY}\n\n${shareUrl}`);
     window.location.href = `mailto:?subject=${subject}&body=${body}`;
@@ -120,6 +168,32 @@ export default function ShareButton({ physicianLinked = false, physicianName = n
           <p style={{ fontSize: '12px', color: '#64748B', marginTop: '2px' }}>
             Your physician can view this report in the MyoGuard Command Center.
           </p>
+          {/* Being linked used to remove every share control from this view,
+              which left a patient who had already generated a public link with
+              no way to withdraw it. Revoking here closes that link only — the
+              linked physician reads the record through their own authenticated
+              access and is unaffected. */}
+          {revoked ? (
+            <p style={{ fontSize: '12px', color: '#64748B', marginTop: '8px' }}>
+              Your share link has been revoked. Your physician&rsquo;s access is unaffected.
+            </p>
+          ) : (
+            <button
+              type="button"
+              onClick={revoke}
+              disabled={revoking}
+              style={{
+                marginTop: '8px', fontSize: '12px', fontWeight: 600,
+                color: '#F87171', background: 'none', border: 'none',
+                padding: 0, cursor: 'pointer',
+              }}
+            >
+              {revoking ? 'Revoking…' : 'Revoke my share link'}
+            </button>
+          )}
+          {errorMsg && (
+            <p role="alert" style={{ fontSize: '12px', color: '#F87171', marginTop: '4px' }}>{errorMsg}</p>
+          )}
         </div>
       ) : (
         <div className="flex flex-col gap-1">
@@ -188,16 +262,16 @@ export default function ShareButton({ physicianLinked = false, physicianName = n
               <div className="flex flex-col items-center gap-2">
                 {/* QR is blurred + overlaid with a lock when consent has not been given */}
                 <div className="relative bg-white p-3.5 rounded-xl border border-slate-200 shadow-inner inline-block">
-                  <div className={`transition-all duration-300 ${consented ? '' : 'blur-sm select-none pointer-events-none'}`}>
+                  <div className={`transition-all duration-300 ${ready ? '' : 'blur-sm select-none pointer-events-none'}`}>
                     <QRCode
-                      value={shareUrl}
+                      value={shareUrl || 'https://myoguard.health'}
                       size={192}
                       bgColor="#ffffff"
                       fgColor="#0f172a"
                       level="M"
                     />
                   </div>
-                  {!consented && (
+                  {!ready && (
                     <div className="absolute inset-0 flex items-center justify-center rounded-xl">
                       <div className="bg-white/95 rounded-xl px-3 py-2 flex flex-col items-center gap-1 shadow border border-slate-200">
                         <svg className="w-5 h-5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
@@ -225,9 +299,13 @@ export default function ShareButton({ physicianLinked = false, physicianName = n
                 </p>
               </div>
 
-              {/* ── Share authorisation notice ── */}
+              {/* ── Share notice ──────────────────────────────────────────────
+                  The Founder's 1D-R1 doctrine wording, read from the shared
+                  module so the text shown here and the version recorded with
+                  the patient's action cannot drift apart. Three facts: what the
+                  link does, how long it lasts, that it can be withdrawn. */}
               <p className="text-[11px] text-slate-500 leading-relaxed border border-slate-200 rounded-lg px-3 py-2.5 bg-slate-50">
-                By sharing, you authorise MyoGuard to generate a physician-formatted summary of your SRI data for clinical review.
+                {SHARE_NOTICE_TEXT}
               </p>
 
               {/* ── Consent checkbox ── */}
@@ -270,9 +348,12 @@ export default function ShareButton({ physicianLinked = false, physicianName = n
                   )}
                 </span>
                 <span className="text-xs text-slate-700 leading-relaxed">
-                  I consent to sharing this clinical report with my physician.
-                  {consented && (
-                    <span className="ml-1.5 font-semibold text-teal-700">✓ Sharing enabled</span>
+                  I understand, and want to create a link to share with my physician.
+                  {ready && (
+                    <span className="ml-1.5 font-semibold text-teal-700">✓ Link created</span>
+                  )}
+                  {consented && !ready && !errorMsg && (
+                    <span className="ml-1.5 font-semibold text-slate-500">Creating link…</span>
                   )}
                 </span>
               </button>
@@ -284,8 +365,8 @@ export default function ShareButton({ physicianLinked = false, physicianName = n
                 <button
                   type="button"
                   onClick={copy}
-                  disabled={!consented}
-                  aria-disabled={!consented}
+                  disabled={!ready}
+                  aria-disabled={!ready}
                   className="w-full flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3 transition-colors text-left disabled:opacity-40 disabled:cursor-not-allowed enabled:hover:bg-slate-50 enabled:active:bg-slate-100"
                 >
                   <span className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-lg bg-slate-100 text-slate-600">
@@ -310,8 +391,8 @@ export default function ShareButton({ physicianLinked = false, physicianName = n
                 <button
                   type="button"
                   onClick={shareWhatsApp}
-                  disabled={!consented}
-                  aria-disabled={!consented}
+                  disabled={!ready}
+                  aria-disabled={!ready}
                   className="w-full flex items-center gap-3 bg-[#f0fdf4] border border-[#bbf7d0] rounded-xl px-4 py-3 transition-colors text-left disabled:opacity-40 disabled:cursor-not-allowed enabled:hover:bg-[#dcfce7] enabled:active:bg-[#bbf7d0]"
                 >
                   <span className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-lg bg-[#25D366]">
@@ -327,8 +408,8 @@ export default function ShareButton({ physicianLinked = false, physicianName = n
                 <button
                   type="button"
                   onClick={shareEmail}
-                  disabled={!consented}
-                  aria-disabled={!consented}
+                  disabled={!ready}
+                  aria-disabled={!ready}
                   className="w-full flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 transition-colors text-left disabled:opacity-40 disabled:cursor-not-allowed enabled:hover:bg-slate-100 enabled:active:bg-slate-200"
                 >
                   <span className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-lg bg-slate-200">
@@ -340,6 +421,45 @@ export default function ShareButton({ physicianLinked = false, physicianName = n
                 </button>
 
               </div>
+
+              {/* ── Expiry + revocation ─────────────────────────────────────
+                  Both facts the notice promised, made real in the same place
+                  the link is handed over — an expiry the patient can see, and
+                  a control that withdraws it. */}
+              {ready && (
+                <div className="border-t border-slate-100 pt-4 space-y-2">
+                  {expiresAt && (
+                    <p className="text-[11px] text-slate-500 text-center">
+                      This link expires on{' '}
+                      <span className="font-semibold text-slate-700">
+                        {new Date(expiresAt).toLocaleDateString('en-GB', {
+                          day: 'numeric', month: 'long', year: 'numeric',
+                        })}
+                      </span>
+                      .
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={revoke}
+                    disabled={revoking}
+                    className="w-full text-xs font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg py-2 transition-colors disabled:opacity-50"
+                  >
+                    {revoking ? 'Revoking…' : 'Revoke this link'}
+                  </button>
+                </div>
+              )}
+
+              {revoked && (
+                <p role="status" className="text-xs text-slate-600 text-center leading-relaxed border border-slate-200 rounded-lg px-3 py-2.5 bg-slate-50">
+                  This link has been revoked and no longer opens.
+                  Your physician&rsquo;s own access to your record is unaffected.
+                </p>
+              )}
+
+              {errorMsg && (
+                <p role="alert" className="text-xs text-red-600 text-center">{errorMsg}</p>
+              )}
 
               {/* ── Privacy note ── */}
               <p className="text-[10px] text-slate-400 text-center leading-relaxed">

@@ -9,17 +9,20 @@
  *   • Escalation Alert         — conditional on buildEscalationSignal()
  *   • Clinical Interpretation  — from buildInterpretation()
  *   • Suggested Physician Actions — from buildSuggestedActions()
- *   • Physician Review         — static display of saved PhysicianReview record
  *
  * Error handling:
- *   • Invalid / unknown token  → notFound() → 404
+ *   • Unknown / expired / revoked token → identical "link unavailable" page
  *   • DB unavailable           → ServiceUnavailable component → user-friendly 503
  */
 
-import { notFound }             from 'next/navigation';
 import Link                     from 'next/link';
 import { auth }                 from '@clerk/nextjs/server';
 import { prisma }               from '@/src/lib/prisma';
+import {
+  SHARE_UNAVAILABLE_BODY,
+  SHARE_UNAVAILABLE_TITLE,
+  resolveActiveShareCard,
+}                               from '@/src/lib/share/shareAccess';
 import { PROTEIN_GUIDANCE_PENDING_SHORT } from '@/src/lib/clinical/proteinContainment';
 import { generateWeeklyDigest } from '@/src/lib/weeklyDigest';
 import AnalyticsMount           from '@/src/components/analytics/AnalyticsMount';
@@ -54,11 +57,6 @@ const STAGE_LABEL: Record<string, string> = {
   DISCONTINUING:   'Discontinuing',
 };
 
-const IMPRESSION_LABEL: Record<string, string> = {
-  stable:       'Stable — continue current protocol',
-  monitoring:   'Monitoring — watch and reassess',
-  intervention: 'Intervention required',
-};
 
 function longDate(d: Date): string {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -66,6 +64,24 @@ function longDate(d: Date): string {
 
 function shortDate(d: Date): string {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+// ─── Link-unavailable surface ────────────────────────────────────────────────
+//
+// Shown for an unknown token, an expired one and a revoked one alike. The three
+// are indistinguishable by design: a distinct "this link has expired" page
+// would confirm to anyone probing tokens that a patient record sat behind the
+// value they tried. It still tells a clinician who followed a dead link what
+// to do next.
+function ShareUnavailable() {
+  return (
+    <main className="min-h-screen bg-slate-50 font-sans flex items-center justify-center px-5">
+      <div className="max-w-sm w-full text-center space-y-4">
+        <h1 className="text-lg font-bold text-slate-800">{SHARE_UNAVAILABLE_TITLE}</h1>
+        <p className="text-sm text-slate-500 leading-relaxed">{SHARE_UNAVAILABLE_BODY}</p>
+      </div>
+    </main>
+  );
 }
 
 // ─── Service-unavailable fallback ─────────────────────────────────────────────
@@ -102,28 +118,29 @@ export default async function PublicReportPage({
 
   // ── Resolve share token → patient data ────────────────────────────────────
   // Wrap ALL Prisma calls: DB errors return a user-friendly 503, not a raw 500.
-  // Token-not-found still returns proper 404 via notFound().
-  let card: { userId: string; createdAt: Date } | null;
+  // A failed token resolution returns the neutral unavailable page.
+  // Expiry and revocation are enforced through the shared resolver, which every
+  // token consumer uses. Nothing about the patient is read until it says yes.
+  let access: Awaited<ReturnType<typeof resolveActiveShareCard>>;
   try {
-    card = await prisma.shareCard.findUnique({
-      where:  { shareToken: token },
-      select: { userId: true, createdAt: true },
-    });
+    access = await resolveActiveShareCard(token);
   } catch {
     return <ServiceUnavailable />;
   }
 
-  if (!card) notFound();
+  // Unknown, expired and revoked all land here, identically. Telling them apart
+  // would confirm that a guessed token belonged to a real patient.
+  if (!access.ok) return <ShareUnavailable />;
 
   // Fetch the patient's data using their internal userId
   let user: Awaited<ReturnType<typeof fetchUser>> | null;
   try {
-    user = await fetchUser(card.userId);
+    user = await fetchUser(access.card.userId);
   } catch {
     return <ServiceUnavailable />;
   }
 
-  if (!user || !user.assessments[0]?.muscleScore) notFound();
+  if (!user || !user.assessments[0]?.muscleScore) return <ShareUnavailable />;
 
   const latestAssessment = user.assessments[0];
   const ms               = latestAssessment.muscleScore!;
@@ -132,7 +149,7 @@ export default async function PublicReportPage({
   const meta             = BAND_LIGHT[band];
   const pointsToLow      = score < 80 ? 80 - score : null;
 
-  // digest and savedReview are non-critical — failures are swallowed gracefully
+  // digest is non-critical — failures are swallowed gracefully
   let digest: Awaited<ReturnType<typeof generateWeeklyDigest>> = null;
   try {
     digest = await generateWeeklyDigest(user.id);
@@ -154,24 +171,6 @@ export default async function PublicReportPage({
       visitorRole = authUser?.role ?? null;
     }
   } catch { /* non-critical — CTA falls back to unauthenticated state */ }
-
-  let savedReview: {
-    overallImpression: string | null;
-    followUpDays:      number | null;
-    note:              string | null;
-    reviewedAt:        Date;
-  } | null = null;
-  try {
-    savedReview = await prisma.physicianReview.findUnique({
-      where:  { assessmentId: latestAssessment.id },
-      select: {
-        overallImpression: true,
-        followUpDays:      true,
-        note:              true,
-        reviewedAt:        true,
-      },
-    });
-  } catch { /* non-critical — review section simply won't render */ }
 
   // ── Clinical intelligence — same signals as /dashboard/report ────────────────
   const sharedSignals = {
@@ -210,8 +209,12 @@ export default async function PublicReportPage({
         <div className="max-w-3xl mx-auto flex items-center justify-between gap-4">
           <p className="text-xs leading-snug" style={{ color: '#94A3B8' }}>
             <span className="font-semibold">MyoGuard Physician Report</span>
-            {' '}— shared by {user.fullName} on {shortDate(card.createdAt)}.
-            This link always reflects their most recent assessment data.
+            {' '}— shared by {user.fullName} on {shortDate(access.card.createdAt)}.
+            This link reflects their most recent assessment data
+            {access.card.expiresAt
+              ? <> and expires on {shortDate(access.card.expiresAt)}</>
+              : null}.
+            {' '}The patient can revoke it at any time.
           </p>
           <Link
             href="/"
@@ -538,81 +541,15 @@ export default async function PublicReportPage({
             </ol>
           </section>
 
-          {/* ── Physician Review (read-only static display) ── */}
-          {savedReview && (
-            <section>
-              <h2 className="text-[10px] font-bold text-teal-700 uppercase tracking-[0.18em] mb-3">
-                Physician Review
-              </h2>
-              <div className="border border-slate-200 rounded-xl divide-y divide-slate-100">
+          {/* ── Physician Review — deliberately NOT rendered here ──────────────
+              Removed in Phase 1D-R1 by Founder decision. It is one clinician's
+              free-text opinion about the patient, written in a different
+              context; behind a bearer link it is readable by anyone the URL
+              reaches, including whoever it is forwarded to. The receiving
+              clinician is being asked for their own assessment, not another's.
 
-                {/* Header row — reviewed date + author note */}
-                <div className="px-5 py-3 bg-slate-50 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <svg className="w-3.5 h-3.5 text-teal-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span className="text-[11px] font-semibold text-teal-700">
-                      Review recorded {shortDate(savedReview.reviewedAt)}
-                    </span>
-                  </div>
-                  <span className="text-[10px] text-slate-400 font-mono">
-                    {savedReview.reviewedAt.toISOString().slice(0, 10)}
-                  </span>
-                </div>
-
-                {/* Overall impression */}
-                {savedReview.overallImpression && (
-                  <div className="px-5 py-3.5">
-                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
-                      Overall Impression
-                    </p>
-                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${
-                      savedReview.overallImpression === 'stable'
-                        ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                        : savedReview.overallImpression === 'monitoring'
-                        ? 'bg-amber-50 border-amber-200 text-amber-700'
-                        : 'bg-red-50 border-red-200 text-red-700'
-                    }`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${
-                        savedReview.overallImpression === 'stable'
-                          ? 'bg-emerald-500'
-                          : savedReview.overallImpression === 'monitoring'
-                          ? 'bg-amber-500'
-                          : 'bg-red-500'
-                      }`} />
-                      {IMPRESSION_LABEL[savedReview.overallImpression] ?? savedReview.overallImpression}
-                    </span>
-                  </div>
-                )}
-
-                {/* Follow-up timing */}
-                {savedReview.followUpDays != null && (
-                  <div className="px-5 py-3.5">
-                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
-                      Recommended Follow-up
-                    </p>
-                    <p className="text-sm font-bold text-slate-900">
-                      Within {savedReview.followUpDays} days
-                    </p>
-                  </div>
-                )}
-
-                {/* Physician note */}
-                {savedReview.note && (
-                  <div className="px-5 py-3.5">
-                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
-                      Physician Note
-                    </p>
-                    <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
-                      {savedReview.note}
-                    </p>
-                  </div>
-                )}
-
-              </div>
-            </section>
-          )}
+              It remains available at /doctor/patients/[userId] to a linked
+              physician, through authenticated, ownership-checked access. */}
 
           {/* Trajectory */}
           {digest && (digest.projectedScore !== null || digest.streakWeeks > 0) && (

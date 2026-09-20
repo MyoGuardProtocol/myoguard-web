@@ -38,6 +38,7 @@ import { createHmac } from "node:crypto";
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { prisma } from "@/src/lib/prisma";
+import { resolveActiveShareCard } from "@/src/lib/share/shareAccess";
 import { escapeHtml } from "@/src/lib/email/templates/BaseEmail";
 import { consumeRecipientBudget } from "@/src/lib/emailThrottle";
 import { RegistrationSchema, normaliseEmail } from "@/src/lib/onboardingIdentity";
@@ -245,11 +246,10 @@ export async function POST(req: Request) {
     // instead of the empty CCC.
     if (inviteToken && physicianUserId) {
       try {
-        const shareCard = await prisma.shareCard.findUnique({
-          where:  { shareToken: inviteToken },
-          select: { userId: true },
-        });
-        if (shareCard) {
+        // A lapsed link cannot seed a pending invitation either — otherwise
+        // the invitation would outlive the access that justified it.
+        const access = await resolveActiveShareCard(inviteToken);
+        if (access.ok) {
           const existingInvite = await prisma.physicianPatientInvitation.findFirst({
             where:  { shareToken: inviteToken, claimedByUserId: physicianUserId },
             select: { id: true },
@@ -258,7 +258,7 @@ export async function POST(req: Request) {
             await prisma.physicianPatientInvitation.create({
               data: {
                 shareToken:      inviteToken,
-                patientUserId:   shareCard.userId,
+                patientUserId:   access.card.userId,
                 status:          "PENDING",
                 claimedByUserId: physicianUserId,
                 expiresAt:       new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
