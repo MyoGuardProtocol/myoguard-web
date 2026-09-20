@@ -4,9 +4,9 @@ import { prisma }        from '@/src/lib/prisma';
 import {
   SHARE_AUDIT_CREATED,
   SHARE_AUDIT_REVOKED,
-  isShareCardActive,
   mintShareToken,
   recordShareAuthorization,
+  selectActiveShareCard,
   shareExpiryFrom,
 } from '@/src/lib/share/shareAccess';
 import { SHARE_NOTICE_VERSION } from '@/src/lib/share/shareNotice';
@@ -87,7 +87,7 @@ export async function POST(req: Request) {
     select:  { id: true, shareToken: true, expiresAt: true, revokedAt: true },
   });
 
-  const active = existing.find(c => isShareCardActive(c));
+  const active = selectActiveShareCard(existing);
 
   let token:  string;
   let cardId: string;

@@ -173,10 +173,30 @@ export default function ShareButton({ physicianLinked = false, physicianName = n
               no way to withdraw it. Revoking here closes that link only — the
               linked physician reads the record through their own authenticated
               access and is unaffected. */}
+          {/* After revoking, this branch used to end here — a paragraph and
+              nothing else. That was a terminal state: `open` is wired only to
+              the trigger in the unlinked branch, so a linked patient could
+              never reach the dialog again and the approved lifecycle
+              (create → revoke → re-share) had no third step. The action below
+              is that step. It opens the dialog only; the link is still minted
+              by the acknowledgement, never by revoking. */}
           {revoked ? (
-            <p style={{ fontSize: '12px', color: '#64748B', marginTop: '8px' }}>
-              Your share link has been revoked. Your physician&rsquo;s access is unaffected.
-            </p>
+            <>
+              <p style={{ fontSize: '12px', color: '#64748B', marginTop: '8px' }}>
+                Your share link has been revoked. Your physician&rsquo;s access is unaffected.
+              </p>
+              <button
+                type="button"
+                onClick={open}
+                style={{
+                  marginTop: '8px', fontSize: '12px', fontWeight: 600,
+                  color: '#2DD4BF', background: 'none', border: 'none',
+                  padding: 0, cursor: 'pointer',
+                }}
+              >
+                Share with my physician
+              </button>
+            </>
           ) : (
             <button
               type="button"

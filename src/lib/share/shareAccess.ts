@@ -39,6 +39,7 @@ import { isShareCardActive } from './sharePolicy';
 export {
   isShareCardActive,
   mintShareToken,
+  selectActiveShareCard,
   shareExpiryFrom,
   type ShareLifetime,
 } from './sharePolicy';

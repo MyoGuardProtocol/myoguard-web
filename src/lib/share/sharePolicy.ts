@@ -57,3 +57,22 @@ export function mintShareToken(): string {
 export function shareExpiryFrom(now: Date = new Date()): Date {
   return new Date(now.getTime() + SHARE_LINK_TTL_DAYS * 24 * 60 * 60 * 1000);
 }
+
+/**
+ * Picks the link to reuse, or null if a fresh one must be minted.
+ *
+ * This is the whole reuse-or-rotate decision, extracted from the issuing route
+ * so the lifecycle — no link → active → revoked → new active — can be driven
+ * as a real state machine in the suite rather than asserted by reading source.
+ *
+ * Oldest-first: a patient may hold several rows (each revocation leaves its
+ * card behind as a record), and the stable link is the oldest one still
+ * active, not the newest. A revoked or expired card is simply never selected,
+ * so a withdrawn token can never be resurrected by asking for a link again.
+ */
+export function selectActiveShareCard<T extends ShareLifetime>(
+  cards: readonly T[],
+  now: Date = new Date(),
+): T | null {
+  return cards.find(c => isShareCardActive(c, now)) ?? null;
+}

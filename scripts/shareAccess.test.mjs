@@ -37,6 +37,7 @@ import { readFileSync } from 'node:fs';
 import {
   isShareCardActive,
   mintShareToken,
+  selectActiveShareCard,
   shareExpiryFrom,
 } from '../src/lib/share/sharePolicy.ts';
 import {
@@ -212,7 +213,7 @@ section('-- F. Issuance, reuse and rotation --');
   const code = strip(src('app/api/report/share/route.ts'));
 
   t('[flow]   an active link is reused rather than reissued',
-    /const active = existing\.find\(c => isShareCardActive\(c\)\)/.test(code)
+    /const active = selectActiveShareCard\(existing\)/.test(code)
     && /if \(active\) \{/.test(code));
 
   t('[safety] a new link is minted once the old one lapses or is revoked',
@@ -337,6 +338,106 @@ section('-- J. Evidence of the patient\'s share action --');
   // A failed audit insert must not be able to block a withdrawal.
   t('[safety] recording failure cannot prevent revocation',
     /catch \(err\)/.test(access.slice(access.indexOf('recordShareAuthorization'))));
+}
+
+section('-- L. The full lifecycle, driven end to end --');
+{
+  // The issuing route's decision, modelled over an in-memory card table. The
+  // decision itself is the real `selectActiveShareCard`, and the tokens and
+  // expiries are really minted — only the database is stood in for. The
+  // structural assertions in section F pin the route to these same primitives,
+  // so the model and the route cannot drift apart.
+  const issue = (cards, now) => {
+    const active = selectActiveShareCard(cards, now);
+    if (active) return { card: active, minted: false, cards };
+    const card = { shareToken: mintShareToken(), expiresAt: shareExpiryFrom(now), revokedAt: null };
+    return { card, minted: true, cards: [...cards, card] };
+  };
+  const revokeAll = (cards, now) =>
+    cards.map(c => (c.revokedAt ? c : { ...c, revokedAt: now }));
+
+  const DAYS = n => new Date(NOW.getTime() + n * DAY);
+
+  // NO LINK → acknowledgement → ACTIVE LINK
+  let cards = [];
+  const first = issue(cards, NOW);
+  cards = first.cards;
+  t('[flow]   no link → acknowledgement mints the first link',
+    first.minted === true && cards.length === 1
+    && isShareCardActive(first.card, NOW));
+  t('[flow]   the first link carries a 30-day absolute expiry',
+    first.card.expiresAt.getTime() === NOW.getTime() + 30 * DAY);
+
+  // ACTIVE LINK → acknowledgement again → SAME LINK (no silent rotation)
+  const again = issue(cards, DAYS(3));
+  t('[flow]   an active link is reused, not rotated, on a later acknowledgement',
+    again.minted === false
+    && again.card.shareToken === first.card.shareToken
+    && again.cards.length === 1);
+
+  // ACTIVE LINK → revoke → REVOKED
+  cards = revokeAll(cards, DAYS(5));
+  t('[safety] revocation makes the token unusable',
+    !isShareCardActive(cards[0], DAYS(5)) && selectActiveShareCard(cards, DAYS(5)) === null);
+  t('[safety] the revoked row is kept, not deleted',
+    cards.length === 1 && cards[0].revokedAt !== null);
+
+  // REVOKED → acknowledgement again → NEW ACTIVE LINK
+  const reshare = issue(cards, DAYS(5));
+  cards = reshare.cards;
+  t('[flow]   a revoked link can be replaced by acknowledging again',
+    reshare.minted === true && isShareCardActive(reshare.card, DAYS(5)));
+  t('[safety] the new token differs from the revoked one',
+    reshare.card.shareToken !== first.card.shareToken);
+  t('[safety] the new link gets a fresh absolute 30-day expiry from re-share',
+    reshare.card.expiresAt.getTime() === DAYS(5).getTime() + 30 * DAY);
+
+  // The whole point of revocation: it must never come back.
+  t('[safety] the revoked token stays dead for good',
+    !isShareCardActive(cards[0], DAYS(5))
+    && !isShareCardActive(cards[0], DAYS(400))
+    && selectActiveShareCard(cards, DAYS(5)).shareToken === reshare.card.shareToken);
+
+  // EXPIRED → acknowledgement → NEW LINK, same rule as revoked.
+  const lapsed = issue(cards, DAYS(60));
+  t('[flow]   an expired link is replaced the same way',
+    lapsed.minted === true
+    && lapsed.card.shareToken !== reshare.card.shareToken
+    && lapsed.cards.length === 3);
+
+  // A revoked card must never be picked even when it is the oldest row.
+  t('[safety] oldest-first selection never resurrects a revoked card',
+    selectActiveShareCard(lapsed.cards, DAYS(60)).shareToken === lapsed.card.shareToken);
+}
+
+section('-- M. The re-share path exists in the UI --');
+{
+  const ui = strip(src('app/dashboard/report/ShareButton.tsx'));
+
+  // The Founder E2E defect. A linked patient who revoked landed in a terminal
+  // state: `open` was wired only to the unlinked branch's trigger, so the
+  // dialog was unreachable and the lifecycle had no third step.
+  // Bounded to the LINKED branch alone. Slicing as far as the modal would have
+  // swept in the unlinked branch's own trigger, and `onClick={open}` would then
+  // have matched that instead — an assertion that passed for the wrong reason.
+  const linkedStart = ui.indexOf('physicianLinked ? (');
+  const linked = ui.slice(linkedStart, ui.indexOf('      ) : (', linkedStart));
+  t('[flow]   a linked patient who revoked is offered a new link',
+    /Share with my physician/.test(linked) && /onClick=\{open\}/.test(linked));
+
+  t('[flow]   the revoked state is no longer terminal',
+    linked.indexOf('revoked ? (') < linked.indexOf('Share with my physician'));
+
+  // Requirement 9: revoking must not quietly mint a replacement.
+  const revokeFn = ui.slice(ui.indexOf('const revoke = async'), ui.indexOf('const open ='));
+  t('[safety] revoking does not create a new link by itself',
+    !/generate\(/.test(revokeFn) && /setShareUrl\(''\)/.test(revokeFn));
+
+  // Opening the dialog must not either — the acknowledgement still does it.
+  const openFn = ui.slice(ui.indexOf('const open = () =>'), ui.indexOf('const close ='));
+  t('[safety] opening the dialog does not create a link either',
+    !/generate\(/.test(openFn) && /setConsented\(false\)/.test(openFn)
+    && /setShareUrl\(''\)/.test(openFn));
 }
 
 section('-- K. Nothing else moved --');
