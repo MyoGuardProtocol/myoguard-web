@@ -281,14 +281,120 @@ section('-- E. The write sites remain exactly the known three --');
     writers.length === 3);
   t('[lock]   and they are the three the audit identified',
     writers.length === EXPECTED.length && writers.every((f, i) => f === EXPECTED[i]));
-  // R2A-CF1, recorded as a test rather than only as prose: onboarding still
-  // overwrites an existing link. Deliberately NOT corrected in this phase —
-  // transfer of care must not be defined accidentally through an onboarding
-  // code. This assertion documents the known state so that changing it is a
-  // deliberate act with a founder decision behind it.
-  t('[lock]   R2A-CF1: onboarding still writes physicianId unguarded (known, deferred)',
-    /\.\.\.\(physicianId\s*\?\s*\{\s*physicianId\s*\}\s*:\s*\{\}\)/
-      .test(strip(src('app/api/user/onboard/route.ts'))));
+  // R2A-CF1, now CONTAINED. This assertion used to lock in the unguarded state
+  // so that correcting it would be a deliberate act with a founder decision
+  // behind it. That decision was taken, so the assertion is inverted: the raw
+  // resolved code must no longer reach the write, and only `linkToApply` may.
+  const ONBOARD = strip(src('app/api/user/onboard/route.ts'));
+  t('[safety] R2A-CF1: the unguarded overwrite is gone',
+    !/\.\.\.\(physicianId\s*\?\s*\{\s*physicianId\s*\}\s*:\s*\{\}\)/.test(ONBOARD));
+  t('[safety] only a first-link value reaches the onboarding write',
+    (ONBOARD.match(/\.\.\.\(linkToApply\s*\?\s*\{\s*physicianId:\s*linkToApply\s*\}\s*:\s*\{\}\)/g) || [])
+      .length === 2);
+  t('[safety] the first-link rule is "a code applies only when unlinked"',
+    /linkToApply\s*=\s*physicianId\s*&&\s*!currentLink\s*\?\s*physicianId\s*:\s*null/.test(ONBOARD));
+  // The existence check must come FIRST. `search` returns -1 when absent, and
+  // -1 is less than any real index — so an ordering test alone would pass most
+  // convincingly at the exact moment the read was deleted.
+  const readAt   = ONBOARD.search(/const\s+existing\s*=\s*await\s+prisma\.user\.findUnique/);
+  const upsertAt = ONBOARD.search(/prisma\.user\.upsert/);
+  t('[safety] the current link is read before the write, or it is unknowable',
+    readAt !== -1 && upsertAt !== -1 && readAt < upsertAt);
+  t('[safety] currentLink is derived from that read, not assumed',
+    /const\s+currentLink\s*=\s*existing\?\.physicianId\s*\?\?\s*null/.test(ONBOARD));
+}
+
+section('-- G. R2A-CF1: onboarding establishes a link, never replaces one --');
+{
+  // The onboarding decision, modelled exactly as the route computes it.
+  // Section E proves the route still has this shape, so the model cannot drift.
+  const decide = (currentLink, resolvedCode) => {
+    const linkToApply      = resolvedCode && !currentLink ? resolvedCode : null;
+    const overwriteRefused = !!resolvedCode && !!currentLink && currentLink !== resolvedCode;
+    return {
+      linkToApply,
+      overwriteRefused,
+      // What the row holds afterwards: the write only ever ADDS a link.
+      finalLink: linkToApply ?? currentLink,
+    };
+  };
+
+  // A. unlinked + valid code -> initial linkage
+  const A = decide(null, 'phys-A');
+  t('[flow]   A. an unlinked patient is linked by a valid code',
+    A.finalLink === 'phys-A' && A.linkToApply === 'phys-A' && A.overwriteRefused === false);
+
+  // B. linked to A + A's code -> idempotent, no change
+  const B = decide('phys-A', 'phys-A');
+  t('[flow]   B. the same physician’s code is idempotent',
+    B.finalLink === 'phys-A' && B.overwriteRefused === false);
+  t('[safety] B. and writes nothing, rather than rewriting the same value',
+    B.linkToApply === null);
+
+  // C. linked to A + B's code -> REFUSED, A preserved
+  const C = decide('phys-A', 'phys-B');
+  t('[safety] C. a different physician’s code does not overwrite',
+    C.finalLink === 'phys-A');
+  t('[safety] C. the refusal is recorded, not silent',
+    C.overwriteRefused === true);
+  t('[safety] C. no transfer, unlink or reassignment occurs',
+    C.linkToApply === null && C.finalLink !== 'phys-B' && C.finalLink !== null);
+
+  // D. linked + no code -> preserved
+  const D = decide('phys-A', null);
+  t('[flow]   D. re-onboarding without a code preserves the link',
+    D.finalLink === 'phys-A' && D.linkToApply === null && D.overwriteRefused === false);
+
+  // E. invalid/unknown code -> resolvePhysicianId returns null, link preserved
+  const E = decide('phys-A', null); // an unresolvable code IS null by contract
+  t('[flow]   E. an invalid code cannot alter an existing relationship',
+    E.finalLink === 'phys-A' && E.overwriteRefused === false);
+  t('[safety] E. an unresolvable code never links an unlinked patient either',
+    decide(null, null).finalLink === null);
+
+  // 6. A refusal must not collaterally change anything else about the account.
+  // The route's update payload is fullName + researchConsent + (maybe) the
+  // link — never role, email, subscription or billing identifiers.
+  const ONBOARD = strip(src('app/api/user/onboard/route.ts'));
+  const updateBlock = ONBOARD.match(/update:\s*\{[\s\S]*?\},\s*create:/)?.[0] ?? '';
+  t('[safety] 6. a refused overwrite changes no unrelated account field',
+    updateBlock !== ''
+    && /fullName/.test(updateBlock) && /researchConsent/.test(updateBlock)
+    && !/\brole\b/.test(updateBlock)
+    && !/\bemail\b/.test(updateBlock)
+    && !/subscriptionStatus|stripeCustomerId|stripeSubId|isVerified/.test(updateBlock));
+
+  // The attribution event must describe what happened, not what was asked for.
+  t('[safety] attribution fires on the applied link, not the resolved code',
+    /if\s*\(\s*linkToApply\s*\)/.test(ONBOARD)
+    && !/if\s*\(\s*physicianId\s*\)\s*\{[\s\S]{0,200}PHYSICIAN_ATTRIBUTED/.test(ONBOARD));
+  t('[flow]   the response reports whether the patient IS linked',
+    /physicianLinked:\s*!!\(linkToApply\s*\?\?\s*currentLink\)/.test(ONBOARD));
+
+  // 9. No transfer pathway was introduced anywhere in the corrected route.
+  t('[lock]   9. onboarding gained no unlink, replace or transfer capability',
+    !/unlink|reassign|replacePhysician|transferPatient/i.test(ONBOARD)
+    && !/physicianId:\s*null/.test(ONBOARD));
+}
+
+section('-- H. The refusal is recorded through the existing audit pattern --');
+{
+  const ONBOARD = strip(src('app/api/user/onboard/route.ts'));
+  t('[safety] a refused overwrite writes an AuditLog row',
+    /if\s*\(\s*overwriteRefused\s*\)/.test(ONBOARD)
+    && /prisma\.auditLog\.create/.test(ONBOARD));
+  t('[lock]   it uses the existing route-level AuditLog shape',
+    /action:\s*'PHYSICIAN_LINK_OVERWRITE_REFUSED'/.test(ONBOARD)
+    && /targetType:\s*'User'/.test(ONBOARD));
+  // Evidence must never be able to deny a patient their clinical profile.
+  t('[safety] the audit write is fire-and-forget, never blocking onboarding',
+    /prisma\.auditLog\.create\([\s\S]*?\}\)\.catch\(/.test(ONBOARD)
+    && !/await\s+prisma\.auditLog\.create/.test(ONBOARD));
+  t('[safety] it records internal ids only — no address, no clinical content',
+    !/email/.test(ONBOARD.match(/auditLog\.create\([\s\S]*?\}\)/)?.[0] ?? 'email')
+    && !/clerkId/.test(ONBOARD.match(/auditLog\.create\([\s\S]*?\}\)/)?.[0] ?? 'clerkId'));
+  t('[lock]   no new audit subsystem was introduced',
+    !/function\s+record\w*Audit|export\s+(async\s+)?function\s+\w*[Aa]udit/.test(ONBOARD));
 }
 
 section('-- F. Nothing else moved --');

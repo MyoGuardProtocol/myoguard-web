@@ -94,20 +94,49 @@ export async function POST(req: NextRequest) {
       ? await resolvePhysicianId(body.physicianCode)
       : null;
 
+    // ── Onboarding may ESTABLISH a physician relationship, never REPLACE one ──
+    //
+    // This route used to spread `physicianId` into both branches of the upsert
+    // unconditionally, so re-running onboarding with a second physician's code
+    // silently reassigned the patient — no check, no refusal, no record. That
+    // made a referral code behave as authorization for transfer of care, which
+    // it is not. Transfer of care is a separate workflow that does not exist
+    // yet, and it must not be defined by accident here.
+    //
+    // A code is applied only when the patient holds no link. An existing link
+    // is preserved in every other case, including when the same physician's
+    // code is presented again (nothing to write) and when the code is absent,
+    // unknown or inactive (`resolvePhysicianId` already returns null, so those
+    // cases were never the defect).
+    //
+    // Reading before the upsert is what makes the current link knowable; a new
+    // account has no row and therefore no link to protect.
+    const existing = await prisma.user.findUnique({
+      where:  { clerkId },
+      select: { physicianId: true },
+    })
+    const currentLink = existing?.physicianId ?? null;
+
+    const linkToApply      = physicianId && !currentLink ? physicianId : null;
+    const overwriteRefused = !!physicianId && !!currentLink && currentLink !== physicianId;
+
     // ── Upsert User ──────────────────────────────────────────────────────────
+    // Only `linkToApply` reaches the write. When it is null the field is absent
+    // from the payload entirely, so an existing relationship is untouched
+    // rather than overwritten with the same or a different value.
     const user = await prisma.user.upsert({
       where:  { clerkId },
       update: {
         fullName:        body.fullName,
         researchConsent: body.researchConsent,
-        ...(physicianId ? { physicianId } : {}),
+        ...(linkToApply ? { physicianId: linkToApply } : {}),
       },
       create: {
         clerkId,
         email,                          // Clerk-verified, never from request body
         fullName:        body.fullName,
         researchConsent: body.researchConsent,
-        ...(physicianId ? { physicianId } : {}),
+        ...(linkToApply ? { physicianId: linkToApply } : {}),
       },
     })
 
@@ -148,14 +177,37 @@ export async function POST(req: NextRequest) {
     })
 
     // ── Physician attribution event (fire-and-forget) ────────────────────────
-    if (physicianId) {
+    // Fires on `linkToApply`, not on the resolved code: attributing a patient
+    // to a physician who was never linked would record an event that did not
+    // happen, and a refused overwrite would look like a successful referral.
+    if (linkToApply) {
       prisma.analyticsEvent.create({
         data: {
           userId:    user.id,
           eventType: 'PHYSICIAN_ATTRIBUTED',
-          metadata:  { physicianId },
+          metadata:  { physicianId: linkToApply },
         },
       }).catch((err) => console.error('[analytics] PHYSICIAN_ATTRIBUTED failed', err));
+    }
+
+    // ── Refused overwrite, recorded as governance evidence ───────────────────
+    // A refusal to change a care relationship belongs in AuditLog, alongside
+    // the other account-level governance events, rather than in product
+    // analytics. Uses the existing route-level pattern — no new subsystem.
+    //
+    // Fire-and-forget: onboarding is clinical setup, and a failed evidence
+    // write must not deny a patient their profile. Internal User ids only —
+    // never a Clerk id, never an address, never clinical content.
+    if (overwriteRefused) {
+      prisma.auditLog.create({
+        data: {
+          actorId:    user.id,
+          action:     'PHYSICIAN_LINK_OVERWRITE_REFUSED',
+          targetType: 'User',
+          targetId:   user.id,
+          metadata:   { retainedPhysicianId: currentLink, refusedPhysicianId: physicianId },
+        },
+      }).catch((err) => console.error('[onboard] overwrite-refusal not recorded', err));
     }
 
     // ── Welcome email (fire-and-forget — never blocks the response) ──────────
@@ -170,10 +222,14 @@ export async function POST(req: NextRequest) {
     // The mgPreloadId cookie is httpOnly and not readable in client JS — we
     // detect it here, server-side, and encode the destination in the response.
     const hasPreload = !!req.cookies.get('mgPreloadId')?.value;
+    // `physicianLinked` reports whether the patient IS linked, not whether this
+    // request did the linking. It previously read `!!physicianId`, which called
+    // an already-linked patient unlinked whenever they onboarded without a code
+    // — and, worse, would have reported a refused overwrite as a fresh link.
     return NextResponse.json({
       success:        true,
       userId:         user.id,
-      physicianLinked: !!physicianId,
+      physicianLinked: !!(linkToApply ?? currentLink),
       redirect:       hasPreload ? '/dashboard' : '/dashboard/assessment',
     })
 
