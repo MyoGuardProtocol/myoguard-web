@@ -27,6 +27,26 @@ model User {
   consentVersion      String?
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
+  /// Set when this identity row has entered its terminal ANONYMIZED state.
+  ///
+  /// Erasure anonymizes this row in place. It never deletes it, because `User`
+  /// is the cascade root for ten clinical models — deleting it would destroy
+  /// the longitudinal record the platform exists to keep. The row survives as
+  /// an opaque subject key so those records stay attached and correctly
+  /// ordered, while the person behind them is no longer identifiable.
+  ///
+  /// What this field does NOT assert: that external-provider erasure has
+  /// completed. Clerk, Stripe and Resend are actioned through the ERASURE_*
+  /// audit lifecycle, and that evidence — not this timestamp — is what shows
+  /// the workflow ran to completion.
+  ///
+  /// Nullable with no backfill: null means "not erased", which is every
+  /// existing row. Nothing reads this field yet. Surface exclusion (filtering
+  /// erased subjects out of physician-facing queries) is R2-CF1 and MUST land
+  /// before any anonymization is actually executed — an anonymized row that
+  /// still answers a roster query would present as a nameless patient the
+  /// physician believes they are supervising.
+  erasedAt            DateTime?
   assessments         Assessment[]
   muscleScores        MuscleScore[]
   notifications       Notification[]
