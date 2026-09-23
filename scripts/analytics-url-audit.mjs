@@ -118,9 +118,33 @@ for (const path of [
   '/sign-in-new',
   '/privacy',
   '/terms',
+  // ── Patient education (C-FUNNEL-2) ────────────────────────────────────────
+  //
+  // `/learn/protein-on-glp-1` is the hard case and the reason the exact-path
+  // exemption exists. The slug is exactly 16 characters and contains a digit —
+  // the "1" of GLP-1 — so the generic identifier heuristic classified it as a
+  // token and reported the article as `/learn/[id]`. That silently merged the
+  // first measured step of the acquisition funnel with every future page under
+  // the same parent. If this check ever fails again, funnel reporting is
+  // broken even though every event still fires.
+  '/learn',
+  '/learn/protein-on-glp-1',
 ]) {
   check(`preserved ${path}`, redactAnalyticsPath(path), path);
 }
+
+// The exemption is by exact path, so a token under the same parent must still
+// be scrubbed. This is the assertion that stops the exemption widening.
+check(
+  'still redacts an identifier-shaped path under /learn',
+  redactAnalyticsPath('/learn/c9f2a41be77d4e0a8b15'),
+  '/learn/[id]',
+);
+check(
+  'trailing slash resolves to the same public page',
+  redactAnalyticsPath('/learn/protein-on-glp-1/'),
+  '/learn/protein-on-glp-1/',
+);
 console.log('');
 
 // ─── 3. Full-URL properties, query strings, and referrers ────────────────────

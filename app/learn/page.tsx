@@ -26,6 +26,8 @@ import Link from 'next/link';
 import type { CSSProperties } from 'react';
 import type { Metadata } from 'next';
 import { GUIDE_COVER } from '@/src/lib/guide/proteinGuideContent';
+import AnalyticsMount from '@/src/components/analytics/AnalyticsMount';
+import { AnalyticsEvents } from '@/src/lib/posthog';
 
 const TITLE = 'Patient Education | MyoGuard Protocol';
 const DESCRIPTION =
@@ -60,6 +62,10 @@ const CARD_STYLE: CSSProperties = {
 export default function LearnIndexPage() {
   return (
     <main style={{ background: '#080C14', minHeight: '100vh' }}>
+      {/* Renders nothing, and keeps this page a server component. One event,
+          no properties — the first measured step of the acquisition funnel. */}
+      <AnalyticsMount event={AnalyticsEvents.LEARN_PAGE_VIEWED} />
+
       <div
         style={{
           maxWidth: '820px',

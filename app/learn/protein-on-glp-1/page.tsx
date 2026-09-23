@@ -18,19 +18,36 @@
  * arrives through an approved manuscript and no other way.
  *
  * WHOLE PAGES, NOT CHERRY-PICKED SENTENCES
- * Manuscript Pages 2, 4 and 5 are rendered complete. Selecting individual
- * paragraphs would let a reassurance travel without its caveat, or the protein
- * material without the renal checkpoint that governs it. Page 5 in particular
- * is the safety page, and it is included in full for that reason.
+ * Manuscript Pages 2, 3 and 4 are rendered complete — the article pages, as
+ * `ARTICLE_PAGES` below and the governance suite both record. Selecting
+ * individual paragraphs would let a reassurance travel without its caveat, or
+ * a symptom list arrive without the guidance on when it matters. Page 4 in
+ * particular carries the clinical-attention symptoms, and it is included in
+ * full for that reason.
+ *
+ * The practical Guide pages — 5 onward, including the renal safety checkpoint
+ * that governs any change to protein intake — are deliberately NOT rendered
+ * here. They travel with the Guide itself, because the checkpoint is owed
+ * wherever a protein instruction is given and the article gives none.
  *
  * The nine references are rendered too, so every citation marker on the page
  * resolves to a visible source rather than a dangling numeral.
  *
  * WHAT THIS PAGE IS NOT
  * Not a lead-generation landing page. It carries one request panel, no pop-up,
- * no exit intent, no countdown, no second ask, and no consent checkbox —
- * requesting a document is not subscribing to a relationship, and this surface
- * must not suggest otherwise.
+ * no exit intent, no countdown and no consent checkbox — requesting a document
+ * is not subscribing to a relationship, and this surface must not suggest
+ * otherwise.
+ *
+ * THE ONE FORWARD PATH (C-FUNNEL-2)
+ * Founder decision, 23 September 2026: education may carry an OPTIONAL forward
+ * path to the public Preliminary Sarcopenia Risk Index (SRI). That path is the
+ * single `PreliminarySriLink` panel at the foot of the page, placed after the
+ * material the reader came for, and it is an offer rather than an ask — nothing
+ * on this page is gated behind it and the Guide in particular is not. The
+ * earlier "no second ask" rule is narrowed by that decision, not abandoned:
+ * one optional onward panel is the whole of what is permitted here, and a
+ * second would still be a defect.
  *
  * Architecture: server component, static, no auth, no Prisma, no API call at
  * render time. The request panel is the only client component.
@@ -40,6 +57,9 @@ import Link from 'next/link';
 import type { CSSProperties } from 'react';
 import type { Metadata } from 'next';
 import { GuideRequestForm } from '@/src/components/guide/GuideRequestForm';
+import { PreliminarySriLink } from '@/src/components/learn/PreliminarySriLink';
+import AnalyticsMount from '@/src/components/analytics/AnalyticsMount';
+import { AnalyticsEvents } from '@/src/lib/posthog';
 import {
   GUIDE_COVER,
   GUIDE_PAGES,
@@ -337,6 +357,11 @@ export default function ProteinOnGlp1Page() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
+      {/* Renders nothing. The page stays a server component; this is the only
+          client code on it besides the request panel and the optional SRI
+          offer, and it emits one event with no properties at all. */}
+      <AnalyticsMount event={AnalyticsEvents.PROTEIN_ARTICLE_VIEWED} />
+
       <div
         style={{
           maxWidth: '820px',
@@ -416,6 +441,9 @@ export default function ProteinOnGlp1Page() {
             ),
           )}
         </section>
+
+        {/* ── The one optional forward path ───────────────────────────── */}
+        <PreliminarySriLink source="article" />
 
         {/* ── Footer ──────────────────────────────────────────────────── */}
         <footer style={{ borderTop: '1px solid #1A2744', paddingTop: '28px' }}>

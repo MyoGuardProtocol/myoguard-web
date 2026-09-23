@@ -258,9 +258,19 @@ export default function HomePage() {
           <span className="text-xl font-bold text-slate-100">Myo</span>
           <span className="text-xl font-bold text-teal-400">Guard</span>
         </div>
-        <a href="/sign-in" className="text-sm text-slate-400 hover:text-white transition-colors flex-shrink-0 whitespace-nowrap">
-          Sign in
-        </a>
+        <div className="flex items-center gap-5 flex-shrink-0">
+          {/* Entry point into the patient education surface.
+              Before C-FUNNEL-2 nothing in the application linked to /learn: it
+              was reachable only from the sitemap, so every visitor arrived
+              from outside or not at all. A plain nav link is the whole of the
+              fix — no banner, no interstitial, no interruption of the SRI. */}
+          <a href="/learn" className="text-sm text-slate-400 hover:text-white transition-colors whitespace-nowrap">
+            Patient Education
+          </a>
+          <a href="/sign-in" className="text-sm text-slate-400 hover:text-white transition-colors whitespace-nowrap">
+            Sign in
+          </a>
+        </div>
       </nav>
 
       {/* Hero */}

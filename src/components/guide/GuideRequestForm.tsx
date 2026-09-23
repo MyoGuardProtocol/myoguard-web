@@ -24,9 +24,28 @@
  * the Guide. This component must not undo that. The success message therefore
  * never asserts that mail was sent — it says what the person can rely on, which
  * is that the request was accepted.
+ *
+ * WHAT IS MEASURED (C-FUNNEL-2)
+ * Two events, neither of which carries the address or anything derived from it:
+ * GUIDE_REQUESTED when the person submits, and GUIDE_DELIVERY_SUCCEEDED when
+ * the route accepts. The gap between the two is the failure and throttle rate,
+ * which is the only thing this surface can honestly report — the neutrality
+ * above means the browser is never told whether mail was actually sent, and no
+ * event fired from here may pretend otherwise.
+ *
+ * WHAT FOLLOWS A SUCCESS (C-FUNNEL-2)
+ * Founder decision, 23 September 2026: the success state carries one optional
+ * onward panel to the public Preliminary Sarcopenia Risk Index (SRI). It is an
+ * offer, not a condition — the Guide has already been requested by the time it
+ * appears, and it changes nothing about the delivery. The single-link rule on
+ * the delivered email is untouched and stays untouched: this panel is on the
+ * website, and the email carries no SRI call to action.
  */
 
 import { useState, type CSSProperties, type FormEvent } from 'react';
+import posthog from 'posthog-js';
+import { isAnalyticsEnabled, AnalyticsEvents } from '@/src/lib/posthog';
+import { PreliminarySriLink } from '@/src/components/learn/PreliminarySriLink';
 
 type Status = 'idle' | 'sending' | 'sent' | 'error';
 
@@ -92,6 +111,11 @@ export function GuideRequestForm() {
     setStatus('sending');
     setMessage('');
 
+    // Intent, before the network call, so a request that fails or is throttled
+    // is still counted. No property of any kind — not even a hash of the
+    // address, which would be a stable identifier by another name.
+    if (isAnalyticsEnabled) posthog.capture(AnalyticsEvents.GUIDE_REQUESTED);
+
     try {
       const res = await fetch('/api/guide-request', {
         method: 'POST',
@@ -102,6 +126,10 @@ export function GuideRequestForm() {
       });
 
       if (res.ok) {
+        // "Accepted by the governed delivery pathway" — deliberately the
+        // furthest this component is allowed to know. A suppressed send
+        // arrives here identically to a delivered one, and that is the point.
+        if (isAnalyticsEnabled) posthog.capture(AnalyticsEvents.GUIDE_DELIVERY_SUCCEEDED);
         setStatus('sent');
         return;
       }
@@ -155,6 +183,10 @@ export function GuideRequestForm() {
         <p style={{ fontSize: '0.875rem', color: '#94A3B8', lineHeight: 1.7, margin: 0 }}>
           Check your inbox in the next few minutes.
         </p>
+
+        <div style={{ marginTop: '18px' }}>
+          <PreliminarySriLink source="guide_success" />
+        </div>
       </section>
     );
   }

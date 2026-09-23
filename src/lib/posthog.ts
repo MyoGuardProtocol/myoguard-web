@@ -78,6 +78,26 @@ const REDACTION_RULES: ReadonlyArray<readonly [RegExp, string]> = [
 ];
 
 /**
+ * Public content paths whose own slug must survive redaction.
+ *
+ * `OPAQUE_SEGMENT` below is a deliberately broad safety net: any segment of 16+
+ * characters containing a digit is treated as an identifier. That is correct for
+ * tokens and wrong for `/learn/protein-on-glp-1`, which is exactly 16 characters
+ * and carries a digit only because the medicine class is named "GLP-1". Without
+ * this exemption the article — the first measured step of the patient
+ * acquisition funnel — reports as `/learn/[id]` and cannot be distinguished from
+ * any future page under the same parent.
+ *
+ * Exact paths only, never prefixes. A path earns a place here by being known
+ * public editorial content with a human-authored slug. A bearer token can never
+ * equal an entry in this set, so the exemption cannot widen into a leak.
+ */
+const PUBLIC_CONTENT_PATHS: ReadonlySet<string> = new Set([
+  '/learn',
+  '/learn/protein-on-glp-1',
+]);
+
+/**
  * Catch-all for dynamic routes added after this file was written.
  *
  * Matches a UUID, or any long segment containing a digit — the shape of a cuid,
@@ -91,6 +111,12 @@ const OPAQUE_SEGMENT =
 /** Rewrites a URL path so no identifier or token survives. Never throws. */
 export function redactAnalyticsPath(pathname: string): string {
   if (!pathname) return pathname;
+
+  // Known public content is returned verbatim, ahead of both the rules and the
+  // safety net. Matched on the path with any trailing slash removed so that
+  // `/learn/` and `/learn` are the same page for reporting purposes.
+  const exact = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname;
+  if (PUBLIC_CONTENT_PATHS.has(exact)) return pathname;
 
   let path = pathname;
   for (const [pattern, replacement] of REDACTION_RULES) {
@@ -170,6 +196,35 @@ export function sanitizeAnalyticsProperties(
  */
 export const AnalyticsEvents = {
   LANDING_PAGE_VIEWED:             'landing_page_viewed',
+
+  // ── Patient acquisition funnel (C-FUNNEL-2) ────────────────────────────────
+  //
+  // Six stages, none of which carries anything about the person who walked
+  // them. The only properties any of these events accepts are categorical
+  // labels chosen from a closed set in the code that fires them — never an
+  // address, a name, a Sarcopenia Risk Index (SRI) value, a clinical input, a
+  // share token, a physician or patient identifier, or a Guide request id.
+  LEARN_PAGE_VIEWED:               'learn_page_viewed',
+  PROTEIN_ARTICLE_VIEWED:          'protein_article_viewed',
+  GUIDE_REQUESTED:                 'guide_requested',
+  // Fired when /api/guide-request accepts the request, which is the furthest
+  // the browser is permitted to see. That route answers a suppressed send
+  // exactly as it answers a delivered one, so that a hard-bounced or complained
+  // address cannot be confirmed by asking for the Guide. This event therefore
+  // means "accepted by the governed delivery pathway", not "landed in an
+  // inbox", and no client-side event can mean the latter without undoing the
+  // neutrality the route exists to hold.
+  GUIDE_DELIVERY_SUCCEEDED:        'guide_delivery_succeeded',
+  // Declared, with no firing site. The only Protein Guide PDF link in the
+  // product lives in the delivered ESSENTIAL_SERVICE email and points at a
+  // static asset under public/. Instrumenting it would mean either adding a
+  // redirect through a tracking route or a second link — and the Guide email
+  // is governed to carry one link and no tracking. The name is registered here
+  // so the funnel vocabulary is complete and a future on-site PDF surface has
+  // one obvious event to use; nothing emits it today.
+  GUIDE_PDF_CLICKED:               'guide_pdf_clicked',
+  PRELIMINARY_SRI_STARTED_FROM_LEARN: 'preliminary_sri_started_from_learn',
+
   GET_STARTED_CLICKED:             'get_started_clicked',
   ONBOARDING_STARTED:              'onboarding_started',
   ONBOARDING_COMPLETED:            'onboarding_completed',
