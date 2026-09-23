@@ -271,5 +271,86 @@ section('-- E. Governed positions C-FUNNEL-2 must not move --');
     !/\bscores?\b/i.test(INDEX + TOPIC + FORM + SRI));
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+section('-- F. Public journey containment (C-FUNNEL-2A) --');
+{
+  // ── The route out ────────────────────────────────────────────────────────
+  //
+  // Founder production review found both education pages had no way back to
+  // the public site. These visitors arrive from search and Pinterest with no
+  // account and no session, so the route home must be the public home page —
+  // a dashboard link would send a stranger at a sign-in wall.
+  t('[chain]  the article offers a public route home',
+    /href="\/"/.test(TOPIC) && /← MyoGuard Home/.test(TOPIC));
+  t('[chain]  /learn offers a public route home',
+    /href="\/"/.test(INDEX) && /← MyoGuard Home/.test(INDEX));
+  t('[safety] neither page routes a signed-out visitor at a dashboard',
+    !/Back to Dashboard|href="\/dashboard/i.test(TOPIC + INDEX));
+  t('[chain]  the article still links to its own index as well',
+    /href="\/learn"/.test(TOPIC));
+
+  // ── Still exactly one email capture ──────────────────────────────────────
+  //
+  // The early offer is an anchor to the panel, not another panel. This is the
+  // assertion that stops it quietly growing a field of its own.
+  t('[safety] the article renders exactly one Guide request panel',
+    (TOPIC.match(/<GuideRequestForm/g) || []).length === 1);
+  t('[safety] the article itself collects no input of any kind',
+    !/<input/.test(TOPIC) && !/<form/.test(TOPIC));
+  t('[safety] the early offer is an anchor, not a second pathway',
+    /href="#guide-request"/.test(TOPIC)
+    && /id="guide-request"/.test(TOPIC)
+    && !/fetch\(/.test(TOPIC));
+  t('[safety] only one call reaches the Guide delivery route',
+    ((TOPIC + FORM).match(/\/api\/guide-request/g) || []).length === 1);
+
+  // The early offer must stay uninstrumented: the brief preserves the event
+  // definitions as designed, and the reader who takes the anchor is counted
+  // once, at the panel, exactly as the reader who scrolls to it.
+  t('[hold]    the early offer emits no analytics event of its own',
+    captures(TOPIC).length === 0);
+
+  // ── The corrected sequence ───────────────────────────────────────────────
+  //
+  // Education establishes the evidence and the practical problem, THEN the ask,
+  // then the positioning tail, then the optional onward path. Ordering is the
+  // whole point of C-FUNNEL-2A, so it is asserted positionally rather than by
+  // mere presence.
+  const at = needle => TOPIC.indexOf(needle);
+  const order = [
+    ['breadcrumb',      at('← MyoGuard Home')],
+    ['early offer',     at('href="#guide-request"')],
+    ['page 2 evidence', at('<ManuscriptSection n={2}')],
+    ['page 3 beyond',   at('<ManuscriptSection n={3}')],
+    ['page 4 eating',   at('<ManuscriptSection n={4}')],
+    ['Guide panel',     at('id="guide-request"')],
+    ['About / refs',    at('positioningTail().map')],
+    ['optional SRI',    at('<PreliminarySriLink source="article"')],
+  ];
+  t('[chain]  every stage of the page is present',
+    order.every(([, i]) => i > 0));
+  t('[chain]  the page runs education → ask → references → optional SRI',
+    order.every(([, i], k) => k === 0 || i > order[k - 1][1]));
+
+  // Named explicitly, because these two are the regressions that matter: the
+  // ask must follow all three substantive sections, and precede the close.
+  t('[chain]  the email capture follows all three substantive sections',
+    at('id="guide-request"') > at('<ManuscriptSection n={4}'));
+  t('[chain]  the email capture precedes About MyoGuard and the references',
+    at('id="guide-request"') < at('positioningTail().map'));
+
+  // ── Untouched by this phase ──────────────────────────────────────────────
+  t('[hold]    the request panel component was not modified by the move',
+    /fetch\('\/api\/guide-request'/.test(FORM)
+    && (FORM.match(/<input/g) || []).length === 1
+    && /AnalyticsEvents\.GUIDE_REQUESTED/.test(FORM)
+    && /AnalyticsEvents\.GUIDE_DELIVERY_SUCCEEDED/.test(FORM)
+    && /<PreliminarySriLink source="guide_success"/.test(FORM));
+  t('[hold]    the article still renders whole manuscript pages, unselected',
+    /page\.blocks\.map/.test(TOPIC) && !/blocks\.slice\(0/.test(TOPIC));
+  t('[hold]    the article pages are still 2, 3 and 4',
+    /ARTICLE_PAGES = \[2, 3, 4\]/.test(TOPIC));
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

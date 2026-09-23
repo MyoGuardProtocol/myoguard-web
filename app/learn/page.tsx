@@ -50,6 +50,14 @@ const LABEL_STYLE: CSSProperties = {
   margin: '0 0 10px 0',
 };
 
+/** Breadcrumb link. Midnight Silk's muted slate, the weight of furniture. */
+const CRUMB_STYLE: CSSProperties = {
+  fontSize: '0.8125rem',
+  color: '#64748B',
+  textDecoration: 'none',
+  letterSpacing: '0.01em',
+};
+
 const CARD_STYLE: CSSProperties = {
   background: '#0D1421',
   border: '1px solid #1A2744',
@@ -76,6 +84,15 @@ export default function LearnIndexPage() {
           gap: '40px',
         }}
       >
+        {/* The route out. These pages are public and most visitors arrive
+            from search with no account, so the way back is to the public home
+            page — never to a dashboard they have no way of reaching. */}
+        <nav>
+          <Link href="/" style={CRUMB_STYLE}>
+            ← MyoGuard Home
+          </Link>
+        </nav>
+
         <header>
           <p style={LABEL_STYLE}>Patient Education</p>
           <h1

@@ -66,6 +66,9 @@ section('-- A. Clinical wording comes from the approved manuscript --');
     'Protein and Muscle Health During GLP-1 Treatment',
     'Plain-language education for people being treated with GLP-1 and related medicines, intended to be read alongside advice from your own clinician.',
     'Read the education page and request the MyoGuard Protein Guide by email →',
+    // C-FUNNEL-2A — the early in-article offer. An anchor to the one panel
+    // further down; it names the document and makes no clinical claim.
+    'Prefer the practical version? Get the free MyoGuard Protein Guide →',
     'Want the practical version?',
     'Get the MyoGuard Protein Guide, including the safety checkpoint, everyday protein foods, strategies for low-appetite days, and questions to discuss with your clinician.',
     'Your Guide is on its way.',

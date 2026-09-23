@@ -39,6 +39,25 @@
  * is not subscribing to a relationship, and this surface must not suggest
  * otherwise.
  *
+ * THE ORDER OF THE PAGE (C-FUNNEL-2A)
+ * Founder production review, 23 September 2026: the full email capture sat
+ * above the article, so the page asked before it had given anything. The order
+ * is now education first, ask second:
+ *
+ *   breadcrumb (Home · Patient Education)
+ *   header and lede
+ *   one-line offer, anchored to the panel below — no field, no second pathway
+ *   Page 2  what is happening during weight loss, and what the evidence shows
+ *   Page 3  muscle health is bigger than protein
+ *   Page 4  why eating enough becomes harder
+ *   the Guide request panel            ← the single email capture
+ *   About MyoGuard, disclaimer, cited references
+ *   the optional Preliminary SRI offer
+ *
+ * There is still exactly ONE email capture on this page. The line above the
+ * article is an anchor to it, not another of it, and the day it grows a field
+ * the governance suite fails.
+ *
  * THE ONE FORWARD PATH (C-FUNNEL-2)
  * Founder decision, 23 September 2026: education may carry an OPTIONAL forward
  * path to the public Preliminary Sarcopenia Risk Index (SRI). That path is the
@@ -95,6 +114,35 @@ const LABEL_STYLE: CSSProperties = {
   textTransform: 'uppercase',
   letterSpacing: '0.15em',
   margin: '0 0 10px 0',
+};
+
+/** Breadcrumb links. Midnight Silk's muted slate, the weight of furniture. */
+const CRUMB_STYLE: CSSProperties = {
+  fontSize: '0.8125rem',
+  color: '#64748B',
+  textDecoration: 'none',
+  letterSpacing: '0.01em',
+};
+
+/**
+ * The early in-article offer.
+ *
+ * Deliberately a line of text and not a card: a bordered panel here would be a
+ * second conversion surface competing with the one below, which is exactly what
+ * this must not become. It reads as part of the article, because it is.
+ */
+const INLINE_CTA_STYLE: CSSProperties = {
+  fontSize: '0.9375rem',
+  lineHeight: 1.7,
+  margin: 0,
+  paddingLeft: '14px',
+  borderLeft: '2px solid #1A2744',
+};
+
+const INLINE_CTA_LINK_STYLE: CSSProperties = {
+  color: '#2DD4BF',
+  textDecoration: 'none',
+  fontWeight: 600,
 };
 
 const CARD_STYLE: CSSProperties = {
@@ -372,19 +420,21 @@ export default function ProteinOnGlp1Page() {
           gap: '40px',
         }}
       >
-        <div>
-          <Link
-            href="/learn"
-            style={{
-              fontSize: '0.8125rem',
-              color: '#64748B',
-              textDecoration: 'none',
-              letterSpacing: '0.01em',
-            }}
-          >
-            ← Patient Education
+        {/* Public visitors arrive here from search or Pinterest with no
+            account and no session. The route out has to be to the public site,
+            not to a dashboard they cannot reach — so the first crumb is Home
+            and the second is the education index this article belongs to. */}
+        <nav style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px' }}>
+          <Link href="/" style={CRUMB_STYLE}>
+            ← MyoGuard Home
           </Link>
-        </div>
+          <span aria-hidden="true" style={{ ...CRUMB_STYLE, color: '#1E293B' }}>
+            ·
+          </span>
+          <Link href="/learn" style={CRUMB_STYLE}>
+            Patient Education
+          </Link>
+        </nav>
 
         {/* ── Header ──────────────────────────────────────────────────── */}
         <header>
@@ -417,13 +467,50 @@ export default function ProteinOnGlp1Page() {
           ))}
         </header>
 
-        {/* ── The Guide request panel ─────────────────────────────────── */}
-        <GuideRequestForm />
+        {/* ── The early, lightweight offer ────────────────────────────── */}
+        {/*
+            One line of text pointing at the panel further down. It is not a
+            second pathway and must never become one: no field, no form, no
+            request of its own, and no analytics event — the reader who takes
+            it arrives at the same single panel and is counted there, once.
+
+            It exists because the reader who already knows they want the
+            practical document should not have to scroll the whole article to
+            find it, and the reader who does not should not be asked before the
+            article has given them anything.
+        */}
+        <p style={INLINE_CTA_STYLE}>
+          <a href="#guide-request" style={INLINE_CTA_LINK_STYLE}>
+            Prefer the practical version? Get the free MyoGuard Protein Guide →
+          </a>
+        </p>
 
         {/* ── Approved manuscript material ────────────────────────────── */}
         <ManuscriptSection n={2} label="What the evidence shows" />
         <ManuscriptSection n={3} label="Beyond protein" />
         <ManuscriptSection n={4} label="Eating during treatment" />
+
+        {/* ── The Guide request panel ─────────────────────────────────── */}
+        {/*
+            Moved here from above the article in C-FUNNEL-2A. The panel asks
+            for an address, and asking before the article has explained what is
+            happening to the body, why muscle health is more than protein, and
+            why eating becomes harder is asking before anything has been given.
+            The three sections above are that substance; the ask follows it.
+
+            It sits before the positioning tail deliberately — About MyoGuard,
+            the clinical disclaimer and the references are the close of the
+            document, and a conversion panel after them would read as an
+            afterthought appended to the small print.
+
+            The component itself is unchanged, and so is everything it does:
+            the same single email field, the same POST to /api/guide-request,
+            the same ESSENTIAL_SERVICE classification, the same two analytics
+            events, and the same optional onward panel on success.
+        */}
+        <div id="guide-request" style={{ scrollMarginTop: '24px' }}>
+          <GuideRequestForm />
+        </div>
 
         {/* ── Positioning, disclaimer and the cited sources ───────────── */}
         <section style={CARD_STYLE}>
