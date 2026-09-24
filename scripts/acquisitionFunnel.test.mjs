@@ -200,8 +200,18 @@ section('-- D. PostHog remains fail-closed without a production key --');
   // before the production key is set.
   t('[privacy] the enable gate requires a key to be present',
     /!!POSTHOG_KEY &&/.test(CONFIG));
+  // C-FUNNEL-2C moved init out of the provider's effect and into module scope,
+  // because the provider wraps {children} and React runs descendant effects
+  // first — so every first-load mount event fired before initialisation and was
+  // discarded. The gate itself is unchanged: no key still means no init and no
+  // event, which is what makes it safe to ship instrumentation ahead of a key.
   t('[privacy] init is skipped entirely when the gate is closed',
-    /if \(!isAnalyticsEnabled\) return;\s*posthog\.init\(/.test(PROVIDER));
+    /function ensurePostHogInitialised\(\): void \{[\s\S]*?if \(!isAnalyticsEnabled\) return;[\s\S]*?posthog\.init\(/
+      .test(PROVIDER));
+  t('[measure] init runs at module scope, ahead of every component effect',
+    /^ensurePostHogInitialised\(\);$/m.test(PROVIDER)
+    && /if \(posthogReady\) return;/.test(PROVIDER)
+    && /typeof window === 'undefined'/.test(PROVIDER));
   t('[privacy] the pageview component is not even rendered when closed',
     /\{isAnalyticsEnabled && \(/.test(PROVIDER));
   t('[privacy] the shared mount helper checks the gate before capturing',

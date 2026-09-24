@@ -109,7 +109,11 @@ const RISK_META: Record<RiskBand, {
 };
 
 export default function HomePage() {
-  const { isSignedIn } = useUser();
+  // `isLoaded` matters as much as `isSignedIn` here. Until Clerk resolves,
+  // `isSignedIn` is undefined, so `!isSignedIn` is true and a signed-in visitor
+  // briefly saw the anonymous conversion bridge and the email gate before they
+  // swapped. Every auth-dependent branch below waits for `isLoaded`.
+  const { isSignedIn, isLoaded } = useUser();
   const [weight,           setWeight]           = useState("");
   const [protein,          setProtein]          = useState("");
   const [selectedDrug,     setSelectedDrug]     = useState("");
@@ -822,8 +826,9 @@ export default function HomePage() {
                   </p>
                 </div>
 
-                {/* Conversion bridge — unauthenticated only */}
-                {!isSignedIn && (
+                {/* Conversion bridge — unauthenticated only, and only once
+                    Clerk has actually answered. */}
+                {isLoaded && !isSignedIn && (
                   <div style={{
                     background: '#0D1421',
                     border: '1px solid rgba(45,212,191,0.35)',
@@ -882,19 +887,45 @@ export default function HomePage() {
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                       </svg>
                     </div>
+                    {/* The lock itself is unconditional and stays that way: the
+                        full protocol is not released by this surface to anyone,
+                        signed in or not. What changes is only the instruction
+                        underneath, which used to tell an authenticated visitor to
+                        enter an email they had already given — the C-FUNNEL-2B
+                        contradiction. The signed-in wording points at the
+                        dashboard and promises no access, because authentication
+                        does not by itself release physician-governed output. */}
                     <p className="text-xs font-semibold text-white text-center">Full protocol locked</p>
-                    <p className="text-xs text-slate-400 text-center">Enter your email to unlock the complete clinical report.</p>
+                    {isLoaded && (
+                      <p className="text-xs text-slate-400 text-center">
+                        {isSignedIn
+                          ? 'Continue from your dashboard.'
+                          : 'Enter your email to unlock the complete clinical report.'}
+                      </p>
+                    )}
                   </div>
                 </div>
 
-                {/* Email gate / signed-in CTA */}
-                {isSignedIn ? (
+                {/* Email gate / signed-in CTA
+                    ────────────────────────────────────────────────────────────
+                    Three states, and the first of them is "Clerk has not
+                    answered yet". Rendering nothing until it has is what stops
+                    a signed-in visitor seeing the anonymous gate flash past.
+
+                    The signed-in copy no longer claims a report was emailed.
+                    It used to, unconditionally — but `handleEmailSubmit` is the
+                    only code that sends one and it is reachable ONLY from the
+                    unauthenticated branch below, so for a signed-in visitor who
+                    had just generated an SRI the sentence was simply false. No
+                    send was added to make it true: the claim was removed, and
+                    what remains is the dashboard action, which is real. */}
+                {!isLoaded ? null : isSignedIn ? (
                   <div className="flex flex-col gap-3 bg-teal-50 border border-teal-100 rounded-2xl p-5">
                     <p className="text-sm font-semibold text-teal-800">
                       You are signed in
                     </p>
                     <p className="text-xs text-teal-600">
-                      Your protocol report has been sent to your email. Save this assessment to your dashboard to track progress over time.
+                      Save this assessment to your dashboard to track progress over time.
                     </p>
                     <a
                       href="/dashboard/assessment"
