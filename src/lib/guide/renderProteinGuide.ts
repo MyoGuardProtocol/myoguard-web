@@ -61,7 +61,7 @@ import {
   GUIDE_PAGES,
   type GuideBlock,
 } from './proteinGuideContent';
-import { proteinGuidePdfUrl } from './proteinGuidePdf';
+import { proteinGuidePdfUrl, GUIDE_EMAIL_ORIGIN } from './proteinGuidePdf';
 
 // ── Midnight Silk tokens ─────────────────────────────────────────────────────
 
@@ -92,6 +92,38 @@ const SERIF = "Georgia, 'Iowan Old Style', 'Times New Roman', Times, serif";
 // one. It states what the PDF is. It does not sell it.
 const PDF_ACTION_LABEL = 'Download / Print the Protein Guide (PDF)';
 const PDF_ACTION_NOTE  = 'The fixed eight-page version, for saving or printing.';
+
+// ── The Preliminary SRI continuation (C-FUNNEL-2) ────────────────────────────
+//
+// Founder decision, 23 September 2026, following production end-to-end review.
+// The earlier rule held this email to a single link; production showed that a
+// recipient who opens the Guide days later has no route onward, because the
+// only SRI offer lived in a browser success state they had long closed. This
+// section is that route, and it is the whole of what was authorised.
+//
+// WHY IT DOES NOT CHANGE THE CLASSIFICATION
+// It offers a thing the recipient may do, once, on a public page. It subscribes
+// them to nothing, records no preference, grants no EDUCATIONAL or MARKETING
+// permission, creates no recurring message and asks for no reply. The delivery
+// remains a one-time requested ESSENTIAL_SERVICE send, and every absolute
+// blocker — hard bounce, repeated soft bounce, complaint, admin suppression,
+// revoked contactability — still applies exactly as before.
+//
+// WHY THE CLAIM IS PITCHED WHERE IT IS
+// The preliminary instrument is not the Sarcopenia Risk Index (SRI) proper, and
+// this copy must not let a reader believe it is. It names what the preliminary
+// version uses, calls it educational, and says plainly that the full SRI
+// carries additional clinical factors and physician oversight. That sentence is
+// a limit on the claim, not a feature list, and it must not be softened.
+//
+// These three strings are declared to the content-lock suite. A fourth sentence
+// written into this file fails the lock, which is the point.
+const SRI_HEADING = 'Want to understand your own muscle-health risk?';
+const SRI_BODY    =
+  "You can complete MyoGuard's Preliminary Sarcopenia Risk Index (SRI). It uses a small set of " +
+  'core inputs and is educational; your full SRI includes additional clinical factors and ' +
+  'physician oversight.';
+const SRI_LINK_LABEL = 'Complete your Preliminary SRI →';
 
 // ── Print pagination, inlined ────────────────────────────────────────────────
 //
@@ -339,6 +371,75 @@ function renderPdfAction(): string {
 }
 
 /**
+ * The destination of the continuation link.
+ *
+ * ROUTING — the existing entry point, not a new one.
+ * The public Preliminary SRI lives on the home page and the page scrolls to
+ * `#sri-form` on arrival. No route, no handler and no assessment logic is
+ * created here; this is the same surface the article's own onward panel uses.
+ *
+ * ATTRIBUTION — the existing acquisition analytics, not a parallel system.
+ * `utm_source` rides the query string into PostHog's `$current_url`, because
+ * `src/lib/posthog.ts` already preserves every `utm_*` parameter through its
+ * sanitiser while dropping everything else. So `landing_page_viewed` and
+ * `sri_generated` from this journey carry `utm_source=protein_guide_email` and
+ * are distinguishable from organic arrivals without one new event, one new
+ * table or one new endpoint.
+ *
+ * These values are FIXED. They are identical in every copy of this email, and
+ * identical for every recipient, so the link still says nothing about who
+ * received it: it cannot be correlated back to an address and it cannot be
+ * replayed to reach anyone's data. A per-recipient parameter here would be a
+ * tracking link, which is a different thing entirely and is forbidden — the
+ * suite fails if one appears.
+ *
+ * The fragment is stripped by the analytics sanitiser before any event leaves
+ * the browser, and is only there so the recipient lands on the form itself.
+ */
+const PRELIMINARY_SRI_URL =
+  `${GUIDE_EMAIL_ORIGIN}/?utm_source=protein_guide_email` +
+  `&utm_medium=email&utm_campaign=preliminary_sri#sri-form`;
+
+/**
+ * The Preliminary SRI continuation.
+ *
+ * SECONDARY BY CONSTRUCTION, not merely by position. It sits after all eight
+ * pages of the Guide, carries no button, no colour fill and no urgency, and is
+ * set in apparatus type on the same page surface as the footer. The Guide
+ * remains the email's purpose and the PDF action remains its primary call —
+ * that action is the FIRST link in the document and this is the second, which
+ * the suite asserts rather than assumes.
+ *
+ * HIDDEN IN PRINT, AND REMOVED FROM THE SIGNATURE.
+ * The canonical PDF is printed from this same HTML. Left visible it would
+ * paginate into an eight-page approved document and put a conversion-shaped
+ * block inside a clinical artifact.
+ *
+ * It carries TWO classes, and the pairing is deliberate. `mg-action` is the
+ * document's existing "screen affordance, hidden in print" class, and reusing
+ * it means this section needs no new print rule — which matters more than it
+ * looks: the stylesheet is static and therefore part of the PDF drift
+ * signature, so one extra CSS rule would invalidate the committed artifact
+ * while changing nothing that prints. `mg-continue` carries no styling at all;
+ * it exists so this block can be identified, stripped and asserted
+ * independently of the save/print action.
+ *
+ * The result is that the committed PDF and its drift signature are both
+ * byte-for-byte untouched by this section's existence, which the suite proves
+ * rather than assumes.
+ */
+function renderSriContinuation(): string {
+  return (
+    `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="mg-action mg-continue" style="margin-top:22px;background-color:${PAGE};border:1px solid ${PAGE_EDGE};border-radius:10px;">` +
+    `<tr><td style="padding:20px 40px;">` +
+    `<p style="margin:0 0 8px;font-family:${SERIF};font-size:15px;line-height:1.5;color:${CREAM};font-weight:700;">${esc(SRI_HEADING)}</p>` +
+    `<p style="margin:0 0 12px;font-family:${SERIF};font-size:13.5px;line-height:1.62;color:${MUTED};">${esc(SRI_BODY)}</p>` +
+    `<a href="${escAttr(PRELIMINARY_SRI_URL)}" style="font-family:${SERIF};font-size:14px;line-height:1.6;color:${TEAL};font-weight:700;text-decoration:underline;">${esc(SRI_LINK_LABEL)}</a>` +
+    `</td></tr></table>`
+  );
+}
+
+/**
  * Renders the complete Guide.
  *
  * Takes no arguments, and must not grow any: the Guide is one fixed document
@@ -441,6 +542,8 @@ export function renderProteinGuideHtml(): string {
     // The save/print action is a screen affordance. The PDF is printed from
     // this same document, so leaving it visible would paginate a link to the
     // artifact into the artifact, and make an eight-page Guide nine.
+    // Also hides the Preliminary SRI continuation, which carries this same
+    // class for exactly that reason — see renderSriContinuation.
     `.mg-action{display:none!important}` +
     `}` +
     `</style>` +
@@ -456,6 +559,9 @@ export function renderProteinGuideHtml(): string {
     renderCover() +
     renderPdfAction() +
     GUIDE_PAGES.map(renderPage).join('') +
+    // After the whole Guide, so the delivery the recipient asked for is
+    // complete before anything else is offered.
+    renderSriContinuation() +
     // Document identity. Not clinical content, and deliberately not marketing:
     // no call to action, no link, nothing to click.
     `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="mg-foot-wrap" style="margin-top:24px;">` +

@@ -47,6 +47,7 @@ const CONFIG   = src('src/lib/posthog.ts');
 const EMAIL    = strip(src('src/lib/guide/renderProteinGuide.ts'));
 const ROUTE    = strip(src('app/api/guide-request/route.ts'));
 const LAYOUT   = strip(src('app/layout.tsx'));
+const PDFMOD   = strip(src('src/lib/guide/proteinGuidePdf.ts'));
 
 /** Every posthog.capture(...) call in a file, as its raw argument text. */
 const captures = s => [...s.matchAll(/posthog\.capture\(([^;]*?)\)\s*;/g)].map(m => m[1]);
@@ -226,19 +227,50 @@ section('-- D. PostHog remains fail-closed without a production key --');
 // ─────────────────────────────────────────────────────────────────────────────
 section('-- E. Governed positions C-FUNNEL-2 must not move --');
 {
-  // Founder decision 3. The delivered ESSENTIAL_SERVICE email keeps exactly one
-  // link — the PDF — and gains no SRI call to action, no marketing and no
-  // nurture. This is asserted against the rendered HTML in
-  // proteinGuideContent.test.mjs; here it is asserted against the source, so a
-  // second link cannot be introduced behind a conditional that the fixture
-  // happens not to exercise.
-  t('[hold]    the Guide email source contains exactly one href',
-    (EMAIL.match(/href=/g) || []).length === 1);
-  t('[hold]    the one href is the PDF action',
-    /proteinGuidePdfUrl/.test(EMAIL));
-  t('[hold]    no SRI, marketing or nurture call to action entered the email',
-    !/sri-form|Sarcopenia Risk Index|sign-up|create an account|newsletter|nurture|unsubscribe anytime/i
+  // SUPERSEDED, and deliberately recorded as such. C-FUNNEL-2 originally held
+  // this email to a single link. Production end-to-end review found that a
+  // recipient opening the Guide from their inbox days later had no route to the
+  // Preliminary SRI at all, because the only offer lived in a browser success
+  // state they had long closed. The Founder authorised one secondary
+  // continuation on 23 September 2026.
+  //
+  // TWO is now the number, and these assertions defend it against a third —
+  // checked against the SOURCE, so a link cannot be introduced behind a
+  // conditional the rendered fixture happens not to exercise.
+  t('[hold]    the Guide email source contains exactly two hrefs',
+    (EMAIL.match(/href=/g) || []).length === 2);
+  t('[hold]    the primary link is still the PDF action',
+    /proteinGuidePdfUrl/.test(EMAIL)
+    && EMAIL.indexOf('renderPdfAction()') < EMAIL.indexOf('renderSriContinuation()'));
+  t('[hold]    exactly one Preliminary SRI continuation exists',
+    (EMAIL.match(/renderSriContinuation\(\)/g) || []).length === 2 // definition + one call
+    && (EMAIL.match(/#sri-form/g) || []).length === 1);
+  t('[chain]  the continuation routes to the existing public SRI entry point',
+    /GUIDE_EMAIL_ORIGIN/.test(EMAIL) && /#sri-form/.test(EMAIL)
+    && !/\/api\/|new Route|assessment/i.test(EMAIL));
+
+  // The continuation is an offer to act once on a public page. It must never
+  // become a subscription, a nurture sequence or a commercial placement.
+  t('[hold]    no marketing, nurture or affiliate content entered the email',
+    !/newsletter|nurture|mailing list|unsubscribe anytime|affiliate|discount|offer ends|buy now/i
       .test(EMAIL));
+  t('[hold]    the email grants no EDUCATIONAL or MARKETING permission',
+    !/\bEDUCATIONAL\b|\bMARKETING\b|grantConsent|CommunicationPreference|ConsentEvent/.test(EMAIL));
+
+  // Attribution rides the existing analytics architecture: utm_* is already
+  // preserved through the PostHog sanitiser, so no new event, table or endpoint
+  // was created. The values are fixed for every recipient.
+  t('[privacy] attribution is a fixed campaign label, not a recipient token',
+    /utm_source=protein_guide_email/.test(EMAIL)
+    && !/encodeURIComponent|recipientKey|token|email\)/.test(EMAIL.split('PRELIMINARY_SRI_URL')[1] ?? ''));
+
+  // The committed PDF is printed from this same HTML. The continuation is a
+  // screen affordance and must stay out of the artifact and out of its drift
+  // signature — otherwise an eight-page clinical document grows a ninth block.
+  t('[hold]    the continuation is excluded from the printed artifact',
+    /class="mg-action mg-continue"/.test(EMAIL)
+    && /mg-continue/.test(PDFMOD)
+    && /\.mg-action\{display:none!important\}/.test(EMAIL));
 
   // Founder decision 2. The Guide is reachable without the SRI, from a page
   // that asks for an address and nothing else.

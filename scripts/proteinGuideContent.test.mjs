@@ -115,9 +115,28 @@ section('-- A. The visible document is Manuscript v1.2 and nothing else --');
     'Download / Print the Protein Guide (PDF)',
     'The fixed eight-page version, for saving or printing.',
   ];
+  // The Preliminary SRI continuation, added by the Founder's C-FUNNEL-2
+  // decision after production review found a recipient opening the Guide from
+  // their inbox had no route onward. Declared the same way and for the same
+  // reason: these three strings may appear and nothing else may travel with
+  // them. A fourth sentence fails the lock.
+  //
+  // The second string is a LIMIT on the claim, not a description of a feature.
+  // It says the preliminary instrument is educational and that the full SRI
+  // carries additional clinical factors and physician oversight. If it is ever
+  // softened, this lock is where that must be noticed.
+  const DECLARED_CONTINUATION_TEXT = [
+    'Want to understand your own muscle-health risk?',
+    "You can complete MyoGuard's Preliminary Sarcopenia Risk Index (SRI). It uses a small set of "
+      + 'core inputs and is educational; your full SRI includes additional clinical factors and '
+      + 'physician oversight.',
+    'Complete your Preliminary SRI →',
+  ];
   const isAllowedGap = g => {
     let s = g.trim();
-    for (const declared of DECLARED_ACTION_TEXT) s = s.split(declared).join(' ');
+    for (const declared of [...DECLARED_ACTION_TEXT, ...DECLARED_CONTINUATION_TEXT]) {
+      s = s.split(declared).join(' ');
+    }
     s = s.replace(/\s+/g, ' ').trim();
     if (ALLOWED.has(s)) return true;
     if (/^\d{2}$/.test(s)) return true;                  // page numeral, 02–08
@@ -213,19 +232,43 @@ section('-- D. No new clinical claim, target or commercial ask --');
     !/\b(prevents? sarcopenia|protects? your muscle|preserves? (your )?muscle|will (protect|preserve|prevent)|guarantees? (that|you|results))/i.test(visible));
   t('[safety] no "clinically proven" or "doctor-approved" framing',
     !/\b(clinically proven|doctor[- ]approved|physician[- ]approved|medically proven)\b/i.test(visible));
-  // The Guide carried no link at all until the canonical PDF existed. It now
-  // carries exactly one, and the point of this assertion is that it stays one:
-  // a requested document offering itself in a printable format is still the
-  // requested document, but a second destination would make the email a
-  // surface that acquires rather than delivers, and would put the
-  // ESSENTIAL_SERVICE classification in question.
-  t('[safety] the asset carries exactly one link, and it is this Guide as a PDF',
-    (HTML.match(/<a\s/g) || []).length === 1
-    && (HTML.match(/href=/g) || []).length === 1
-    && /href="https:\/\/[^"]*\/guides\/myoguard-protein-guide-v1\.2\.pdf"/.test(HTML));
-  t('[safety] the link carries no tracking, no redirect and no recipient identity',
-    !/href="[^"]*[?&]/.test(HTML)
-    && !/href="[^"]*(utm_|token=|t=|e=|uid=|email=|rid=)/i.test(HTML)
+  // The Guide carried no link at all until the canonical PDF existed, then
+  // exactly one, and now two: the PDF action and — by the Founder's C-FUNNEL-2
+  // decision of 23 September 2026 — the Preliminary SRI continuation. TWO is
+  // the number this assertion now defends, because a third destination is what
+  // would turn a requested delivery into a surface that acquires, and would put
+  // the ESSENTIAL_SERVICE classification in question.
+  //
+  // Order is asserted, not incidental. The PDF is FIRST, because the Guide is
+  // what the recipient asked for and must remain the email's primary purpose;
+  // the continuation is second and sits after all eight pages.
+  const links = [...HTML.matchAll(/href="([^"]+)"/g)].map(m => m[1].replace(/&amp;/g, '&'));
+  t('[safety] the asset carries exactly two links, and no more',
+    (HTML.match(/<a\s/g) || []).length === 2 && links.length === 2);
+  t('[safety] the Guide as a PDF is the first and primary link',
+    /^https:\/\/[^?#]*\/guides\/myoguard-protein-guide-v1\.2\.pdf$/.test(links[0]));
+  t('[safety] the second link is the Preliminary SRI, and there is only one',
+    links.filter(u => u.includes('#sri-form')).length === 1
+    && links[1].includes('#sri-form'));
+
+  // Tracking is still forbidden — but the thing that was ever forbidden is a
+  // parameter that identifies the RECIPIENT. `utm_source=protein_guide_email`
+  // is a fixed campaign label, byte-identical in every copy of this email, so
+  // it says which email the click came from and nothing whatever about who
+  // received it. It cannot be correlated back to an address and cannot be
+  // replayed to reach anyone's data.
+  //
+  // The PDF link keeps a clean path with no query string at all, which is what
+  // proteinGuidePdf.test.mjs asserts from the other side.
+  const ALLOWED_PARAMS = new Set(['utm_source', 'utm_medium', 'utm_campaign']);
+  const paramsOf = u => [...new URL(u).searchParams.keys()];
+  t('[safety] the PDF link carries no query string of any kind',
+    !links[0].includes('?') && !links[0].includes('&') && !links[0].includes('#'));
+  t('[safety] the SRI link carries only fixed campaign attribution',
+    paramsOf(links[1]).every(k => ALLOWED_PARAMS.has(k))
+    && new URL(links[1]).searchParams.get('utm_source') === 'protein_guide_email');
+  t('[safety] no link carries a token, address or recipient identity',
+    links.every(u => !/(token=|[?&]t=|[?&]e=|uid=|email=|rid=|recipient)/i.test(u))
     && !/href="(mailto:|tel:)/i.test(HTML));
   t('[safety] the asset contains no button or commercial call to action',
     !/Click here|Get started|Book a|Sign up|Subscribe|Upgrade|Buy|Order now|Learn more|Free trial/i.test(HTML));

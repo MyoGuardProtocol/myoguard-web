@@ -54,6 +54,48 @@ export function proteinGuidePdfUrl(): string {
 }
 
 /**
+ * The origin the Guide email builds its absolute links from.
+ *
+ * Exported so the email's screen-only continuation panel resolves its
+ * destination exactly as the PDF action does. Two copies of this resolution
+ * would eventually disagree, and the one that drifted would send recipients at
+ * a localhost URL from their inbox.
+ */
+export const GUIDE_EMAIL_ORIGIN = APP_URL;
+
+/**
+ * Blocks that exist on screen and must never reach the printed artifact.
+ *
+ * Each is hidden by a `display:none` print rule AND removed here before the
+ * document is hashed. Both are needed and they do different jobs: the print
+ * rule keeps the block out of the paginated PDF, and this removal keeps it out
+ * of the signature, so a block built from an environment variable cannot fail
+ * the drift test on a differently configured origin while the approved content
+ * is untouched.
+ *
+ *   mg-action    — the save/print action (C3F-3C).
+ *   mg-continue  — the Preliminary SRI continuation (C-FUNNEL-2).
+ *
+ * Adding a class here is a deliberate statement that the block is not part of
+ * the approved document. Anything that IS part of it must never be listed.
+ */
+export const SCREEN_ONLY_CLASSES = ['mg-action', 'mg-continue'] as const;
+
+/**
+ * Matches one screen-only block, whole.
+ *
+ * Written as a regex literal rather than assembled from the list above: in a
+ * template literal `\s` collapses to a bare `s`, so a constructed pattern
+ * silently matches nothing and lets the block into the signature. The suite
+ * asserts this pattern covers every class named above, which is what keeps the
+ * two in step.
+ *
+ * Non-greedy to the first `</table>`, and neither block nests a table.
+ */
+const SCREEN_ONLY_BLOCK =
+  /<table[^>]*class="[^"]*\b(?:mg-action|mg-continue)\b[^"]*"[\s\S]*?<\/table>/g;
+
+/**
  * The Guide as the canonical PDF is printed from it.
  *
  * The save/print action is `display:none` in print, so it contributes nothing
@@ -67,5 +109,5 @@ export function proteinGuidePdfUrl(): string {
  * thing, or the signature would be comparing two different documents.
  */
 export function canonicalPdfSourceHtml(html: string): string {
-  return html.replace(/<table[^>]*class="mg-action"[\s\S]*?<\/table>/, '');
+  return html.replace(SCREEN_ONLY_BLOCK, '');
 }

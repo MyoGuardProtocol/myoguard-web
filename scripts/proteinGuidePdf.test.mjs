@@ -34,6 +34,7 @@ import {
   PROTEIN_GUIDE_PDF_TEMPLATE_ID,
   canonicalPdfSourceHtml,
   proteinGuidePdfUrl,
+  SCREEN_ONLY_CLASSES,
 } from '../src/lib/guide/proteinGuidePdf.ts';
 import { currentProteinGuide } from '../src/lib/guide/proteinGuide.ts';
 
@@ -111,6 +112,24 @@ section('-- B. The artifact is the current approved document --');
     !canonicalPdfSourceHtml(HTML).includes('class="mg-action"')
     && !canonicalPdfSourceHtml(HTML).includes(proteinGuidePdfUrl())
     && !canonicalPdfSourceHtml(HTML).includes('href='));
+
+  // C-FUNNEL-2 added a second screen-only block — the Preliminary SRI
+  // continuation. It carries `mg-action` so the EXISTING print rule hides it,
+  // which is what let it be added without a new stylesheet rule: the stylesheet
+  // is static and therefore part of the signature above, so one extra CSS rule
+  // would have invalidated the committed PDF while changing nothing printed.
+  //
+  // Every class named as screen-only must actually be stripped. If one is
+  // added to that list and this fails, the block is reaching the artifact.
+  t('[lock]   every declared screen-only class is stripped from the signature',
+    SCREEN_ONLY_CLASSES.length === 2
+    && SCREEN_ONLY_CLASSES.every(
+      cls => !canonicalPdfSourceHtml(HTML).includes(`class="${cls}`)
+        && !canonicalPdfSourceHtml(HTML).includes(`${cls}"`)));
+  t('[lock]   the continuation block is removed, not merely hidden',
+    HTML.includes('mg-continue')
+    && !canonicalPdfSourceHtml(HTML).includes('mg-continue')
+    && !canonicalPdfSourceHtml(HTML).includes('sri-form'));
 }
 
 section('-- C. The delivery mechanism grants nothing and exposes no one --');
@@ -119,7 +138,7 @@ section('-- C. The delivery mechanism grants nothing and exposes no one --');
   // path, no identifier — so the link cannot reveal who asked for the Guide,
   // cannot be correlated back to an address, and cannot be replayed to reach
   // anyone's data, because there is no data behind it.
-  t('[safety] the link is the same for every recipient',
+  t('[safety] every link is the same for every recipient, and the PDF is first',
     renderProteinGuideHtml() === HTML
     && proteinGuidePdfUrl() === renderProteinGuideHtml().match(/href="([^"]+)"/)[1]);
   // Checked structurally rather than by keyword: the path is a plain versioned
