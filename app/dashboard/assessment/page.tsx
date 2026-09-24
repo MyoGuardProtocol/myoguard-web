@@ -625,7 +625,7 @@ export default function AssessmentPage() {
             <div style={{ marginBottom: '10px' }}>
               <span style={{ fontSize: '13px', fontWeight: '600', color: '#F1F5F9' }}>
                 Sleep &amp; Recovery{' '}
-                <span style={{ color: '#94A3B8', fontWeight: '400' }}>(optional — improves score accuracy)</span>
+                <span style={{ color: '#94A3B8', fontWeight: '400' }}>(optional — improves SRI accuracy)</span>
               </span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
@@ -818,7 +818,7 @@ export default function AssessmentPage() {
               transition: 'opacity 0.15s',
             }}
           >
-            {loading ? 'Calculating your score…' : 'Generate My Muscle Protection Plan →'}
+            {loading ? 'Generating your SRI…' : 'Generate My Muscle Protection Plan →'}
           </button>
 
         </div>

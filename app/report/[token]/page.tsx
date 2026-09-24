@@ -264,10 +264,10 @@ export default async function PublicReportPage({
             )}
           </div>
 
-          {/* Score summary */}
+          {/* SRI summary */}
           <section>
             <h2 className="text-[10px] font-bold text-teal-700 uppercase tracking-[0.18em] mb-3">
-              MyoGuard Muscle Protection Score
+              MyoGuard Sarcopenia Risk Index (SRI)
             </h2>
             <div className={`rounded-xl border ${meta.border} ${meta.bg} px-5 py-5`}>
               <div className="flex items-start justify-between gap-4 mb-4">
@@ -590,7 +590,7 @@ export default async function PublicReportPage({
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200">
-                      {['Date','Score','Risk Band','Change'].map(h => (
+                      {['Date','SRI','Risk Band','Change'].map(h => (
                         <th key={h} className="text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide px-4 py-2.5">{h}</th>
                       ))}
                     </tr>

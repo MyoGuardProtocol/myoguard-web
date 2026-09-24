@@ -6,69 +6,59 @@ const CATEGORIES = [
     label:       'Foundation',
     rationale:   'Core micronutrient support for GLP-1 patients — addresses common deficiencies in vitamin D, magnesium, and B-complex during caloric restriction.',
     formulation: 'High-bioavailability multivitamin with methylated B-complex, 1,000–2,000 IU vitamin D3, and omega-3 concentrate (EPA+DHA ≥ 1 g/day)',
-    linkText:    'View foundational support options →',
   },
   {
     id:          'muscle',
     label:       'Muscle Support',
     rationale:   'Leucine-rich protein and creatine to preserve and stimulate muscle protein synthesis during active weight loss.',
     formulation: 'Whey or plant-based protein isolate with ≥ 2.5 g leucine per serving; creatine monohydrate 3–5 g/day',
-    linkText:    'View protein and creatine options →',
   },
   {
     id:          'recovery',
     label:       'Recovery / Sleep',
     rationale:   'Supports sleep architecture and cortisol regulation — particularly relevant during active weight-loss phases.',
     formulation: 'Magnesium glycinate 200–400 mg before sleep; optional: ashwagandha (KSM-66) 300–600 mg',
-    linkText:    'View recovery support options →',
   },
   {
     id:          'gi',
     label:       'GI Support (GLP-1 Specific)',
     rationale:   'Targets delayed gastric emptying, nausea, and constipation associated with semaglutide and tirzepatide use.',
     formulation: 'Psyllium husk 5–10 g/day; digestive enzymes with lipase; ginger extract 250–500 mg as needed',
-    linkText:    'View GI support options →',
   },
   {
     id:          'adjuncts',
     label:       'Optional Adjuncts',
     rationale:   'Evidence-adjacent formulations for additional metabolic and anti-inflammatory support.',
     formulation: 'Berberine 500 mg (metabolic support), alpha-lipoic acid 300–600 mg, or curcumin with piperine',
-    linkText:    'View optional adjunct options →',
   },
 ];
 
-const AFFILIATE_LINK =
-  'https://api-comms.iherb.com/gateway/comms/ct?pl=qkZ8DA0slJ0u7dcv5Pi4oWEnPkGns9a_rhHjdya7gGbAWGlkC1br2hy8cjWKNlSikMBDaRoXdIWLfdOdacFttmU3QRqmpI3R7bzdW8z2uZIV-y1zfjUjmjTHbNHWiwlENV8XVAlnmf0fSTeQjbuXjyJjdwZkTdbJcwxXdLhA1VOQGZ4w2R8F58FMRi5InRtxMqkSwbYYvOM0Kp_OBD5aTyRivFcYbmZWa3RKbQe16BEbmyYv3yqzhFZKoXlJs1cScqVqv6VKTFer_6WTNZeujnX9SulVittb02xsbtBVEDbrBcL4LYT0YKQsjsaY3Q%3d%3d';
-
-const SUPPLEMENT_PROVIDERS: Record<string, Record<string, string>> = {
-  iherb: {
-    foundation: 'https://www.iherb.com/search?kw=multivitamin&rcode=PNB3943',
-    muscle:     'https://www.iherb.com/search?kw=whey%20protein&rcode=PNB3943',
-    recovery:   'https://www.iherb.com/search?kw=magnesium%20glycinate&rcode=PNB3943',
-    gi:         'https://www.iherb.com/search?kw=probiotic&rcode=PNB3943',
-    adjuncts:   'https://www.iherb.com/?rcode=PNB3943',
-  },
-  // Placeholder for future provider
-  thorne: {
-    foundation: '',
-    muscle:     '',
-    recovery:   '',
-    gi:         '',
-    adjuncts:   '',
-  },
-};
-
-function getProviderLink(category: string): string {
-  const link = SUPPLEMENT_PROVIDERS.iherb[category];
-
-  if (!link) {
-    console.warn('Missing supplement link for category:', category);
-    return SUPPLEMENT_PROVIDERS.iherb.adjuncts;
-  }
-
-  return link;
-}
+/**
+ * PATIENT-FACING PURCHASE PATHWAY REMOVED — Platform Hardening v1 closure.
+ *
+ * This block previously carried an affiliate constant, a retailer link table
+ * and a `getProviderLink()` builder, and every category rendered an outbound
+ * link to an external retailer carrying a referral code. The closure audit
+ * found that arrangement indefensible on a patient clinical report: a
+ * physician-led Clinical Decision Support (CDS) surface placed dosed
+ * supplement recommendations beside undisclosed revenue-generating links.
+ *
+ * Founder decision, 24 September 2026: SUPPRESS the outbound pathway. The
+ * links, the referral code and the builder are gone rather than hidden — a
+ * disclosure was explicitly rejected as a substitute, and no replacement
+ * retailer was added.
+ *
+ * The educational content is deliberately UNCHANGED. Every category keeps its
+ * label, rationale and formulation exactly as written; rewriting doses or
+ * clinical claims was out of scope for this task and remains open.
+ *
+ * SUPPLEMENT_CLICK, fired from the removed links, was the only patient-side
+ * writer to /api/analytics. That route and its table are left in place
+ * untouched, per instruction — the event simply has no firing site now.
+ *
+ * Reinstating any purchase pathway here is a Founder and counsel decision,
+ * not an engineering one, and the governance suite fails if a link reappears.
+ */
 
 const ACTION_CUES: Record<string, string> = {
   muscle:   'Action cue: Consider adding structured protein support to help meet your daily target.',
@@ -179,23 +169,6 @@ export default function SupplementCTA({
                   <span className="font-medium text-slate-500">Recommended formulation: </span>
                   {cat.formulation}
                 </p>
-                <a
-                  href={getProviderLink(cat.id)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-xs font-semibold hover:underline"
-                  style={{ color: '#2DD4BF' }}
-                  onClick={() => {
-                    console.log('Supplement click', cat.id);
-                    fetch('/api/analytics', {
-                      method:  'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body:    JSON.stringify({ eventType: 'SUPPLEMENT_CLICK', metadata: { category: cat.id } }),
-                    }).catch(() => {});
-                  }}
-                >
-                  {cat.linkText}
-                </a>
               </div>
             );
           })}
@@ -231,22 +204,6 @@ export default function SupplementCTA({
               <span className="font-medium text-slate-500">Recommended formulation: </span>
               {cat.formulation}
             </p>
-            <a
-              href={getProviderLink(cat.id)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs font-semibold text-teal-600 hover:text-teal-700 hover:underline"
-              onClick={() => {
-                console.log('Supplement click', cat.id);
-                fetch('/api/analytics', {
-                  method:  'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body:    JSON.stringify({ eventType: 'SUPPLEMENT_CLICK', metadata: { category: cat.id } }),
-                }).catch(() => {});
-              }}
-            >
-              {cat.linkText}
-            </a>
           </div>
         ))}
       </div>

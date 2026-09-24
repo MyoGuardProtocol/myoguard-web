@@ -517,10 +517,10 @@ export default async function ReportPage() {
           </div>
 
           {/* ══════════════════════════════════════════════════════════════════ */}
-          {/* SCORE SUMMARY                                                     */}
+          {/* SRI SUMMARY                                                       */}
           {/* ══════════════════════════════════════════════════════════════════ */}
           <section>
-            <h2 style={sectionHeading}>MyoGuard Muscle Protection Score</h2>
+            <h2 style={sectionHeading}>MyoGuard Sarcopenia Risk Index (SRI)</h2>
 
             <div style={{ background: '#0D1421',
               border: '1px solid #1A2744',

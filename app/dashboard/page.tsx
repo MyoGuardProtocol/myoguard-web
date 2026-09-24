@@ -243,7 +243,7 @@ export default async function PatientDashboardPage() {
             <div style={{ textAlign: "center" }}>
               <p style={{ fontSize: "10px", color: "#94A3B8",
                 textTransform: "uppercase", letterSpacing: "0.06em",
-                marginBottom: "2px" }}>Score</p>
+                marginBottom: "2px" }}>SRI</p>
               <p style={{ fontSize: "14px", fontWeight: "600",
                 color: "#2DD4BF", fontFamily: "Georgia, serif" }}>
                 {latestScore}
