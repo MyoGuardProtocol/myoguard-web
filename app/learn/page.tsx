@@ -19,7 +19,16 @@
  * Guide's own approved subtitle, and the topic card links onward rather than
  * summarising clinical content here.
  *
- * Architecture: server component, static, no auth, no Prisma.
+ * Evidence Explained articles appear here only when the central selector
+ * (src/lib/learn/evidenceExplained/publicArticles.ts) has one that is publicly
+ * exposable; until then the section renders nothing and this page is
+ * unchanged.
+ *
+ * Architecture: server component, no auth, no Prisma. Rendered per request
+ * (`force-dynamic`) rather than statically: the selector judges article
+ * exposure against today's date, and a cached copy would keep listing an
+ * article whose review had fallen due. The page reads only in-process module
+ * data, so rendering it is a pure function call with no I/O.
  */
 
 import Link from 'next/link';
@@ -28,6 +37,10 @@ import type { Metadata } from 'next';
 import { GUIDE_COVER } from '@/src/lib/guide/proteinGuideContent';
 import AnalyticsMount from '@/src/components/analytics/AnalyticsMount';
 import { AnalyticsEvents } from '@/src/lib/posthog';
+import EvidenceExplainedDiscovery from '@/src/components/learn/EvidenceExplainedDiscovery';
+import { publicArticleCards } from '@/src/lib/learn/evidenceExplained/publicArticles';
+
+export const dynamic = 'force-dynamic';
 
 const TITLE = 'Patient Education | MyoGuard Protocol';
 const DESCRIPTION =
@@ -150,6 +163,8 @@ export default function LearnIndexPage() {
             Read the education page and request the MyoGuard Protein Guide by email →
           </p>
         </Link>
+
+        <EvidenceExplainedDiscovery articles={publicArticleCards()} />
 
         <footer style={{ borderTop: '1px solid #1A2744', paddingTop: '28px' }}>
           <p style={{ fontSize: '0.75rem', color: '#334155', lineHeight: 1.8, margin: '0 0 6px 0', textAlign: 'center' }}>

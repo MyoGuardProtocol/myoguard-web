@@ -75,6 +75,11 @@ const REDACTION_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   [/^\/invite\/[^/]+/,                           '/invite/[doctorId]'],
   [/^\/api\/physician\/patients\/[^/]+/,         '/api/physician/patients/[userId]'],
   [/^\/api\/preload\/[^/]+/,                     '/api/preload/[id]'],
+  // Evidence Explained. Every article URL — published, refused or guessed —
+  // reports as the route pattern, so no unpublished slug a visitor types can
+  // reach analytics. Published articles are counted by the
+  // evidence_article_viewed event, which fires only from a served article.
+  [/^\/learn\/evidence\/[^/]+/,                  '/learn/evidence/[slug]'],
 ];
 
 /**
@@ -206,6 +211,10 @@ export const AnalyticsEvents = {
   // share token, a physician or patient identifier, or a Guide request id.
   LEARN_PAGE_VIEWED:               'learn_page_viewed',
   PROTEIN_ARTICLE_VIEWED:          'protein_article_viewed',
+  // Fired only by app/learn/evidence/[slug] after the central selector has
+  // accepted the article. Its one property, `article`, is that published
+  // article's public slug — never a draft's, which no browser ever receives.
+  EVIDENCE_ARTICLE_VIEWED:         'evidence_article_viewed',
   GUIDE_REQUESTED:                 'guide_requested',
   // Fired when /api/guide-request accepts the request, which is the furthest
   // the browser is permitted to see. That route answers a suppressed send

@@ -16,6 +16,7 @@
     "test:css": "node tests/otp-css-audit.mjs",
     "test:otp": "node tests/otp-render.e2e.mjs",
     "test:clerk-version": "node tests/clerk-version-containment.mjs",
+    "test:evidence-article": "node --import ./scripts/_resolve-ts.mjs --import ./scripts/_load-tsx.mjs tests/evidence-article.e2e.mjs",
     "preflight": "node scripts/preflight.mjs",
     "preflight:strict": "node scripts/preflight.mjs --strict",
     "preflight:ci": "node scripts/preflight.mjs --ci",

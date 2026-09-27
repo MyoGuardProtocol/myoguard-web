@@ -35,6 +35,21 @@ function firstExisting(baseHref) {
 }
 
 export async function resolve(specifier, context, nextResolve) {
+  // "server-only" marks a module as never shippable to a browser. Next.js
+  // resolves it under the "react-server" condition to an empty module on the
+  // server and fails the build if a client component imports it. These tests
+  // run as the server, so they resolve it the same way.
+  if (specifier === 'server-only') {
+    return nextResolve(specifier, { ...context, conditions: [...(context.conditions ?? []), 'react-server'] });
+  }
+
+  // "next/link", "next/navigation" … are CommonJS entry files at the package
+  // root ("next/link.js"). Bundlers add the extension; Node's ESM resolver
+  // does not, so add it here.
+  if (/^next\/[a-z-]+$/.test(specifier)) {
+    try { return await nextResolve(specifier, context); } catch { return nextResolve(specifier + '.js', context); }
+  }
+
   // "@/x/y" → <repo root>/x/y
   if (specifier.startsWith('@/')) {
     const hit = firstExisting(new URL(specifier.slice(2), ROOT).href);

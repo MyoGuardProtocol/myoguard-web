@@ -1,6 +1,12 @@
 import type { MetadataRoute } from "next";
+import { publicArticleSitemapEntries } from "@/src/lib/learn/evidenceExplained/publicArticles";
 
 const BASE_URL = "https://myoguard.health";
+
+// Generated per request, not cached: the Evidence Explained selector judges
+// article exposure against today's date, and a cached sitemap would keep
+// listing an article whose review had fallen due. Reads module data only.
+export const dynamic = "force-dynamic";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
@@ -86,5 +92,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.9,
     },
+    // Evidence Explained: publicly exposable articles only, from the central
+    // selector. Empty until an article is published.
+    ...publicArticleSitemapEntries(),
   ];
 }

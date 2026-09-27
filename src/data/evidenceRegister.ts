@@ -305,6 +305,43 @@ export function canonicalUrlProblems(value: unknown): string[] {
   return out;
 }
 
+// ── Source links ───────────────────────────────────────────────────────────────
+
+/**
+ * Link priority: DOI, then PMID, then the source's canonical URL. The link
+ * identifies the source only — it never changes the evidence quality shown
+ * beside it. Shared by the CCC and Evidence Explained so both link a source the
+ * same way.
+ */
+export function sourceHref(
+  doi: string | null | undefined,
+  pmid: string | null | undefined,
+  canonicalUrl: string | null | undefined,
+): string | null {
+  if (doi) return `https://doi.org/${doi}`;
+  if (pmid) return `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`;
+  if (canonicalUrl) return canonicalUrl;
+  return null;
+}
+
+/**
+ * `sourceHref`, accepted only when the identifiers are well formed and the
+ * resulting link passes `canonicalUrlProblems` (HTTPS, a real domain, no
+ * credentials, shortener or tracking parameter). Null means no safe link.
+ */
+export function safeSourceHref(
+  doi: string | null | undefined,
+  pmid: string | null | undefined,
+  canonicalUrl: string | null | undefined,
+): string | null {
+  const href = sourceHref(
+    typeof doi === 'string' && DOI_PATTERN.test(doi) ? doi : null,
+    typeof pmid === 'string' && PMID_PATTERN.test(pmid) ? pmid : null,
+    canonicalUrl,
+  );
+  return href !== null && canonicalUrlProblems(href).length === 0 ? href : null;
+}
+
 // ── Structured source identifiers and URL-specific PHI ─────────────────────────
 //
 // DOI, PMID and canonical URL are exempt from the generic PHI detector, whose

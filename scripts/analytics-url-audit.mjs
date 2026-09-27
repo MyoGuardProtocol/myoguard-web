@@ -95,6 +95,17 @@ check('start sheet',
 check('physician invite',
   redactAnalyticsPath(`/invite/${DOCTOR_ID}`),
   '/invite/[doctorId]');
+// Evidence Explained: every article URL reports as the route pattern, so an
+// unpublished or guessed slug never reaches analytics. Synthetic slugs only.
+check('evidence article',
+  redactAnalyticsPath('/learn/evidence/synthetic-article-slug'),
+  '/learn/evidence/[slug]');
+check('evidence article, digit-free guess',
+  redactAnalyticsPath('/learn/evidence/unpublished'),
+  '/learn/evidence/[slug]');
+check('evidence article, full URL',
+  sanitizeAnalyticsProperties({ $current_url: 'https://myoguard.health/learn/evidence/synthetic-article-slug?utm_source=x&ref=DR-X-1' }).$current_url,
+  'https://myoguard.health/learn/evidence/[slug]?utm_source=x');
 console.log('');
 
 // ─── 2. Static and content routes must survive untouched ─────────────────────

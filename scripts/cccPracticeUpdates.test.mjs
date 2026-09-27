@@ -243,7 +243,9 @@ section('-- H. Founder and public-interest rationale never render --');
   const keys = Object.keys(buildClinicalPracticeUpdates([CCC])[0]).sort();
   const expected = ['clinicalRelevance', 'evidenceQualityLabel', 'evidenceTypeLabel', 'explainerStatus', 'id',
     'lastReviewedAt', 'lastReviewedLabel', 'limitations', 'persistenceThemeLabels', 'practiceClassification',
-    'practiceClassificationLabel', 'productConsideration', 'reviewDueAt', 'reviewDueLabel', 'source', 'title'].sort();
+    'practiceClassificationLabel', 'productConsideration', 'reviewDueAt', 'reviewDueLabel', 'source', 'title',
+    // Step 4A: the public article path, set only by the central Evidence Explained selector.
+    'explainerHref'].sort();
   t('[safety] H. the display model carries exactly the whitelisted fields', JSON.stringify(keys) === JSON.stringify(expected));
   t('[safety] H. no decision, rationale, slug or visibility on the display model',
     !keys.some(k => /decision|rationale|publicInterest|explainerSlug|visibility/i.test(k) || k === 'status'));
@@ -266,10 +268,23 @@ section('-- I. No patient-level field or PHI can render --');
 section('-- J. "Patient explainer available" only when every public condition holds --');
 {
   const LABEL = 'Patient explainer available';
-  t('[behaviour] J. PUBLISHED public entry with slug shows it',
-    hasPatientExplainer(MYTH_PUBLISHED) && render([MYTH_PUBLISHED]).includes(LABEL));
-  t('[behaviour] J. PUBLISHED PUBLIC_AND_CCC with slug shows it',
-    render([with_(PUBLIC_APPROVED, { status: 'PUBLISHED', publishedAt: '2026-09-21' })]).includes(LABEL));
+  // Step 4A: the label is a link, and appears only when the central Evidence
+  // Explained selector reports the article publicly exposable. A register entry
+  // meeting its own public conditions is necessary but no longer sufficient.
+  const PATH = id => `/learn/evidence/${id.replace(/^ev-test-/, 'fixture-')}`;
+  const renderWith = (entries, resolver) => renderModels(buildClinicalPracticeUpdates(entries, undefined, resolver));
+  const linked = renderWith([MYTH_PUBLISHED], PATH);
+  t('[behaviour] J. PUBLISHED public entry with an exposable article shows the label as a link',
+    hasPatientExplainer(MYTH_PUBLISHED) && linked.includes(LABEL) && linked.includes('href="/learn/evidence/fixture-myth-published"'));
+  t('[behaviour] J. PUBLISHED PUBLIC_AND_CCC with an exposable article shows it',
+    renderWith([with_(PUBLIC_APPROVED, { status: 'PUBLISHED', publishedAt: '2026-09-21' })], PATH).includes(LABEL));
+  t('[safety] J. PUBLISHED public entry without an exposable article shows "Clinical note only" and no link',
+    render([MYTH_PUBLISHED]).includes('Clinical note only') && !render([MYTH_PUBLISHED]).includes(LABEL) &&
+    renderWith([MYTH_PUBLISHED], () => null).includes('Clinical note only'));
+  let asked = [];
+  renderWith([CCC, PUBLIC_APPROVED], id => { asked.push(id); return '/learn/evidence/should-not-appear'; });
+  t('[safety] J. the selector is never consulted for an entry that fails the register public conditions',
+    asked.length === 0 && !renderWith([CCC, PUBLIC_APPROVED], () => '/learn/evidence/should-not-appear').includes('should-not-appear'));
   const noteOnly = {
     'APPROVED public (not yet published)': PUBLIC_APPROVED,
     'PUBLISHED CCC_ONLY': with_(CCC, { status: 'PUBLISHED', publishedAt: '2026-09-21' }),
@@ -284,7 +299,7 @@ section('-- J. "Patient explainer available" only when every public condition ho
     !shows(with_(MYTH_PUBLISHED, { explainerSlug: null })));
   t('[safety] J. PUBLISHED public without publicInterestRationale is not rendered',
     !shows(with_(MYTH_PUBLISHED, { publicInterestRationale: null })));
-  t('[safety] J. no explainer link is rendered (no public page exists yet)',
+  t('[safety] J. with production data no explainer link is rendered (no article is public)',
     !render([MYTH_PUBLISHED]).includes('/learn/'));
 }
 

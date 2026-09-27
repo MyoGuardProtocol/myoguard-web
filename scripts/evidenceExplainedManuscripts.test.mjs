@@ -318,19 +318,30 @@ section('-- F. Evidence links and approval cannot be bypassed --');
   t('[behaviour] F. the synthetic governed entry is itself valid', evidenceGovernanceViolations(governed.find(e => e.id === SEED_ID)).length === 0);
   t('[behaviour] F. APPROVED with full Founder governance has no violations', violations(approved, governed).length === 0, JSON.stringify(violations(approved, governed)));
   const blockers = manuscriptPublicationBlockers(approved, governed, DRAFT_DAY);
-  t('[safety] F. even then it is not exposable: no public route exists',
-    blockers.length === 1 && /no public Evidence Explained route/.test(blockers[0]), JSON.stringify(blockers));
+  // Step 4A: only PUBLISHED evidence may go public. APPROVED evidence is CCC-only.
+  t('[safety] F. even then it is not exposable: APPROVED evidence is not PUBLISHED',
+    blockers.some(b => /linked evidence status APPROVED is not published/.test(b)) &&
+    blockers.some(b => /no valid publishedAt/.test(b)) && !isManuscriptPubliclyExposable(approved, governed, DRAFT_DAY),
+    JSON.stringify(blockers));
+  t('[safety] F. with the route capability disabled nothing is exposable',
+    manuscriptPublicationBlockers(approved, governed, DRAFT_DAY, false).some(b => /route is disabled/.test(b)));
   const slugMismatch = EVIDENCE_REGISTER.map(e => (e.id === SEED_ID ? { ...clone(e), explainerSlug: 'another-article' } : e));
   t('[safety] F. a register slug naming another article fails', violates(PILOT, /names a different explainerSlug/, slugMismatch));
 }
 
 // ── G. Publication separation ────────────────────────────────────────────────
-section('-- G. Nothing can render, list, track or show the manuscript --');
+// Step 4A added the governed route /learn/evidence/[slug] and enabled the route
+// capability. These checks now prove that the ONLY way anything public reaches
+// a manuscript is the central selector (publicArticles.ts), and that the pilot
+// is refused by it. scripts/evidenceExplainedPublicRoute.test.mjs covers the
+// route itself.
+section('-- G. Only the central selector can reach a manuscript, and it refuses the pilot --');
 {
-  t('[safety] G. no public route is implemented', PUBLIC_ROUTE_IMPLEMENTED === false);
-  t('[safety] G. the pilot is not publicly exposable', !isManuscriptPubliclyExposable(PILOT, EVIDENCE_REGISTER, TODAY));
+  t('[safety] G. the route capability is enabled, and the pilot is still not exposable',
+    PUBLIC_ROUTE_IMPLEMENTED === true && !isManuscriptPubliclyExposable(PILOT, EVIDENCE_REGISTER, TODAY));
   const b = manuscriptPublicationBlockers(PILOT, EVIDENCE_REGISTER, TODAY);
-  for (const re of [/manuscript status DRAFT/, /linked evidence status DRAFT/, /no Founder decision/, /explainerSlug does not name/, /fails public governance/, /no public Evidence Explained route/]) {
+  for (const re of [/manuscript status DRAFT/, /linked evidence status DRAFT is not published/, /no complete Founder decision/,
+                    /explainerSlug does not name/, /no valid publishedAt/, /review dates are incomplete/, /fails public governance/]) {
     t(`[safety] G. blocked for: ${re.source}`, b.some(x => re.test(x)));
   }
 
@@ -345,27 +356,47 @@ section('-- G. Nothing can render, list, track or show the manuscript --');
   const elsewhere = [...appFiles, ...walk('src').filter(code), ...walk('public'), 'middleware.ts', 'next.config.ts']
     .filter(f => existsSync(join(ROOT, f)) && !OWN.test(norm(f)));
 
-  t('[safety] G. no app/learn/evidence route exists', !existsSync(join(ROOT, 'app/learn/evidence')));
-  t('[safety] G. no route under app/ contains "evidence-explained" or the working slug',
+  t('[safety] G. the only file under app/learn/evidence is [slug]/page.tsx (no index)',
+    JSON.stringify(walk('app/learn/evidence').map(norm)) === JSON.stringify(['app/learn/evidence/[slug]/page.tsx']));
+  t('[safety] G. no route under app/ is named after the working slug or "evidence-explained"',
     !appFiles.some(f => /evidence-explained|stopping-a-glp-1-medicine/.test(norm(f))));
-  const importers = elsewhere.filter(f => /\.(tsx?|jsx?|mjs)$/.test(f) && /(?:from\s+|import\s*\(\s*)['"][^'"]*evidenceExplained/.test(src(f)));
-  t('[safety] G. nothing outside the manuscript folder imports it', importers.length === 0, JSON.stringify(importers));
+  const specifiers = f => [...src(f).matchAll(/(?:from\s+|import\s*\(\s*)['"]([^'"]*evidenceExplained[^'"]*)['"]/g)].map(m => m[1]);
+  const outside = elsewhere.filter(f => /\.(tsx?|jsx?|mjs)$/.test(f)).flatMap(f => specifiers(f).map(sp => [norm(f), sp]));
+  t('[safety] G. outside the folder, only the central selector is imported',
+    outside.length > 0 && outside.every(([, sp]) => sp === '@/src/lib/learn/evidenceExplained/publicArticles'), JSON.stringify(outside));
+  const importers = [...new Set(outside.map(([f]) => f))].sort();
+  t('[safety] G. the selector is used by exactly the route, /learn, the sitemap, the CCC selector and two presentational components',
+    JSON.stringify(importers) === JSON.stringify(['app/learn/evidence/[slug]/page.tsx', 'app/learn/page.tsx', 'app/sitemap.ts',
+      'src/components/learn/EvidenceArticle.tsx', 'src/components/learn/EvidenceExplainedDiscovery.tsx',
+      'src/lib/practiceUpdates/clinicalPracticeUpdates.ts']), JSON.stringify(importers));
+  t('[safety] G. the presentational components import types only',
+    ['src/components/learn/EvidenceArticle.tsx', 'src/components/learn/EvidenceExplainedDiscovery.tsx']
+      .every(f => /import type \{[^}]*\} from '@\/src\/lib\/learn\/evidenceExplained\/publicArticles'/.test(src(f))));
+  const clientFiles = elsewhere.filter(f => /\.(tsx?|jsx?)$/.test(f) && /^\s*['"]use client['"]/m.test(src(f)));
+  t('[safety] G. no client component imports anything from the manuscript folder',
+    clientFiles.length > 0 && clientFiles.every(f => specifiers(f).length === 0));
   const leaks = elsewhere.filter(f => code(f) && /Why the Next Plan Matters|stopping-a-glp-1-medicine-next-plan|mn-2026-w39-treatment-discontinuation/.test(src(f)));
   t('[safety] G. the headline, slug and manuscript id appear nowhere in app/, src/ or public/', leaks.length === 0, JSON.stringify(leaks));
-  t('[safety] G. the sitemap has no Evidence Explained entry', !/evidence/i.test(src('app/sitemap.ts')));
-  t('[safety] G. app/learn/page.tsx does not list Evidence Explained', !/evidenceExplained|Evidence Explained|evidence-explained/.test(src('app/learn/page.tsx')));
-  const analytics = [...walk('src').filter(code), ...appFiles].filter(f => !OWN.test(norm(f)) && /['"`]\/learn\/evidence|evidence[-_]explained/i.test(src(f)));
-  t('[safety] G. no analytics path or event names Evidence Explained', analytics.length === 0, JSON.stringify(analytics));
-  const ccc = ['src/lib/practiceUpdates/clinicalPracticeUpdates.ts', 'src/components/doctor/intelligence/ClinicalPracticeUpdates.tsx', 'app/doctor/practice-intelligence/page.tsx'];
-  t('[safety] G. the CCC renderer does not import manuscripts', ccc.every(f => !/evidenceExplained|manuscript/i.test(src(f))));
+  t('[safety] G. the sitemap lists articles only through the selector',
+    /\.\.\.publicArticleSitemapEntries\(\)/.test(src('app/sitemap.ts')) && !/['"`]\/learn\/evidence/.test(src('app/sitemap.ts')));
+  t('[safety] G. /learn lists articles only through the selector',
+    /publicArticleCards\(\)/.test(src('app/learn/page.tsx')) && !/['"`]\/learn\/evidence/.test(src('app/learn/page.tsx')));
+  const ph = src('src/lib/posthog.ts');
+  t('[safety] G. analytics names only the route pattern and one event, never a slug',
+    /'\/learn\/evidence\/\[slug\]'/.test(ph) && /EVIDENCE_ARTICLE_VIEWED/.test(ph) && !/stopping-a-glp|mn-2026/.test(ph));
+  t('[safety] G. the CCC component and page read no Evidence Explained module',
+    !/evidenceExplained|manuscript/i.test(src('src/components/doctor/intelligence/ClinicalPracticeUpdates.tsx')) &&
+    !/evidenceExplained|manuscript/i.test(src('app/doctor/practice-intelligence/page.tsx')));
   t('[safety] G. the Evidence Register does not import manuscripts', !/import[^;]*evidenceExplained/.test(src('src/data/evidenceRegister.ts')));
 
   const own = walk('src/lib/learn/evidenceExplained').filter(f => /\.tsx?$/.test(f));
-  const imports = own.flatMap(f => [...src(f).matchAll(/from\s+['"]([^'"]+)['"]/g)].map(m => m[1]));
-  t('[safety] G. the manuscript modules import only the Evidence Register and each other',
-    imports.every(i => i === '@/src/data/evidenceRegister' || i.startsWith('./') || i.startsWith('../')), JSON.stringify(imports));
-  t('[safety] G. no React, Next.js, Prisma, analytics or protocol-engine import',
-    !own.some(f => /from\s+['"](?:react|next\/|@prisma|posthog|@\/src\/lib\/(?:prisma|protocolEngine|analytics))/.test(src(f))));
+  const imports = own.flatMap(f => [...src(f).matchAll(/(?:from|import)\s+['"]([^'"]+)['"]/g)].map(m => m[1]));
+  t('[safety] G. the manuscript modules import only the register, each other, Next types and server-only',
+    imports.every(i => i === '@/src/data/evidenceRegister' || i === 'next' || i === 'server-only' || i.startsWith('./') || i.startsWith('../')), JSON.stringify(imports));
+  t('[safety] G. the only "next" import is a type import', !own.some(f => /import\s+(?!type)[^;]*from\s+'next'/.test(src(f))));
+  t('[safety] G. the central selector is server-only', /^import 'server-only';/m.test(src('src/lib/learn/evidenceExplained/publicArticles.ts')));
+  t('[safety] G. no React, Prisma, analytics or protocol-engine import',
+    !own.some(f => /from\s+['"](?:react|next\/|@prisma|posthog|@\/src\/lib\/(?:prisma|protocolEngine|analytics|posthog))/.test(src(f))));
   t('[safety] G. no SRI or CDS logic is imported', !own.some(f => /protocolEngine|sriEngine|clinicalDecision|@\/src\/lib\/evidence\//.test(src(f))));
 }
 

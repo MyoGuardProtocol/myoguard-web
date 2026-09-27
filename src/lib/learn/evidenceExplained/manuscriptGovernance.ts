@@ -10,11 +10,10 @@
  * (src/data/evidenceRegister.ts) to patients and the public.
  *
  * WHAT THIS IS NOT
- * It is not a page. Nothing in app/ imports this folder, no route renders a
- * manuscript, and `isManuscriptPubliclyExposable` answers no for every
- * manuscript until a separately approved public route exists
- * (`PUBLIC_ROUTE_IMPLEMENTED`). scripts/evidenceExplainedManuscripts.test.mjs
- * fails if a route, sitemap entry, analytics path or CCC import appears.
+ * It is not a page. Public surfaces never import this module or the registry
+ * directly: they call the central selector in ./publicArticles.ts, which
+ * applies these rules plus the request-level ones. Tests fail if any other
+ * path to a manuscript appears.
  *
  * WHAT A MANUSCRIPT NEVER DOES
  * It explains evidence. It never changes the Sarcopenia Risk Index (SRI),
@@ -38,8 +37,10 @@ import {
   canonicalUrlProblems,
   endorsementFindings,
   evidenceGovernanceViolations,
+  isPubliclyExposable,
   isPubliclyPublishable,
   isValidIsoDate,
+  safeSourceHref,
   persistenceFindings,
   terminologyFindings,
   type EvidenceRegisterEntry,
@@ -77,11 +78,15 @@ export const REQUIRED_SECTIONS = [
 export type SectionId = (typeof REQUIRED_SECTIONS)[number]['id'];
 
 /**
- * No public Evidence Explained route exists. A future step that implements one
- * changes this deliberately, together with its own tests. Until then no
- * manuscript is publicly exposable, whatever its status.
+ * The public-route capability. Step 4A implemented the governed route
+ * `/learn/evidence/[slug]` and enabled it. The route existing is never
+ * publication authority: an article is shown only when every condition in
+ * `manuscriptPublicationBlockers` and `publicArticleBlockers`
+ * (./publicArticles.ts) passes. Setting this to false closes every Evidence
+ * Explained surface at once — route, sitemap, /learn, CCC links — without
+ * touching any record.
  */
-export const PUBLIC_ROUTE_IMPLEMENTED = false as const;
+export const PUBLIC_ROUTE_IMPLEMENTED: boolean = true;
 
 // ── Shape ──────────────────────────────────────────────────────────────────────
 
@@ -532,13 +537,22 @@ export function manuscriptViolations(
 }
 
 /**
- * Every reason a manuscript may not be shown publicly. Empty means exposable —
- * which cannot happen while `PUBLIC_ROUTE_IMPLEMENTED` is false.
+ * Every reason a manuscript may not be shown publicly. Empty means exposable.
+ *
+ * Only a PUBLISHED Evidence Register entry may be exposed publicly; APPROVED
+ * evidence may appear in the authenticated CCC but never here. Reviews are
+ * judged against `today`, so an article whose manuscript or evidence review
+ * falls due stops being exposable on that date without any edit.
+ *
+ * The request-level checks — slug shape, exact slug match, uniqueness — are in
+ * `publicArticleBlockers` (./publicArticles.ts), which every public surface
+ * calls. Nothing public calls this function directly.
  */
 export function manuscriptPublicationBlockers(
   manuscript: unknown,
   register: readonly EvidenceRegisterEntry[],
   today: IsoDate,
+  routeEnabled: boolean = PUBLIC_ROUTE_IMPLEMENTED,
 ): string[] {
   const b = [...manuscriptViolations(manuscript, register, today)];
   if (!isRecord(manuscript)) return b;
@@ -546,21 +560,43 @@ export function manuscriptPublicationBlockers(
   const evidence = register.find(e => e.id === manuscript.linkedEvidenceId);
   if (!evidence) b.push('no linked evidence');
   else {
-    if (!(evidence.status === 'APPROVED' || evidence.status === 'PUBLISHED')) b.push(`linked evidence status ${evidence.status} is not publishable`);
-    if (evidence.decision === null) b.push('linked evidence has no Founder decision');
-    if (evidence.explainerSlug !== manuscript.internalWorkingSlug) b.push('linked evidence explainerSlug does not name this manuscript');
-    if (!isPubliclyPublishable(evidence)) b.push('linked evidence fails public governance');
+    if (evidence.status !== 'PUBLISHED') b.push(`linked evidence status ${evidence.status} is not published`);
+    if (!(PUBLIC_VISIBILITIES as readonly string[]).includes(evidence.visibility)) b.push(`linked evidence visibility ${evidence.visibility} is never public`);
+    const d = evidence.decision;
+    if (d === null || d.by !== 'FOUNDER' || !isValidIsoDate(d.at) || !nonEmpty(d.rationale)) b.push('linked evidence has no complete Founder decision');
+    if (d !== null && isValidIsoDate(d.at) && d.at > today) b.push('the Founder decision is dated in the future');
+    if (!nonEmpty(evidence.explainerSlug) || evidence.explainerSlug !== manuscript.internalWorkingSlug) b.push('linked evidence explainerSlug does not name this manuscript');
+    if (!isValidIsoDate(evidence.publishedAt)) b.push('linked evidence has no valid publishedAt');
+    else if (evidence.publishedAt > today) b.push('linked evidence publishedAt is in the future');
+    if (!isValidIsoDate(evidence.lastReviewedAt) || !isValidIsoDate(evidence.reviewDueAt)) b.push('linked evidence review dates are incomplete');
+    else if (evidence.reviewDueAt < today) b.push(`linked evidence review overdue: reviewDueAt ${evidence.reviewDueAt} is before ${today}`);
+    if (evidence.externalSource !== null && evidence.externalSource.identifiersConfirmed !== true) b.push('linked evidence source is not verified');
+    if (!isPubliclyPublishable(evidence) || !isPubliclyExposable(evidence)) b.push('linked evidence fails public governance');
+    if (primarySourceHref(manuscript) === null) b.push('no safe source link');
   }
-  if (!PUBLIC_ROUTE_IMPLEMENTED) b.push('no public Evidence Explained route exists');
+  if (!routeEnabled) b.push('the public Evidence Explained route is disabled');
   return b;
+}
+
+/**
+ * The safest link to the manuscript's first source reference — DOI, then
+ * PubMed, then canonical URL — or null when none passes source-link validation.
+ */
+export function primarySourceHref(manuscript: unknown): string | null {
+  if (!isRecord(manuscript) || !Array.isArray(manuscript.sourceReferences)) return null;
+  const r = manuscript.sourceReferences[0];
+  if (!isRecord(r)) return null;
+  const str = (v: unknown) => (typeof v === 'string' ? v : null);
+  return safeSourceHref(str(r.doi), str(r.pmid), str(r.canonicalUrl));
 }
 
 export function isManuscriptPubliclyExposable(
   manuscript: unknown,
   register: readonly EvidenceRegisterEntry[],
   today: IsoDate,
+  routeEnabled: boolean = PUBLIC_ROUTE_IMPLEMENTED,
 ): boolean {
-  return manuscriptPublicationBlockers(manuscript, register, today).length === 0;
+  return manuscriptPublicationBlockers(manuscript, register, today, routeEnabled).length === 0;
 }
 
 /** Violations across a set of manuscripts, plus uniqueness of ids, slugs and linked evidence. */

@@ -118,7 +118,14 @@ export default function ClinicalPracticeUpdates({ updates }: Props) {
                 <div style={chipRow}>
                   <span style={chipPrimary}>{u.practiceClassificationLabel}</span>
                   <span style={chipSecondary}>{u.evidenceTypeLabel} · {u.evidenceQualityLabel}</span>
-                  <span style={chipSecondary}>{u.explainerStatus}</span>
+                  {u.explainerHref ? (
+                    // Present only when the central selector reports the article publicly exposable.
+                    <a href={u.explainerHref} style={{ ...chipSecondary, color: '#2DD4BF', textDecoration: 'underline' }}>
+                      {u.explainerStatus}
+                    </a>
+                  ) : (
+                    <span style={chipSecondary}>{u.explainerStatus}</span>
+                  )}
                 </div>
 
                 <h3

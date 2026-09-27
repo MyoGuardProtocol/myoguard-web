@@ -30,12 +30,20 @@ import {
   PRACTICE_CLASSIFICATION_ORDER,
   hasPatientExplainer,
   isCCCVisible,
+  sourceHref,
   type EvidenceRegisterEntry,
   type PracticeClassification,
 } from '@/src/data/evidenceRegister';
 import { CITATIONS, type Citation } from '@/src/data/citations';
+import { publicArticlePathForEvidence } from '@/src/lib/learn/evidenceExplained/publicArticles';
 
 export type ExplainerStatus = 'Patient explainer available' | 'Clinical note only';
+
+/**
+ * The public Evidence Explained path for an entry, or null. Production asks the
+ * central public-exposure selector; tests pass their own.
+ */
+export type ExplainerPathResolver = (evidenceId: string) => string | null;
 
 export interface PracticeUpdateSource {
   /** Human-readable citation. */
@@ -63,6 +71,11 @@ export interface ClinicalPracticeUpdate {
   readonly reviewDueAt: string;
   readonly reviewDueLabel: string;
   readonly explainerStatus: ExplainerStatus;
+  /**
+   * The public article, only when the central selector says it is publicly
+   * exposable right now. Null means "Clinical note only" and no link.
+   */
+  readonly explainerHref: string | null;
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -74,22 +87,11 @@ export function formatIsoDate(iso: string): string {
 }
 
 /**
- * Link priority: DOI, then PMID, then the source's canonical URL. The canonical
- * URL has already passed `canonicalUrlProblems` (HTTPS, absolute, no
- * credentials, no local or IP host, no shortener, no tracking parameters) as a
- * condition of register validity. The link identifies the source only — it
- * never changes the evidence quality shown beside it.
+ * Link priority: DOI, then PMID, then the source's canonical URL — defined once
+ * in the Evidence Register and shared with Evidence Explained. The canonical URL
+ * has already passed `canonicalUrlProblems` as a condition of register validity.
  */
-export function sourceHref(
-  doi: string | null | undefined,
-  pmid: string | null | undefined,
-  canonicalUrl: string | null | undefined,
-): string | null {
-  if (doi) return `https://doi.org/${doi}`;
-  if (pmid) return `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`;
-  if (canonicalUrl) return canonicalUrl;
-  return null;
-}
+export { sourceHref };
 
 function citationLabel(c: Citation): string {
   const authors = c.authors.length > 3 ? `${c.authors[0]} et al.` : c.authors.join(', ') + '.';
@@ -121,6 +123,7 @@ export function comparePracticeUpdates(a: ClinicalPracticeUpdate, b: ClinicalPra
 export function buildClinicalPracticeUpdates(
   entries: readonly unknown[],
   citations: readonly Citation[] = CITATIONS,
+  explainerPathFor: ExplainerPathResolver = id => publicArticlePathForEvidence(id),
 ): ClinicalPracticeUpdate[] {
   const out: ClinicalPracticeUpdate[] = [];
   for (const raw of entries) {
@@ -129,6 +132,9 @@ export function buildClinicalPracticeUpdates(
     const source = resolveSource(e, citations);
     // isCCCVisible guarantees both review dates; re-checked so the types need no assertion.
     if (!source || e.lastReviewedAt === null || e.reviewDueAt === null) continue;
+    // A link needs both: the register's own public conditions and a publicly
+    // exposable article from the central selector. Either alone is not enough.
+    const explainerHref = hasPatientExplainer(e) ? explainerPathFor(e.id) : null;
     out.push({
       id: e.id,
       title: e.title,
@@ -145,7 +151,8 @@ export function buildClinicalPracticeUpdates(
       lastReviewedLabel: formatIsoDate(e.lastReviewedAt),
       reviewDueAt: e.reviewDueAt,
       reviewDueLabel: formatIsoDate(e.reviewDueAt),
-      explainerStatus: hasPatientExplainer(e) ? 'Patient explainer available' : 'Clinical note only',
+      explainerStatus: explainerHref ? 'Patient explainer available' : 'Clinical note only',
+      explainerHref,
     });
   }
   return out.sort(comparePracticeUpdates);
