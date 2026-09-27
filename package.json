@@ -15,6 +15,7 @@
     "db:seed:clinical": "npx tsx scripts/seed-clinical.ts",
     "test:css": "node tests/otp-css-audit.mjs",
     "test:otp": "node tests/otp-render.e2e.mjs",
+    "test:clerk-version": "node tests/clerk-version-containment.mjs",
     "preflight": "node scripts/preflight.mjs",
     "preflight:strict": "node scripts/preflight.mjs --strict",
     "preflight:ci": "node scripts/preflight.mjs --ci",
@@ -22,7 +23,7 @@
     "audit:analytics": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/analytics-url-audit.mjs"
   },
   "dependencies": {
-    "@clerk/nextjs": "^6.12.12",
+    "@clerk/nextjs": "6.39.0",
     "@prisma/adapter-pg": "^7.5.0",
     "@prisma/client": "^7.7.0",
     "@stripe/stripe-js": "^5.5.0",

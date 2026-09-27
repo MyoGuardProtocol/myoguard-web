@@ -73,6 +73,13 @@ export const metadata: Metadata = {
   // Icons are auto-detected: app/favicon.ico, app/icon.svg, app/apple-icon.tsx
 };
 
+// Exact clerk-js build the sign-in UI is loaded from. Without it @clerk/nextjs
+// requests only the major version, which Clerk's CDN resolves to the newest
+// 5.x — how the September 2026 OTP outage reached production without a deploy.
+// Change only together with a verified run of npm run test:otp; guarded by
+// tests/clerk-version-containment.mjs.
+const CLERK_JS_VERSION = "5.128.0";
+
 export default function RootLayout({
   children,
 }: {
@@ -80,6 +87,7 @@ export default function RootLayout({
 }) {
   return (
     <ClerkProvider
+      clerkJSVersion={CLERK_JS_VERSION}
       appearance={{
         variables: {
           fontFamily: "inherit",

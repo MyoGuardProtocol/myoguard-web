@@ -37,7 +37,9 @@
  *   - shows unreadable digits, caret or box edges (contrast);
  *   - loses its numeric keyboard, one-time-code autofill or screen-reader label;
  *   - shifts the layout when a validation error appears;
- * and if the alternative sign-in method buttons are unreadable.
+ * and if the alternative sign-in method buttons are unreadable, the browser
+ * loads any clerk-js other than the pinned version (or through a floating
+ * redirect), or the OTP DOM stops being one input over six segment divs.
  */
 
 import { chromium, devices } from 'playwright-core';
@@ -48,6 +50,9 @@ if (!['localhost', '127.0.0.1'].includes(host)) {
   console.error(`Refusing to run: BASE_URL must be localhost (got ${host}). This test rewrites Clerk API responses.`);
   process.exit(2);
 }
+
+// Must equal CLERK_JS_VERSION in app/layout.tsx (checked by tests/clerk-version-containment.mjs).
+const CLERK_JS_VERSION = '5.128.0';
 
 let pass = 0, fail = 0;
 const t = (name, cond, detail = '') => {
@@ -76,6 +81,8 @@ async function openCodeScreen(browser, profile, path) {
   const opts = { ...profile }; delete opts.defaultBrowserType;
   const ctx = await browser.newContext({ ...opts, permissions: ['clipboard-read', 'clipboard-write'] });
   const page = await ctx.newPage();
+  const clerkAssets = [];
+  page.on('response', r => { const m = r.url().match(/\/npm\/@clerk\/clerk-js@([^/]+)\/dist\/(.+)$/); if (m) clerkAssets.push({ status: r.status(), version: m[1], file: m[2] }); });
   const attempts = [];
   let stage = null;
   const json = (route, body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
@@ -101,7 +108,7 @@ async function openCodeScreen(browser, profile, path) {
   await page.click('button.cl-formButtonPrimary');
   await page.waitForSelector('.cl-otpCodeField', { timeout: 30000 });
   await page.waitForTimeout(1200);
-  return { ctx, page, attempts, touch: !!opts.hasTouch };
+  return { ctx, page, attempts, clerkAssets, touch: !!opts.hasTouch };
 }
 
 // Everything about the control, read from the live DOM.
@@ -122,13 +129,21 @@ const snapshot = page => page.evaluate(() => {
     hits,
     caretBg: (() => { const bar = field?.querySelector('.cl-otpCodeFieldInput [class] > [class]'); return bar ? getComputedStyle(bar).backgroundColor : null; })(),
     continueY: cont ? cont.getBoundingClientRect().y : null,
+    contract: {
+      inputs: inputs.length,
+      maxLength: single ? single.maxLength : null,
+      segmentTags: single ? boxes.map(b => b.tagName.toLowerCase()) : [],
+      chain: !!field?.querySelector('.cl-otpCodeFieldInputContainer .cl-otpCodeFieldInputs > .cl-otpCodeFieldInput'),
+    },
     focused: targets.includes(document.activeElement),
   };
 });
 
 const PROFILES = [
   ['desktop 1280', { viewport: { width: 1280, height: 900 } }],
+  ['mobile 390', { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 3 }],
   ['iPhone 13', devices['iPhone 13']],
+  ['Galaxy S9+', devices['Galaxy S9+']],
   ['Android 320', { viewport: { width: 320, height: 640 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 }],
 ];
 const PATHS = ['/sign-in-new', '/doctor/sign-in'];
@@ -141,11 +156,19 @@ for (const path of PATHS) {
   for (const [name, profile] of PROFILES) {
     console.log(`\n${path} — ${name}`);
     const label = s => `[${path} ${name}] ${s}`;
-    const { ctx, page, touch } = await openCodeScreen(browser, profile, path);
+    const { ctx, page, touch, clerkAssets } = await openCodeScreen(browser, profile, path);
     const s = await snapshot(page);
+
+    // Version containment (see tests/clerk-version-containment.mjs).
+    const loaded = await page.evaluate(() => window.Clerk?.version);
+    t(label(`browser reports clerk-js ${CLERK_JS_VERSION}`), loaded === CLERK_JS_VERSION, loaded);
+    t(label(`clerk-js is requested at exactly @${CLERK_JS_VERSION}, never a floating tag`), clerkAssets.length > 0 && clerkAssets.every(a => a.version === CLERK_JS_VERSION), JSON.stringify(clerkAssets.map(a => `${a.status} @${a.version}/${a.file}`)));
+    t(label('clerk-js and its UI chunks load directly (no CDN redirect)'), clerkAssets.some(a => a.file === 'clerk.browser.js' && a.status === 200) && clerkAssets.every(a => a.status === 200), JSON.stringify(clerkAssets.map(a => `${a.status} ${a.file}`)));
 
     t(label('OTP control is present'), s.found, JSON.stringify({ mode: s.mode }));
     if (!s.found) { await ctx.close(); continue; }
+    // DOM contract the CSS in app/globals.css is written against (clerk-js 5.128.0).
+    t(label('OTP DOM contract: one input[data-input-otp] over six segment divs'), s.mode === 'single-input' && s.contract.inputs === 1 && s.contract.maxLength === 6 && s.contract.segmentTags.join() === 'div,div,div,div,div,div' && s.contract.chain, JSON.stringify(s.contract));
     const target = s.input ?? s.boxes[0];
     t(label('OTP control is not hidden'), target.display !== 'none' && target.visibility !== 'hidden' && target.opacity > 0, JSON.stringify(target));
     t(label('OTP control has pointer-events'), target.pointerEvents !== 'none', target.pointerEvents);
