@@ -6,12 +6,14 @@ import PhysicianAvatar   from '@/src/components/ui/PhysicianAvatar';
 import PhysicianNavLinks from '@/src/components/doctor/PhysicianNavLinks';
 import AnalyticsMount from '@/src/components/analytics/AnalyticsMount';
 import { AnalyticsEvents } from '@/src/lib/posthog';
+import ClinicalPracticeUpdates from '@/src/components/doctor/intelligence/ClinicalPracticeUpdates';
+import { getClinicalPracticeUpdates } from '@/src/lib/practiceUpdates/clinicalPracticeUpdates';
 
 /**
  * /doctor/practice-intelligence — Physician knowledge and practice intelligence destination.
  *
  * Sections:
- *   A. Clinical Practice Updates       — emerging developments in obesity medicine and longitudinal care
+ *   A. Clinical Practice Updates       — Founder-approved Evidence Register entries (read-only; empty state otherwise)
  *   B. Monitoring Frameworks           — RPM, RTM, CCC educational descriptions
  *   C. Documentation & Reimbursement   — 4 informational cards: RPM, RTM, Documentation, Reimbursement Ed.
  *   D. Practice Resources              — links to Start Sheet, Patient Handout, Invite Patients
@@ -147,27 +149,8 @@ export default async function PracticeIntelligencePage() {
               Emerging developments in obesity medicine, muscle preservation, and longitudinal care.
             </p>
 
-            <div style={{
-              background:    'rgba(45,212,191,0.04)',
-              border:        '1px solid rgba(45,212,191,0.12)',
-              borderRadius:  '10px',
-              padding:       '16px 20px',
-            }}>
-              <p style={{
-                fontSize:      '11px',
-                fontWeight:    600,
-                color:         '#2DD4BF',
-                textTransform: 'uppercase',
-                letterSpacing: '0.08em',
-                marginBottom:  '6px',
-              }}>
-                Institutional Bulletin
-              </p>
-              <p style={{ fontSize: '13px', color: '#64748B', fontStyle: 'italic', lineHeight: 1.6 }}>
-                Clinical practice bulletins will appear here as they are published.
-                Check back for updates relevant to GLP-1 prescribing, sarcopenia assessment, and longitudinal muscle-preservation protocols.
-              </p>
-            </div>
+            {/* Founder-approved Evidence Register entries only; empty state otherwise. */}
+            <ClinicalPracticeUpdates updates={getClinicalPracticeUpdates()} />
           </div>
         </section>
 

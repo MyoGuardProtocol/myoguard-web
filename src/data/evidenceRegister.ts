@@ -174,7 +174,18 @@ export interface ExternalSource {
   readonly doi: string | null;
   /** Include only when confirmed against PubMed. */
   readonly pmid: string | null;
-  /** True only once the primary publication has been verified. */
+  /**
+   * The source's own HTTPS page, for sources with no DOI or PMID — regulator
+   * communications, guidelines, trial registries, official preliminary reports.
+   * Must satisfy `canonicalUrlProblems`. A canonical URL identifies a source; it
+   * never raises the evidence quality recorded for it.
+   */
+  readonly canonicalUrl: string | null;
+  /**
+   * True only once the source's identity has been checked. Verification means
+   * the source is what it claims to be — not that its claims are clinically
+   * endorsed.
+   */
   readonly identifiersConfirmed: boolean;
 }
 
@@ -239,16 +250,240 @@ export const ENTRY_KEYS = [
 ] as const;
 
 const DECISION_KEYS = ['by', 'at', 'rationale'] as const;
-const EXTERNAL_SOURCE_KEYS = ['description', 'doi', 'pmid', 'identifiersConfirmed'] as const;
+const EXTERNAL_SOURCE_KEYS = ['description', 'doi', 'pmid', 'canonicalUrl', 'identifiersConfirmed'] as const;
+
+// ── Canonical URLs ─────────────────────────────────────────────────────────────
+
+/** URL-shortening services. A shortened link hides its destination. Matched with subdomains. */
+export const URL_SHORTENER_HOSTS: readonly string[] = [
+  'bit.ly', 'bitly.com', 'tinyurl.com', 't.co', 'goo.gl', 'ow.ly', 'buff.ly', 'is.gd', 'v.gd',
+  'rebrand.ly', 'lnkd.in', 'tiny.cc', 'cutt.ly', 'shorturl.at', 'rb.gy', 's.id', 'bl.ink',
+  't.ly', 'dlvr.it', 'fb.me', 'youtu.be', 'amzn.to', 'trib.al', 'soo.gd', 'short.io', 'tiny.one',
+];
+
+/** Marketing and tracking query parameters. Rejected, so the author supplies the clean URL. */
+export const TRACKING_PARAMETER = /^(?:utm_[a-z0-9_]*|fbclid|gclid|gclsrc|dclid|wbraid|gbraid|msclkid|yclid|twclid|igshid|li_fat_id|mc_cid|mc_eid|_hsenc|_hsmi|mkt_tok|vero_id|oly_anon_id|oly_enc_id|_ga|_gl|s_cid|cmpid|icid)$/i;
+
+/**
+ * Every reason a canonical URL is unacceptable. Empty means acceptable.
+ * Validation rejects rather than rewrites: the register is frozen data, so the
+ * author records the clean URL.
+ */
+export function canonicalUrlProblems(value: unknown): string[] {
+  if (typeof value !== 'string' || value.length === 0) return ['canonicalUrl must be a non-empty string'];
+  if (value !== value.trim() || /\s/.test(value)) return ['canonicalUrl must not contain whitespace'];
+  if (value.length > 2048) return ['canonicalUrl is too long'];
+  let url: URL;
+  try {
+    url = new URL(value); // throws on a relative URL
+  } catch {
+    return ['canonicalUrl must be an absolute URL'];
+  }
+  const out: string[] = [];
+  if (url.protocol !== 'https:') out.push('canonicalUrl must use HTTPS');
+  // Credentials are refused by canonicalUrlPhiProblems below.
+
+  const host = url.hostname.toLowerCase().replace(/\.$/, '');
+  const isIpv4 = /^\d{1,3}(?:\.\d{1,3}){3}$/.test(host);
+  const isIpv6 = host.startsWith('[');
+  if (host === 'localhost' || host.endsWith('.localhost')) out.push('canonicalUrl must not point to localhost');
+  // WHATWG parsing normalises decimal, octal and hex IPv4 forms, so this also
+  // catches 2130706433 and 0x7f.1 as 127.0.0.1. Any IP literal is refused: a
+  // canonical source is published under a domain name, and refusing all
+  // literals closes loopback, private, link-local and mapped ranges together.
+  if (isIpv4 || isIpv6) out.push('canonicalUrl must use a domain name, not an IP address (loopback, private and link-local ranges included)');
+  else if (!host.includes('.')) out.push('canonicalUrl must use a fully qualified domain name');
+  if (host.endsWith('.local') || host.endsWith('.internal') || host.endsWith('.lan') || host.endsWith('.home.arpa')) {
+    out.push('canonicalUrl must not point to a private network name');
+  }
+  if (URL_SHORTENER_HOSTS.some(s => host === s || host.endsWith('.' + s))) out.push('canonicalUrl must not use a URL-shortening service');
+
+  const tracking = [...url.searchParams.keys()].filter(k => TRACKING_PARAMETER.test(k));
+  if (tracking.length > 0) out.push(`canonicalUrl must not carry tracking parameters (${tracking.join(', ')})`);
+
+  out.push(...canonicalUrlPhiProblems(url));
+  return out;
+}
+
+// ── Structured source identifiers and URL-specific PHI ─────────────────────────
+//
+// DOI, PMID and canonical URL are exempt from the generic PHI detector, whose
+// long-digit rule would reject legitimate document, trial and regulatory ids.
+// These validators govern them instead.
+
+/** DOI: "10." + registrant code + "/" + suffix. */
+export const DOI_PATTERN = /^10\.\d{4,9}\/\S+$/;
+
+/** PMID: 1–9 digits. Current PMIDs are 8; a 10-digit value is not a PMID. */
+export const PMID_PATTERN = /^\d{1,9}$/;
+
+/**
+ * Query or fragment parameter keys that indicate patient data, compared after
+ * lower-casing and removing every non-alphanumeric character — so patientId,
+ * patient_id and Patient-ID are all "patientid". Any key beginning "patient"
+ * is also refused.
+ */
+export const PATIENT_PARAMETER_KEYS: readonly string[] = [
+  'patient', 'patientid', 'mrn', 'medicalrecordnumber', 'medicalrecord', 'dob', 'dateofbirth',
+  'birthdate', 'email', 'emailaddress', 'phone', 'phonenumber', 'telephone', 'mobile',
+  'memberid', 'accountnumber', 'clerkuserid', 'ssn', 'nhsnumber',
+];
+
+const normaliseKey = (k: string) => k.toLowerCase().replace(/[^a-z0-9]/g, '');
+const EMAIL_IN_VALUE = /[^\s@/?#&=]+@[^\s@/?#&=]+\.[a-z]{2,}/i;
+const CLERK_USER_ID = /\buser_[A-Za-z0-9]{20,}\b/;
+const CUID_VALUE = /^c[a-z0-9]{24}$/;
+
+/** Telephone number shapes. Each needs a "+" or phone-style grouping, never a bare digit run. */
+const PHONE_SHAPES: readonly RegExp[] = [
+  /^\+\d[\d\s().-]{8,18}\d$/,                 // international: +1 307 555 0142, +447700900123
+  /^\(?\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}$/,      // North American, separated: 307-555-0142, (307) 555-0142
+  /^\(\d{3}\)\d{3}[\s.-]?\d{4}$/,             // (307)555-0142
+  /^0\d{2,4}[\s-]\d{3,4}[\s-]?\d{3,4}$/,      // UK-style national, separated: 020 7946 0958
+];
+
+/**
+ * A telephone-shaped value: 10–15 digits in a recognised phone layout. An
+ * unbroken run of digits (a document id) and registry formats such as an EU CT
+ * number (2023-123456-78-00) are not phone layouts and pass. In a query string
+ * "+" decodes to a space, so a leading space is read back as "+".
+ */
+export function isPhoneShaped(value: string): boolean {
+  const candidates = [value.trim()];
+  if (value.startsWith(' ')) candidates.push('+' + value.trim());
+  return candidates.some(v => {
+    const digits = v.replace(/\D/g, '').length;
+    return digits >= 10 && digits <= 15 && PHONE_SHAPES.some(p => p.test(v));
+  });
+}
+
+/** Query and fragment parameters as [key, value] pairs, decoded. */
+function urlParameters(url: URL): [string, string][] {
+  const pairs: [string, string][] = [...url.searchParams.entries()];
+  const hash = url.hash.slice(1);
+  if (hash.includes('=')) pairs.push(...new URLSearchParams(hash).entries());
+  return pairs;
+}
+
+/**
+ * Patient data carried in a canonical URL. The path is not searched for numbers:
+ * long numeric publication, document, trial and regulatory ids are permitted.
+ */
+export function canonicalUrlPhiProblems(url: URL): string[] {
+  const out: string[] = [];
+  if (url.username !== '' || url.password !== '') out.push('canonicalUrl must not contain credentials');
+
+  const params = urlParameters(url);
+  const keys = params.map(([k]) => k).filter(k => {
+    const n = normaliseKey(k);
+    return PATIENT_PARAMETER_KEYS.includes(n) || n.startsWith('patient');
+  });
+  if (keys.length > 0) out.push(`canonicalUrl must not carry patient-data parameters (${keys.join(', ')})`);
+
+  const queryValues = [...url.searchParams.values()];
+  if (queryValues.some(v => EMAIL_IN_VALUE.test(v))) out.push('canonicalUrl query must not contain an email address');
+  if (queryValues.some(isPhoneShaped)) out.push('canonicalUrl query must not contain a telephone number');
+
+  let fragment = url.hash.slice(1);
+  try { fragment = decodeURIComponent(fragment); } catch { /* keep raw */ }
+  const identifierValues = [...params.map(([, v]) => v), fragment];
+  if (CLERK_USER_ID.test(url.pathname) || identifierValues.some(v => CLERK_USER_ID.test(v))) {
+    out.push('canonicalUrl must not contain a user identifier');
+  }
+  if (identifierValues.some(v => CUID_VALUE.test(v))) out.push('canonicalUrl must not contain a record identifier');
+  return out;
+}
+
 const IMPLICATION_KEYS = ['proposalOnly', 'text'] as const;
 
 // ── Prohibited content ─────────────────────────────────────────────────────────
 
-/** Platform terminology rules (CLAUDE.md). Checked on every entry. */
-export const PROHIBITED_TERMINOLOGY_PATTERNS: readonly RegExp[] = [
-  /\bcalculators?\b/i,
-  /\bscores?\b/i,
+/**
+ * The MyoGuard terminology guardrail (CLAUDE.md): MyoGuard and the Sarcopenia
+ * Risk Index (SRI) are never described as a score, a scoring tool, a risk score,
+ * a calculator or a risk calculator. The approved terms are "Sarcopenia Risk
+ * Index", "Sarcopenia Risk Index (SRI)", "SRI", "Clinical Decision Support" and
+ * "Clinical Decision Support tool".
+ *
+ * The guardrail is about MyoGuard, not about the words. "score" and
+ * "calculator" are permitted in third-party bibliographic information — a study
+ * titled "…a sarcopenia risk score…", a source describing the FRAX calculator —
+ * because citation must be accurate. Only a sentence that attaches a prohibited
+ * descriptor to MyoGuard or the SRI is refused.
+ *
+ * Fields checked: every human-authored field (`TERMINOLOGY_FIELDS`). The
+ * structured identifiers doi, pmid and canonicalUrl are never checked: they are
+ * third-party bibliographic data with their own validators.
+ */
+export const TERMINOLOGY_FIELDS = [
+  'title',
+  'externalSource.description',
+  'clinicalRelevance',
+  'limitations',
+  'myoguardImplication.text',
+  'publicInterestRationale',
+  'decision.rationale',
+] as const;
+
+// "SRI" is matched case-sensitively (so "Sri Lanka" is not the SRI) by rewriting
+// it to a token before the case-insensitive patterns run.
+const SRI_TOKEN = 'mgsritoken';
+const SUBJECT = String.raw`(?:myoguard(?:\s+protocol)?|sarcopenia\s+risk\s+index(?:\s*\(\s*${SRI_TOKEN}\s*\))?|${SRI_TOKEN})`;
+const POSSESSIVE = String.raw`(?:'s|s')?`;
+const DESCRIPTOR = String.raw`(?:risk[\s-]+)?(?:scor(?:e|es|ing)(?:[\s-]+(?:tool|system|instrument|algorithm|model|sheet))?|calculators?)`;
+// One optional modifier between subject and descriptor ("SRI total score"),
+// never a conjunction or preposition ("the SRI and the Framingham risk score").
+const MODIFIER = String.raw`(?:(?!(?:and|or|vs|versus|with|than|to|of|from|plus|nor|not|in)\b)[a-z][\w-]*[\s-]+)?`;
+
+/** Prohibited descriptions of MyoGuard or the SRI. Applied after `SRI` is tokenised. */
+export const MYOGUARD_TERMINOLOGY_PATTERNS: readonly RegExp[] = [
+  // "MyoGuard score", "SRI calculator", "MyoGuard's risk score", "SRI-score", "Sarcopenia Risk Index (SRI) score".
+  // Separators are joining punctuation only; a comma separates list items ("the SRI, scores from FRAX").
+  new RegExp(String.raw`\b${SUBJECT}${POSSESSIVE}[\s\-–—:/]*${MODIFIER}${DESCRIPTOR}\b`, 'i'),
+  // "the SRI is a risk score", "MyoGuard works as a calculator"
+  new RegExp(String.raw`\b${SUBJECT}\b[^.;]{0,40}?\b(?:is|was|are|acts\s+as|serves\s+as|works\s+as|functions\s+as|as)\s+(?:a|an|the|one)?\s*${MODIFIER}${DESCRIPTOR}\b`, 'i'),
+  // "a score from MyoGuard", "the risk calculator of the SRI", "risk score (SRI)"
+  new RegExp(String.raw`\b${DESCRIPTOR}\s+(?:from|of|by|generated\s+by|produced\s+by)\s+(?:the\s+)?${SUBJECT}\b`, 'i'),
+  new RegExp(String.raw`\b${DESCRIPTOR}\s*\(\s*(?:${SRI_TOKEN}|myoguard)\s*\)`, 'i'),
 ];
+
+/**
+ * A text that defines "SRI" as a different instrument: an expansion whose last
+ * three words have the initials S-R-I ("Sleep Regularity Index (SRI)",
+ * "Serotonin Reuptake Inhibitor (SRI)") and is not "Sarcopenia Risk Index".
+ * "a risk score (SRI)" is not an expansion of SRI, so it cannot use this to
+ * escape the guardrail.
+ */
+function definesForeignSri(text: string): boolean {
+  for (const m of text.matchAll(/((?:[A-Za-z][\w-]*\s+){3})\(\s*SRI\s*\)/g)) {
+    const words = m[1].trim().split(/\s+/);
+    const initials = words.map(w => w[0].toUpperCase()).join('');
+    if (initials === 'SRI' && !/^sarcopenia\s+risk\s+index$/i.test(words.join(' '))) return true;
+  }
+  return false;
+}
+
+/**
+ * Sentences in `text` that describe MyoGuard or the SRI with prohibited
+ * terminology. A negated description ("the SRI is not a score") is a
+ * clarification and passes. Where the text itself defines SRI as a different
+ * instrument, a bare "SRI" there is that instrument, not ours; "MyoGuard" and
+ * "Sarcopenia Risk Index" are still checked.
+ */
+export function terminologyFindings(text: string): string[] {
+  const s = straighten(text);
+  const tokenised = definesForeignSri(s) ? s : s.replace(/\bSRI\b/g, SRI_TOKEN);
+  const out: string[] = [];
+  for (const sentence of tokenised.split(/(?<=[.!?;])\s+/)) {
+    for (const p of MYOGUARD_TERMINOLOGY_PATTERNS) {
+      const m = p.exec(sentence);
+      if (m && !/\b(?:not|never|isn't|wasn't)\b/i.test(m[0])) {
+        out.push(`prohibited terminology describing MyoGuard or the SRI ("${m[0].replaceAll(SRI_TOKEN, 'SRI')}")`);
+      }
+    }
+  }
+  return out;
+}
 
 /**
  * The fields that speak in MyoGuard's own voice: its public positioning and its
@@ -423,6 +658,21 @@ const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 
 /** Every string anywhere inside a value, for content scanning. */
+/**
+ * The entry with its structured source identifiers (externalSource.doi, .pmid,
+ * .canonicalUrl) removed, for the generic PHI scan. Every human-authored field,
+ * externalSource.description included, is kept.
+ */
+const STRUCTURED_IDENTIFIER_KEYS: readonly string[] = ['doi', 'pmid', 'canonicalUrl'];
+
+function withoutStructuredIdentifiers(e: Record<string, unknown>): Record<string, unknown> {
+  if (!isRecord(e.externalSource)) return e;
+  const rest = Object.fromEntries(
+    Object.entries(e.externalSource).filter(([k]) => !STRUCTURED_IDENTIFIER_KEYS.includes(k)),
+  );
+  return { ...e, externalSource: rest };
+}
+
 function stringsIn(value: unknown): string[] {
   if (typeof value === 'string') return [value];
   if (Array.isArray(value)) return value.flatMap(stringsIn);
@@ -508,9 +758,14 @@ export function evidenceGovernanceViolations(entry: unknown): string[] {
       const s = e.externalSource;
       v.push(...exactKeys(s, EXTERNAL_SOURCE_KEYS, `${label}.externalSource`));
       if (!nonEmpty(s.description)) add('externalSource.description is required');
-      if (s.doi !== null && !nonEmpty(s.doi)) add('externalSource.doi must be a string or null');
-      if (s.pmid !== null && !(typeof s.pmid === 'string' && /^\d+$/.test(s.pmid))) {
-        add('externalSource.pmid must be digits or null');
+      if (s.doi !== null && !(typeof s.doi === 'string' && DOI_PATTERN.test(s.doi))) {
+        add('externalSource.doi must be a DOI (10.NNNN/suffix) or null');
+      }
+      if (s.pmid !== null && !(typeof s.pmid === 'string' && PMID_PATTERN.test(s.pmid))) {
+        add('externalSource.pmid must be 1–9 digits or null');
+      }
+      if (s.canonicalUrl !== null) {
+        for (const p of canonicalUrlProblems(s.canonicalUrl)) add(`externalSource.${p}`);
       }
       if (typeof s.identifiersConfirmed !== 'boolean') add('externalSource.identifiersConfirmed must be boolean');
     }
@@ -592,9 +847,24 @@ export function evidenceGovernanceViolations(entry: unknown): string[] {
     if (PROHIBITED_FIELD_NAMES.includes(key)) add(`patient-level field "${key}" is prohibited`);
   }
   const text = stringsIn(e).map(straighten);
-  for (const s of text) {
+  // The generic PHI detector reads every string except the structured source
+  // identifiers, which have their own validators (DOI_PATTERN, PMID_PATTERN,
+  // canonicalUrlProblems) and legitimately carry long numeric ids.
+  for (const s of stringsIn(withoutStructuredIdentifiers(e)).map(straighten)) {
     for (const p of PHI_PATTERNS) if (p.test(s)) add(`possible PHI (${p.source}) in "${s.slice(0, 60)}"`);
-    for (const p of PROHIBITED_TERMINOLOGY_PATTERNS) if (p.test(s)) add(`prohibited terminology (${p.source})`);
+  }
+  // Terminology: human-authored fields only; never doi, pmid or canonicalUrl.
+  const authored = [
+    e.title,
+    isRecord(e.externalSource) ? e.externalSource.description : null,
+    e.clinicalRelevance,
+    ...(Array.isArray(e.limitations) ? e.limitations : []),
+    isRecord(e.myoguardImplication) ? e.myoguardImplication.text : null,
+    e.publicInterestRationale,
+    isRecord(e.decision) ? e.decision.rationale : null,
+  ].filter((s): s is string => typeof s === 'string');
+  for (const s of authored) {
+    for (const m of terminologyFindings(s)) add(m);
   }
 
   // MyoGuard's own voice: never urge continued or indefinite use, never promote a brand.
@@ -650,6 +920,97 @@ export function isPubliclyExposable(entry: unknown): boolean {
   return isPubliclyPublishable(entry) && isRecord(entry) && entry.status === 'PUBLISHED' && isValidIsoDate(entry.publishedAt);
 }
 
+// ── CCC visibility ─────────────────────────────────────────────────────────────
+
+/**
+ * Visibilities a physician may see in the CCC Clinical Practice Updates.
+ * WATCHLIST is deliberately absent: it remains an internal disposition.
+ */
+export const CCC_VISIBILITIES: readonly EvidenceVisibility[] = [
+  'CCC_ONLY',
+  'PUBLIC_AND_CCC',
+  'PUBLIC_MYTH_CORRECTION',
+];
+
+/**
+ * Every reason an entry may not appear in the physician CCC. Empty means
+ * visible. Fails closed like `publicationBlockers`: an integrity violation,
+ * unknown shape or missing field is a blocker.
+ *
+ * A citation-sourced entry is verified here by shape only; the renderer must
+ * also resolve `sourceCitationId` against the Clinical Evidence Library and
+ * drop the entry if it does not resolve.
+ */
+export function cccBlockers(entry: unknown): string[] {
+  const b = [...evidenceGovernanceViolations(entry)];
+  if (!isRecord(entry)) return b;
+  const e = entry;
+  if (!oneOf(CCC_VISIBILITIES, e.visibility)) b.push(`visibility ${String(e.visibility)} is not CCC-visible`);
+  if (!(e.status === 'APPROVED' || e.status === 'PUBLISHED')) b.push(`status ${String(e.status)} is not CCC-visible`);
+  if (!isRecord(e.decision) || e.decision.by !== 'FOUNDER' || !nonEmpty(e.decision.rationale) || !isValidIsoDate(e.decision.at)) {
+    b.push('no completed Founder decision');
+  }
+  if (e.evidenceType === 'PENDING_CLASSIFICATION') b.push('evidence type not yet classified');
+  if (e.evidenceQuality === 'NOT_YET_GRADED') b.push('evidence quality not yet graded');
+  // The CCC shows both review dates, so an entry without them is incomplete here.
+  if (!isValidIsoDate(e.lastReviewedAt) || !isValidIsoDate(e.reviewDueAt)) b.push('no review dates');
+  if (isRecord(e.externalSource)) {
+    if (e.externalSource.identifiersConfirmed !== true) b.push('primary source not verified');
+    if (!nonEmpty(e.externalSource.doi) && !nonEmpty(e.externalSource.pmid) && !nonEmpty(e.externalSource.canonicalUrl)) {
+      b.push('verified source has no DOI, PMID or canonical URL');
+    }
+  } else if (!nonEmpty(e.sourceCitationId)) {
+    b.push('no source');
+  }
+  return b;
+}
+
+/** True only when nothing blocks the entry from the physician CCC. */
+export function isCCCVisible(entry: unknown): boolean {
+  return cccBlockers(entry).length === 0;
+}
+
+/**
+ * True only when a patient explainer genuinely exists: the entry is CCC-visible
+ * and publicly exposable (PUBLISHED, public visibility, explainerSlug, and every
+ * other public condition).
+ */
+export function hasPatientExplainer(entry: unknown): boolean {
+  return isCCCVisible(entry) && isPubliclyExposable(entry);
+}
+
+// ── Display labels ─────────────────────────────────────────────────────────────
+
+export const PRACTICE_CLASSIFICATION_LABELS: Readonly<Record<PracticeClassification, string>> = {
+  PRACTICE_NOW: 'Practice now',
+  CONSIDER: 'Consider',
+  MONITOR: 'Monitor',
+  NOT_READY: 'Not ready',
+};
+
+/** Display order for the CCC. A priority of practice readiness, never a ranking of evidence. */
+export const PRACTICE_CLASSIFICATION_ORDER: readonly PracticeClassification[] = PRACTICE_CLASSIFICATIONS;
+
+export const EVIDENCE_QUALITY_LABELS: Readonly<Record<EvidenceQuality, string>> = {
+  HIGH: 'High certainty',
+  MODERATE: 'Moderate certainty',
+  LOW: 'Low certainty',
+  VERY_LOW: 'Very low certainty',
+  NOT_YET_GRADED: 'Not yet graded',
+};
+
+export const PERSISTENCE_THEME_LABELS: Readonly<Record<PersistenceTheme, string>> = {
+  EXPECTATION_SETTING: 'Expectation setting',
+  TOLERABILITY: 'Tolerability',
+  NUTRITION: 'Nutrition',
+  HYDRATION: 'Hydration',
+  MUSCLE_PRESERVATION: 'Muscle preservation',
+  FUNCTIONAL_HEALTH: 'Functional health',
+  RESPONSE_ADEQUACY: 'Response adequacy',
+  TREATMENT_INTERRUPTION: 'Treatment interruption',
+  STRUCTURED_TRANSITION: 'Structured transition',
+};
+
 /** Register-wide violations: each entry's, plus uniqueness of ids and explainer slugs. */
 export function registerViolations(entries: readonly unknown[]): string[] {
   const v = entries.flatMap(evidenceGovernanceViolations);
@@ -694,6 +1055,7 @@ export const EVIDENCE_REGISTER: readonly EvidenceRegisterEntry[] = deepFreeze([
         'MyoGuard Evidence Brief, 25 September 2026: treatment-discontinuation evidence concept. Primary publication not yet identified or verified against PubMed or DOI.',
       doi: null,
       pmid: null,
+      canonicalUrl: null,
       identifiersConfirmed: false,
     },
     evidenceType: 'PENDING_CLASSIFICATION',

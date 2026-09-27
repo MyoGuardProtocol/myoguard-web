@@ -281,7 +281,7 @@ section('-- J. Positioning never urges continued use; evidence description stays
     ['limitations', s => ({ limitations: [s] })],
     ['externalSource.description', s => ({
       sourceCitationId: null,
-      externalSource: { description: s, doi: null, pmid: null, identifiersConfirmed: true },
+      externalSource: { description: s, doi: null, pmid: null, canonicalUrl: null, identifiersConfirmed: true },
     })],
     ['decision.rationale', s => ({ decision: { ...PUBLISHED.decision, rationale: s } })],
   ];
@@ -333,10 +333,12 @@ section('-- J. Positioning never urges continued use; evidence description stays
       !violates(with_(PUBLISHED, patch('Participants were told: do not stop treatment.')), /treatment-persistence/));
   }
 
-  for (const term of ['SRI calculator', 'your SRI score', 'risk scores']) {
+  for (const term of ['SRI calculator', 'your SRI score', "MyoGuard's risk scores"]) {
     t(`[safety] J. "${term}" is prohibited terminology on any entry`,
       violates(with_(PUBLISHED, { visibility: 'CCC_ONLY', explainerSlug: null, clinicalRelevance: term }), /prohibited terminology/));
   }
+  t('[behaviour] J. "risk scores" alone describes no MyoGuard instrument and is permitted',
+    !violates(with_(PUBLISHED, { visibility: 'CCC_ONLY', explainerSlug: null, clinicalRelevance: 'Existing risk scores were compared.' }), /prohibited terminology/));
 }
 
 // ── N. Brand and manufacturer names ──────────────────────────────────────────
@@ -346,7 +348,7 @@ section('-- N. Brands may be named accurately; never promoted or endorsed --');
     ['title (study title)', { title: 'SURMOUNT-5: Zepbound versus Wegovy in adults with obesity' }],
     ['externalSource.description (source metadata)', {
       sourceCitationId: null,
-      externalSource: { description: 'Trial sponsored by Eli Lilly; Mounjaro arm reported.', doi: null, pmid: null, identifiersConfirmed: true },
+      externalSource: { description: 'Trial sponsored by Eli Lilly; Mounjaro arm reported.', doi: null, pmid: null, canonicalUrl: null, identifiersConfirmed: true },
     }],
     ['clinicalRelevance (evidence-supported comparison)', { clinicalRelevance: 'Mounjaro was superior to Wegovy for weight reduction in the trial.' }],
     ['clinicalRelevance (regulatory)', { clinicalRelevance: 'Wegovy is FDA-approved for chronic weight management.' }],
@@ -429,7 +431,7 @@ section('-- K. No PHI, no patient-level fields --');
   t('[behaviour] K. ISO dates, DOIs and PMIDs are not mistaken for PHI',
     !violates(with_(PUBLISHED, {
       sourceCitationId: null,
-      externalSource: { description: 'Published 2026-09-25', doi: '10.1056/NEJMoa2032183', pmid: '33567185', identifiersConfirmed: true },
+      externalSource: { description: 'Published 2026-09-25', doi: '10.1056/NEJMoa2032183', pmid: '33567185', canonicalUrl: null, identifiersConfirmed: true },
     }), /possible PHI/));
 }
 
@@ -493,11 +495,11 @@ section('-- M. Missing or malformed governance metadata fails closed --');
       blocked(without(PUBLISHED, key)) && violates(without(PUBLISHED, key), /missing required field/));
   }
   t('[safety] M. both sources at once is invalid',
-    violates(with_(PUBLISHED, { externalSource: { description: 'x', doi: null, pmid: null, identifiersConfirmed: true } }), /exactly one/));
+    violates(with_(PUBLISHED, { externalSource: { description: 'x', doi: null, pmid: null, canonicalUrl: null, identifiersConfirmed: true } }), /exactly one/));
   t('[safety] M. an unverified external source is not publishable',
     !isPubliclyPublishable(with_(PUBLISHED, {
       sourceCitationId: null,
-      externalSource: { description: 'x', doi: null, pmid: null, identifiersConfirmed: false },
+      externalSource: { description: 'x', doi: null, pmid: null, canonicalUrl: null, identifiersConfirmed: false },
     })));
   t('[safety] M. unclassified or ungraded evidence is not publishable',
     !isPubliclyPublishable(with_(PUBLISHED, { evidenceType: 'PENDING_CLASSIFICATION' })) &&
