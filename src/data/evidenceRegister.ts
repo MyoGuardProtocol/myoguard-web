@@ -1041,10 +1041,12 @@ function deepFreeze<T>(value: T): T {
 }
 
 export const EVIDENCE_REGISTER: readonly EvidenceRegisterEntry[] = deepFreeze([
-  // Validation sample. Public-intended but DRAFT, with no decision, slug or
-  // publication date, so it is deliberately not publishable. The primary
-  // publication behind the Brief item has not been verified, so no finding from
-  // it is recorded here.
+  // Public-intended but DRAFT, with no decision, slug or publication date, so
+  // it is deliberately neither publishable nor CCC-visible. Primary publication
+  // verified against PubMed (PMID 41816857) and Crossref (DOI 10.1111/dom.70660)
+  // on 27 September 2026; every finding below is from its published abstract.
+  // An unpublished Evidence Explained manuscript links to this entry
+  // (src/lib/learn/evidenceExplained/).
   {
     id: 'ev-2026-w39-treatment-discontinuation',
     title: 'Treatment interruption and discontinuation during GLP-1 and related therapy',
@@ -1052,29 +1054,33 @@ export const EVIDENCE_REGISTER: readonly EvidenceRegisterEntry[] = deepFreeze([
     sourceCitationId: null,
     externalSource: {
       description:
-        'MyoGuard Evidence Brief, 25 September 2026: treatment-discontinuation evidence concept. Primary publication not yet identified or verified against PubMed or DOI.',
-      doi: null,
-      pmid: null,
+        'Gasoyan H, et al. Obesity Treatments and Weight Changes in Clinical Practice After Discontinuation of Semaglutide or Tirzepatide. Diabetes Obes Metab. 2026;28(6):4795-4805. Retrospective cohort study in a large health system in Ohio and Florida. Selected from the MyoGuard Evidence Brief, 25 September 2026.',
+      doi: '10.1111/dom.70660',
+      pmid: '41816857',
       canonicalUrl: null,
-      identifiersConfirmed: false,
+      identifiersConfirmed: true,
     },
-    evidenceType: 'PENDING_CLASSIFICATION',
-    evidenceQuality: 'NOT_YET_GRADED',
+    evidenceType: 'Observational',
+    evidenceQuality: 'LOW',
     clinicalRelevance:
-      'Concerns treatment interruption and discontinuation, and the clinical planning around supervised continuation, switching or structured discontinuation.',
+      'Retrospective cohort of 7,938 adults with overweight or obesity who started injectable semaglutide or tirzepatide in 2021–2023 and stopped within 3–12 months. In the year after discontinuation, 19.6% restarted the original medicine and 35.2% received another obesity intervention: another medication, a lifestyle-modification visit, or metabolic and bariatric surgery. Mean weight change in that year was relatively small, with considerable individual variability; the authors suggest that restarting or alternative treatment may have contributed. Discontinuation in routine practice is therefore frequently followed by further treatment, which supports planning and monitoring the transition rather than treating discontinuation as the end of care.',
     limitations: [
-      'Primary source not yet verified; no finding from it is recorded in this entry.',
-      'Evidence type and quality not yet assessed.',
+      'Observational, retrospective design using routine health records: it describes patterns of care and cannot establish that any post-discontinuation strategy caused a weight outcome.',
+      'It does not show that stopping treatment prevents weight regain, or that any particular subsequent intervention is best.',
+      'Incomplete treatment capture: unstructured lifestyle or dietary change and compounded medications were not captured, findings may not apply to people who sought care elsewhere, and reasons for discontinuation were not recorded.',
+      'Selection bias and confounding are possible: people who restarted or received another intervention may differ from those who did not.',
+      'A single health system in Ohio and Florida limits generalisability, and missing weight measurements may bias the weight outcomes.',
+      'Several authors declared industry relationships, including with manufacturers of the studied medicines.',
     ],
     myoguardImplication: {
       proposalOnly: true,
       text:
-        'Proposal only: consider a future patient explainer on structured transition, to help reduce avoidable treatment interruption. No change to the Sarcopenia Risk Index (SRI), CDS logic, thresholds, nutrition recommendations, medication guidance or alerts is proposed or authorised.',
+        'Proposal only: support continuity of care and clinically supervised transition planning when treatment is interrupted, switched or discontinued, with attention to nutrition, muscle preservation and functional health. The message is continuity and planning, not pressure to continue medication. No change to the Sarcopenia Risk Index (SRI), CDS logic, thresholds, nutrition recommendations, medication guidance or alerts is proposed or authorised.',
     },
     visibility: 'PUBLIC_AND_CCC',
     status: 'DRAFT',
-    practiceClassification: 'NOT_READY',
-    persistenceThemes: ['TREATMENT_INTERRUPTION', 'STRUCTURED_TRANSITION'],
+    practiceClassification: 'CONSIDER',
+    persistenceThemes: ['TREATMENT_INTERRUPTION', 'STRUCTURED_TRANSITION', 'NUTRITION', 'MUSCLE_PRESERVATION', 'FUNCTIONAL_HEALTH'],
     publicInterestRationale: null,
     decision: null,
     explainerSlug: null,

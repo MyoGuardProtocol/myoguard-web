@@ -168,9 +168,17 @@ section('-- D. The 2026-W39 discontinuation seed is valid but non-publishable --
   t('[safety] D. it is not publicly exposable', !isPubliclyExposable(seed));
   const b = publicationBlockers(seed);
   for (const re of [/status DRAFT/, /Founder decision/, /explainerSlug/, /publicInterestRationale/,
-                    /lastReviewedAt/, /reviewDueAt/, /not verified/]) {
+                    /lastReviewedAt/, /reviewDueAt/]) {
     t(`[safety] D. blocked for: ${re.source}`, b.some(m => re.test(m)));
   }
+  // Step 3: the primary publication was verified (PubMed + Crossref, 27 September 2026).
+  t('[behaviour] D. primary source verified: DOI 10.1111/dom.70660, PMID 41816857',
+    seed?.externalSource?.doi === '10.1111/dom.70660' && seed?.externalSource?.pmid === '41816857' &&
+    seed?.externalSource?.identifiersConfirmed === true);
+  t('[behaviour] D. graded Observational / LOW / CONSIDER',
+    seed?.evidenceType === 'Observational' && seed?.evidenceQuality === 'LOW' && seed?.practiceClassification === 'CONSIDER');
+  t('[safety] D. verification alone does not make it publishable (DRAFT, no decision, no slug)',
+    !isPubliclyPublishable(seed) && !b.some(m => /not verified/.test(m)));
 }
 
 // ── E. Founder approval metadata is mandatory for public entries ─────────────

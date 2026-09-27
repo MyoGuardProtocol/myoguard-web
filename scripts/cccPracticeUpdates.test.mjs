@@ -455,9 +455,10 @@ section('-- M. DOI, PMID or canonical URL; canonical URLs validated; quality una
   t('[safety] M. evidence type label unchanged by a canonical URL', typeLabels.every(l => l === 'Observational'));
 
   const seed = EVIDENCE_REGISTER.find(e => e.id === 'ev-2026-w39-treatment-discontinuation');
-  t('[safety] M. the seed records canonicalUrl: null and stays DRAFT, unverified and invisible',
-    seed.externalSource.canonicalUrl === null && seed.status === 'DRAFT' &&
-    seed.externalSource.identifiersConfirmed === false && !isCCCVisible(seed));
+  // Step 3 verified the seed's DOI and PMID; verification alone never makes it CCC-visible.
+  t('[safety] M. the seed records canonicalUrl: null and stays DRAFT, undecided and invisible',
+    seed.externalSource.canonicalUrl === null && seed.status === 'DRAFT' && seed.decision === null &&
+    seed.externalSource.identifiersConfirmed === true && !isCCCVisible(seed));
 }
 
 // ── N. Structured identifiers vs the generic PHI detector ────────────────────
