@@ -211,15 +211,18 @@ body {
    approach of applying the rules globally and then overriding them with a
    separate Clerk-specific block — that approach broke when Clerk changed its
    OTP DOM structure or added new input variants.
+
+   The :not([data-input-otp]) guard excludes Clerk's current OTP input, which
+   carries NO class. See "Clerk OTP (input-otp)" below.
    ─────────────────────────────────────────────────────────────────────────── */
-input:not([class*="cl-"]),
-input[type="text"]:not([class*="cl-"]),
-input[type="number"]:not([class*="cl-"]),
-input[type="email"]:not([class*="cl-"]),
-input[type="tel"]:not([class*="cl-"]),
-input[type="password"]:not([class*="cl-"]),
-input[type="search"]:not([class*="cl-"]),
-input[type="url"]:not([class*="cl-"]),
+input:not([class*="cl-"]):not([data-input-otp]),
+input[type="text"]:not([class*="cl-"]):not([data-input-otp]),
+input[type="number"]:not([class*="cl-"]):not([data-input-otp]),
+input[type="email"]:not([class*="cl-"]):not([data-input-otp]),
+input[type="tel"]:not([class*="cl-"]):not([data-input-otp]),
+input[type="password"]:not([class*="cl-"]):not([data-input-otp]),
+input[type="search"]:not([class*="cl-"]):not([data-input-otp]),
+input[type="url"]:not([class*="cl-"]):not([data-input-otp]),
 select:not([class*="cl-"]),
 textarea:not([class*="cl-"]) {
   background-color: #ffffff !important;
@@ -230,7 +233,7 @@ textarea:not([class*="cl-"]) {
 }
 
 /* Placeholder contrast — lighter than input text, clearly readable */
-input:not([class*="cl-"])::placeholder,
+input:not([class*="cl-"]):not([data-input-otp])::placeholder,
 textarea:not([class*="cl-"])::placeholder {
   color: #9ca3af !important; /* gray-400 */
   opacity: 1;                /* Firefox reduces opacity by default */
@@ -238,14 +241,14 @@ textarea:not([class*="cl-"])::placeholder {
 
 /* ─── Mobile font-size (prevents iOS auto-zoom on focus) ────────────────── */
 @media (max-width: 768px) {
-  input:not([class*="cl-"]),
-  input[type="text"]:not([class*="cl-"]),
-  input[type="number"]:not([class*="cl-"]),
-  input[type="email"]:not([class*="cl-"]),
-  input[type="tel"]:not([class*="cl-"]),
-  input[type="password"]:not([class*="cl-"]),
-  input[type="search"]:not([class*="cl-"]),
-  input[type="url"]:not([class*="cl-"]),
+  input:not([class*="cl-"]):not([data-input-otp]),
+  input[type="text"]:not([class*="cl-"]):not([data-input-otp]),
+  input[type="number"]:not([class*="cl-"]):not([data-input-otp]),
+  input[type="email"]:not([class*="cl-"]):not([data-input-otp]),
+  input[type="tel"]:not([class*="cl-"]):not([data-input-otp]),
+  input[type="password"]:not([class*="cl-"]):not([data-input-otp]),
+  input[type="search"]:not([class*="cl-"]):not([data-input-otp]),
+  input[type="url"]:not([class*="cl-"]):not([data-input-otp]),
   select:not([class*="cl-"]),
   textarea:not([class*="cl-"]) {
     font-size: 16px !important;
@@ -288,18 +291,18 @@ textarea:not([class*="cl-"])::placeholder {
    media query below re-applies !important to prevent iOS auto-zoom on OTP.
    ─────────────────────────────────────────────────────────────────────────── */
 
-/* Strategy 1: exact OTP container class selectors */
-.cl-otpCodeField input,
-.cl-otpCodeFieldInputs input,
-/* Strategy 2: direct input element class (Clerk v5 attaches this) */
-.cl-otpCodeFieldInput,
+/* Strategy 1: exact OTP container class selectors (legacy six-input DOM) */
+.cl-otpCodeField input:not([data-input-otp]),
+.cl-otpCodeFieldInputs input:not([data-input-otp]),
+/* Strategy 2 retired: .cl-otpCodeFieldInput is now a <div> segment, not an
+   <input> — see "Clerk OTP (input-otp)" below. */
 /* Strategy 3: any input inside any cl- prefixed element */
-[class*="cl-"] input,
-[class*="cl-"] input[type="text"],
+[class*="cl-"] input:not([data-input-otp]),
+[class*="cl-"] input[type="text"]:not([data-input-otp]),
 [class*="cl-"] input[type="email"],
 [class*="cl-"] input[type="password"],
-[class*="cl-"] input[type="number"],
-[class*="cl-"] input[type="tel"] {
+[class*="cl-"] input[type="number"]:not([data-input-otp]),
+[class*="cl-"] input[type="tel"]:not([data-input-otp]) {
   -webkit-appearance: auto !important;
   appearance:         auto !important;
   background-color:   transparent !important;
@@ -355,10 +358,11 @@ textarea:not([class*="cl-"])::placeholder {
   gap:             8px !important;
 }
 
-/* Individual digit boxes: fixed pixel dimensions, no grow/shrink */
-.cl-otpCodeField input,
-.cl-otpCodeFieldInputs input,
-.cl-otpCodeFieldInput {
+/* Individual digit boxes (legacy six-input DOM): fixed pixel dimensions.
+   Current Clerk sizes its <div> segments itself (40px, 32px on small screens),
+   which keeps six boxes inside a 320px viewport. */
+.cl-otpCodeField input:not([data-input-otp]),
+.cl-otpCodeFieldInputs input:not([data-input-otp]) {
   width:      44px !important;
   height:     52px !important;
   min-width:  44px !important;
@@ -371,21 +375,85 @@ textarea:not([class*="cl-"])::placeholder {
 
 /* iOS auto-zoom guard: keep 20px on mobile (≥16px prevents Safari zoom). */
 @media (max-width: 768px) {
-  .cl-otpCodeField input,
-  .cl-otpCodeFieldInputs input,
+  .cl-otpCodeField input:not([data-input-otp]),
+  .cl-otpCodeFieldInputs input:not([data-input-otp]),
   .cl-otpCodeFieldInput,
-  [class*="cl-"] input {
+  [class*="cl-"] input:not([data-input-otp]) {
     font-size: 20px !important;
   }
 }
 
-/* ─── Clerk OTP — Midnight Silk focus state ──────────────────────────────── */
-.cl-otpCodeFieldInput:focus,
-.cl-otpCodeField input:focus,
-.cl-otpCodeFieldInputs input:focus {
+/* ─── Clerk OTP — Midnight Silk focus state (legacy six-input DOM) ─────────── */
+.cl-otpCodeField input:not([data-input-otp]):focus,
+.cl-otpCodeFieldInputs input:not([data-input-otp]):focus {
   border-color: #2DD4BF !important;
   outline: none !important;
   box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.20) !important;
+}
+
+/* ─── Clerk OTP (input-otp) — current Clerk DOM ────────────────────────────
+   Since clerk-js 5.1xx (loaded from Clerk's CDN at @5, so it changes without
+   a MyoGuard deploy) the verification code is ONE real <input
+   data-input-otp autocomplete="one-time-code" inputmode="numeric"> laid over
+   six <div class="cl-otpCodeFieldInput"> display segments.
+
+   1. The real input is styled inline by the input-otp library: it spans the
+      whole row (width: calc(100% + 40px), clipped by clip-path) and is
+      deliberately transparent, so the segments show the digits and a drawn
+      caret. Every rule above excludes it with :not([data-input-otp]); none may
+      set its width, colour, background or appearance. Forcing it to 44px
+      (Production P0, September 2026) left a 4px tappable strip, so no tap
+      reached it: no caret, no keyboard, no input.
+
+   2. The segments draw their edge with a 1px box-shadow in Clerk's neutral
+      colour (black) at 11% — invisible on Midnight Silk. A real border is
+      restored here: #64748B is ≥3:1 against both the segment (#060D1E) and
+      the card (#0D1421), meeting WCAG 1.4.11 for input boundaries. The border
+      width is fixed in every state, so focus and errors never shift layout.
+   ─────────────────────────────────────────────────────────────────────────── */
+.cl-otpCodeFieldInputs > .cl-otpCodeFieldInput {
+  border: 1px solid #64748B !important;
+  background-color: #060D1E !important;
+  color: #F1F5F9 !important;
+}
+.cl-otpCodeFieldInputs > .cl-otpCodeFieldInput[data-focus-within="true"] {
+  border-color: #2DD4BF !important;
+  box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.35) !important;
+}
+.cl-otpCodeFieldInputs > .cl-otpCodeFieldInput[aria-invalid="true"] {
+  border-color: #F87171 !important;
+}
+
+/* Reserve the feedback line. Clerk animates the error/success container's
+   inline height from 0 to ~30px, pushing Resend and Continue down; a
+   min-height reserves that line in every state, so errors cause no shift. */
+.cl-otpCodeField > div:last-child:not(.cl-otpCodeFieldInputContainer) {
+  min-height: 30px;
+}
+
+/* ─── Clerk alternative sign-in methods — Midnight Silk ─────────────────────
+   Current Clerk colours these buttons from its neutral colour (black at 62%)
+   on a transparent background: dark text on the dark card. Restore readable
+   text and a visible edge; hover and focus stay distinguishable. */
+.cl-alternativeMethodsBlockButton,
+.cl-socialButtonsBlockButton {
+  color: #E2E8F0 !important;
+  border: 1px solid #334155 !important;
+  background-color: #0D1421 !important;
+}
+.cl-alternativeMethodsBlockButton *,
+.cl-socialButtonsBlockButton * {
+  color: inherit !important;
+}
+.cl-alternativeMethodsBlockButton:hover,
+.cl-socialButtonsBlockButton:hover {
+  background-color: #132036 !important;
+  border-color: #475569 !important;
+}
+.cl-alternativeMethodsBlockButton:focus-visible,
+.cl-socialButtonsBlockButton:focus-visible {
+  outline: 2px solid #2DD4BF !important;
+  outline-offset: 2px !important;
 }
 
 /* ─── Autofill override ─────────────────────────────────────────────────────
@@ -395,10 +463,10 @@ textarea:not([class*="cl-"])::placeholder {
    -webkit-text-fill-color overrides the text colour specifically during
    autofill (color property is ignored by WebKit in autofill state).
    ─────────────────────────────────────────────────────────────────────────── */
-input:-webkit-autofill,
-input:-webkit-autofill:hover,
-input:-webkit-autofill:focus,
-input:-webkit-autofill:active,
+input:not([data-input-otp]):-webkit-autofill,
+input:not([data-input-otp]):-webkit-autofill:hover,
+input:not([data-input-otp]):-webkit-autofill:focus,
+input:not([data-input-otp]):-webkit-autofill:active,
 textarea:-webkit-autofill,
 textarea:-webkit-autofill:hover,
 textarea:-webkit-autofill:focus,

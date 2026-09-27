@@ -27,6 +27,13 @@
  *   in production vs dev mode, and the plain-class fallback was removed.
  * - current fix: uses all three strategies in parallel (plain class selectors
  *   + direct input class + attribute-value belt-and-suspenders).
+ * - Production P0, 27 September 2026: clerk-js 5.128.0 (loaded from Clerk's CDN
+ *   at @5) replaced the six digit <input>s with ONE <input data-input-otp> over
+ *   six <div class="cl-otpCodeFieldInput"> segments. The three strategies
+ *   above then sized that single input to 44px (a 4px tappable strip) and
+ *   stripped the segments' fill. This audit passed throughout, because it
+ *   checks CSS text. Section 8 now pins the input-otp invariants, and
+ *   tests/otp-render.e2e.mjs (npm run test:otp) checks what a user sees.
  */
 
 import { readFileSync } from 'fs';
@@ -119,16 +126,23 @@ check(
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 4.  Strategy 2: direct input class selector
-//     Clerk v5 attaches cl-otpCodeFieldInput directly to each <input>.
+// 4.  Strategy 2 retired: .cl-otpCodeFieldInput is now a <div> segment
+//     It must not receive the input reset (transparent background) or the
+//     fixed 44×52 input box, or the segments lose their fill and size.
 // ─────────────────────────────────────────────────────────────────────────────
-console.log('\nglobals.css — Strategy 2: direct input class');
-check(
-  '.cl-otpCodeFieldInput selector present',
-  css.includes('.cl-otpCodeFieldInput'),
-  'Add .cl-otpCodeFieldInput to the reset block — Clerk v5 adds this class ' +
-  'directly to each <input> element, enabling per-element targeting.',
-);
+console.log('\nglobals.css — .cl-otpCodeFieldInput is a segment, not an input');
+{
+  const rules = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].map(m => ({ sel: m[1].replace(/\/\*[\s\S]*?\*\//g, ''), body: m[2] }));
+  const segmentInReset = rules.some(r =>
+    /(^|,)\s*\.cl-otpCodeFieldInput\s*(,|$)/m.test(r.sel) &&
+    /background-color:\s*transparent|max-width:\s*44px/.test(r.body));
+  check(
+    '.cl-otpCodeFieldInput is not given a transparent background or a fixed 44px input box',
+    !segmentInReset,
+    'Clerk ≥5.128 renders .cl-otpCodeFieldInput as a <div> segment. Keep it out of ' +
+    'the input reset and the 44px box rules.',
+  );
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 5.  Strategy 3: attribute-value belt-and-suspenders
@@ -197,15 +211,15 @@ check(
 check(
   'globals.css enforces fixed width on OTP boxes with !important',
   css.includes('width:') && css.includes('44px') && css.includes('!important'),
-  'globals.css must set width: 44px !important on .cl-otpCodeField input / ' +
-  '.cl-otpCodeFieldInput. The appearance API goes into @layer clerk which ' +
+  'globals.css must set width: 44px !important on legacy digit inputs ' +
+  '(never on [data-input-otp] or the <div> segments). The appearance API goes into @layer clerk which ' +
   'unlayered CSS beats — only !important in globals.css guarantees the size.',
 );
 check(
   'globals.css enforces fixed height on OTP boxes with !important',
   css.includes('height:') && css.includes('52px') && css.includes('!important'),
-  'globals.css must set height: 52px !important on .cl-otpCodeField input / ' +
-  '.cl-otpCodeFieldInput.',
+  'globals.css must set height: 52px !important on legacy digit inputs ' +
+  '(never on [data-input-otp] or the <div> segments).',
 );
 check(
   'globals.css enforces font-size: 20px !important on OTP boxes',
@@ -221,6 +235,62 @@ check(
   'by appearance:auto (Chrome 1px 2px, Safari 1px 4px) which offsets text ' +
   'from centre inside the digit box.',
 );
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 8.  Clerk OTP (input-otp) invariants — Production P0, September 2026
+//     The single real <input data-input-otp> is styled inline by the input-otp
+//     library (full-row width, transparent, clipped). No rule here may style it.
+// ─────────────────────────────────────────────────────────────────────────────
+console.log('\nglobals.css — Clerk OTP (input-otp) invariants');
+{
+  const noComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const selectors = [...noComments.matchAll(/([^{}]+)\{/g)]
+    .flatMap(m => m[1].split(','))
+    .map(s => s.trim())
+    .filter(s => s && !s.startsWith('@'));
+  // Any selector whose subject is a bare or class-less input can match the
+  // input-otp element, which carries no class. Selectors scoped under one of
+  // our own classes (e.g. `.form-dark input`) cannot reach Clerk and are skipped.
+  const reachesOtpInput = s =>
+    !/^\.(?!cl-)[\w-]+\s/.test(s) &&
+    /(^|\s|>)input(\[type="(text|tel|number)"\])?(:not\(\[class\*="cl-"\]\))?(::placeholder|:-webkit-autofill[\w:-]*|:focus)?$/.test(s.replace(/:not\(\[data-input-otp\]\)/g, '')) &&
+    !s.includes(':not([data-input-otp])');
+  const offenders = selectors.filter(reachesOtpInput);
+  check(
+    'every input selector that could match the OTP input excludes [data-input-otp]',
+    offenders.length === 0,
+    'Add :not([data-input-otp]) to: ' + offenders.join(' | '),
+  );
+  const targetsOtp = selectors.filter(s => s.includes('[data-input-otp]') && !s.includes(':not([data-input-otp])'));
+  check(
+    'no rule targets the OTP input itself',
+    targetsOtp.length === 0,
+    'Remove rules styling [data-input-otp]: ' + targetsOtp.join(' | '),
+  );
+  check(
+    'OTP segments have a visible border',
+    /\.cl-otpCodeFieldInputs\s*>\s*\.cl-otpCodeFieldInput\s*\{[^}]*border:\s*1px solid #64748B/i.test(noComments),
+    'Clerk draws segment edges in black at 11% — invisible on Midnight Silk. Keep the #64748B border.',
+  );
+  check(
+    'active OTP segment has a focus state',
+    /\.cl-otpCodeFieldInput\[data-focus-within="true"\]\s*\{[^}]*border-color:\s*#2DD4BF/i.test(noComments),
+    'Style .cl-otpCodeFieldInput[data-focus-within="true"] — segments are never :focus.',
+  );
+  check(
+    'invalid OTP segments have an error state',
+    /\.cl-otpCodeFieldInput\[aria-invalid="true"\]\s*\{[^}]*border-color/i.test(noComments),
+  );
+  check(
+    'OTP feedback line is reserved (no layout shift on error)',
+    /\.cl-otpCodeField\s*>\s*div:last-child:not\(\.cl-otpCodeFieldInputContainer\)\s*\{[^}]*min-height:\s*30px/.test(noComments),
+  );
+  check(
+    'alternative sign-in method buttons have readable text',
+    /\.cl-alternativeMethodsBlockButton,\s*\.cl-socialButtonsBlockButton\s*\{[^}]*color:\s*#E2E8F0/i.test(noComments),
+    'Clerk colours these black at 62% — unreadable on the dark card.',
+  );
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Summary
