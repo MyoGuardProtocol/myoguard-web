@@ -83,7 +83,7 @@ export default function EvidenceArticle({ article }: { article: PublicArticle })
           style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '16px', margin: 0, padding: '18px 20px', background: CARD, border: `1px solid ${BORDER}`, borderRadius: '12px' }}
         >
           <div>
-            <dt style={META_TERM}>Reviewed by</dt>
+            <dt style={META_TERM}>Clinically reviewed by</dt>
             <dd style={META_VALUE}>
               {article.reviewer.byline}
               {article.reviewer.title !== null && (

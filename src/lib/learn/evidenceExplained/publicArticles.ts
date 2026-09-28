@@ -298,7 +298,10 @@ export function articleJsonLd(a: PublicArticle): Record<string, unknown> {
     lastReviewed: a.lastReviewedAt,
     reviewedBy: {
       '@type': 'Person',
-      name: a.reviewer.byline,
+      // The name alone; the honorific and title are separate controlled fields,
+      // and no postnominal is emitted unless a record carries an approved one.
+      name: a.reviewer.name,
+      ...(a.reviewer.honorific !== null ? { honorificPrefix: a.reviewer.honorific } : {}),
       ...(a.reviewer.credentials.length > 0 ? { honorificSuffix: a.reviewer.credentials.join(', ') } : {}),
       ...(a.reviewer.title !== null ? { jobTitle: a.reviewer.title } : {}),
     },

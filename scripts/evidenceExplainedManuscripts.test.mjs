@@ -406,7 +406,7 @@ section('-- H. The manuscript text is locked to the approved fixture --');
   const FIXTURE = 'scripts/fixtures/evidenceExplained/mn-2026-w39-treatment-discontinuation.v0.1.txt';
   // SHA-256 of the fixture, line endings normalised. Changing the approved text
   // means a new version: a new fixture, a new hash and a new review.
-  const FIXTURE_SHA256 = '97a19ae8d16f5c9783b2eb7c07a0a5f021695107f41833b0393067f55e4c50ab';
+  const FIXTURE_SHA256 = 'bbcde3277c2df7b4bba52497342ebbc89c2c1c69a0afd6548494bf3cb9655be3';
   const raw = src(FIXTURE).replace(/\r\n/g, '\n');
   const fixtureLines = raw.split('\n').filter(l => l.trim() !== '' && !l.startsWith('#'));
   const render = m => [

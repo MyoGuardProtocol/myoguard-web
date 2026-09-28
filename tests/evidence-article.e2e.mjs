@@ -55,8 +55,8 @@ Object.assign(manuscript, {
 manuscript.sourceReferences[0].evidenceId = evidence.id;
 // A synthetic public reviewer. No real reviewer is configured in the repository.
 const reviewers = [{
-  reviewerId: 'rv-synthetic-reviewer', governanceRole: 'FOUNDER', displayName: 'Alex Fixture',
-  credentials: ['MD', 'FACP'], publicTitle: 'Consultant physician', status: 'ACTIVE',
+  reviewerId: 'rv-synthetic-reviewer', governanceRole: 'FOUNDER', honorific: 'Dr.', displayName: 'Alex Fixture',
+  credentials: [], publicTitle: 'Family Medicine and Public Health Physician', status: 'ACTIVE',
   approvedBy: 'FOUNDER', approvedAt: '2026-09-20',
 }];
 const reviewAssignments = [{ manuscriptId: manuscript.manuscriptId, manuscriptVersion: manuscript.version, reviewerId: 'rv-synthetic-reviewer' }];

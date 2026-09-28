@@ -119,9 +119,11 @@ const TODAY = '2026-10-01';
 const REVIEWER = Object.freeze({
   reviewerId: 'rv-synthetic-reviewer',
   governanceRole: 'FOUNDER',
+  honorific: 'Dr.',
   displayName: 'Alex Fixture',
-  credentials: ['MD', 'FACP'],
-  publicTitle: 'Consultant physician',
+  // Empty: MyoGuard's patient pages display no postnominal credential.
+  credentials: [],
+  publicTitle: 'Family Medicine and Public Health Physician',
   status: 'ACTIVE',
   approvedBy: 'FOUNDER',
   approvedAt: '2026-09-20',
@@ -224,9 +226,26 @@ section('-- B2. A named, approved, active public reviewer is required --');
   t('[gate] B2. two records with the same id refuse',
     refused(ctxWith({ reviewers: [REVIEWER, { ...clone(REVIEWER), displayName: 'Other Fixture' }] })));
   t('[gate] B2. a reviewer representing a different governance role refuses', refused(rv({ governanceRole: 'EDITOR' })));
-  t('[gate] B2. no credentials refuse', refused(rv({ credentials: [] })));
-  t('[gate] B2. an unapproved credential refuses', refused(rv({ credentials: ['MD', 'Guru'] })));
+  // Postnominals: none is the approved patient-facing form, and anything shown must be approved.
+  t('[render] B2. zero displayed credentials is valid', !refused(rv({ credentials: [] })));
+  t('[gate] B2. an unapproved credential refuses', refused(rv({ credentials: ['Guru'] })));
+  t('[gate] B2. an unapproved credential beside an approved one refuses', refused(rv({ credentials: ['MD', 'Guru'] })));
   t('[gate] B2. duplicate credentials refuse', refused(rv({ credentials: ['MD', 'MD'] })));
+  t('[gate] B2. credentials must be a list', refused(rv({ credentials: 'MD' })));
+  t('[gate] B2. a postnominal typed into the name refuses',
+    refused(rv({ displayName: 'Alex Fixture MBBS' })) && refused(rv({ displayName: 'Alex Fixture, MD' })));
+  // Honorific: controlled, never typed into the name.
+  t('[render] B2. the controlled honorific "Dr." is accepted', !refused(rv({ honorific: 'Dr.' })));
+  t('[render] B2. a null honorific is accepted', !refused(rv({ honorific: null })));
+  for (const h of ['Doctor', 'dr.', 'Dr', 'Sir', 'Mx', 'Prof', 'The Honourable', '', 'Dr.  ']) {
+    t(`[gate] B2. arbitrary honorific ${JSON.stringify(h)} refuses`, refused(rv({ honorific: h })));
+  }
+  t('[gate] B2. an honorific typed into the name still refuses', refused(rv({ displayName: 'Dr. Alex Fixture', honorific: null })));
+  // Public title: controlled.
+  t('[render] B2. the approved title is accepted', !refused(rv({ publicTitle: 'Family Medicine and Public Health Physician' })));
+  for (const title of ['Board-certified Family Physician', 'Consultant physician', 'Chief Medical Officer', 'Founder', 'Physician, MD', '']) {
+    t(`[gate] B2. unapproved title ${JSON.stringify(title)} refuses`, refused(rv({ publicTitle: title })));
+  }
   t('[gate] B2. not approved by the Founder refuses', refused(rv({ approvedBy: 'ADMIN' })));
   t('[gate] B2. a future approval date refuses', refused(rv({ approvedAt: '2026-12-01' })));
   t('[gate] B2. an invalid approval date refuses', refused(rv({ approvedAt: '2026-02-30' })));
@@ -238,13 +257,34 @@ section('-- B2. A named, approved, active public reviewer is required --');
   }
   t('[gate] B2. an internal role as publicTitle refuses', refused(rv({ publicTitle: 'Founder' })));
   const rev = resolvePublicArticle(SLUG, CTX).reviewer;
-  t('[render] B2. a valid reviewer renders as name, credentials and title',
-    rev.byline === 'Alex Fixture, MD, FACP' && rev.name === 'Alex Fixture' &&
-    rev.title === 'Consultant physician' && JSON.stringify(rev.credentials) === JSON.stringify(['MD', 'FACP']));
+  t('[render] B2. the byline is honorific and name, with no postnominal',
+    rev.byline === 'Dr. Alex Fixture' && rev.honorific === 'Dr.' && rev.name === 'Alex Fixture' &&
+    rev.title === 'Family Medicine and Public Health Physician' && rev.credentials.length === 0);
   t('[render] B2. a reviewer without a title is still valid', resolvePublicArticle(SLUG, rv({ publicTitle: null }))?.reviewer.title === null);
   t('[leak] B2. the manuscript keeps FOUNDER as its internal authority', MANUSCRIPT.reviewedBy === 'FOUNDER' && PILOT.reviewedBy === 'FOUNDER');
   t('[leak] B2. no public reviewer is configured in the repository',
     PUBLIC_REVIEWERS.length === 0 && PUBLIC_REVIEW_ASSIGNMENTS.length === 0);
+  // Step 4B preview: the proposed reviewer identity and proposed publication
+  // values are previewed locally and must not exist in committed source.
+  {
+    const walk = dir => existsSync(join(ROOT, dir)) ? readdirSync(join(ROOT, dir)).flatMap(n => {
+      const q = join(dir, n);
+      return statSync(join(ROOT, q)).isDirectory() ? (['node_modules', '.next', '.git', '.claude'].includes(n) ? [] : walk(q)) : [q];
+    }) : [];
+    const committed = [...walk('src'), ...walk('app'), ...walk('scripts'), ...walk('tests')].filter(f => /\.(tsx?|mjs|json|txt)$/.test(f));
+    // A configured record, not a mention: the real name as a string literal, or
+    // the preview reviewer id. The needle is assembled at runtime so this file
+    // does not itself contain the literal it forbids.
+    const REAL_NAME = ['Onyekachukwu', 'Okpala'].join(' ');
+    const needle = new RegExp(`(['"\`])${REAL_NAME}\\1|rv-preview` + '-only');
+    const named = committed.filter(f => needle.test(src(f)));
+    t('[leak] B2. no committed file configures the proposed reviewer identity', named.length === 0, JSON.stringify(named));
+    const slugged = committed.filter(f => /stopping-a-glp-1-medicine-next-plan/.test(src(f)))
+      .filter(f => !/(treatmentTransitionPilot\.ts|evidenceExplained(Manuscripts|PublicRoute)\.test\.mjs|evidence-article\.e2e\.mjs)$/.test(f.replace(/\\/g, '/')));
+    t('[leak] B2. the intended slug appears only in the manuscript and its tests', slugged.length === 0, JSON.stringify(slugged));
+    t('[leak] B2. no committed file carries a proposed publication date for the pilot',
+      !committed.some(f => /publishedAt:\s*'2026-09-28'/.test(src(f))));
+  }
   t('[ordering] B2. the shipped reviewer records are frozen', Object.isFrozen(PUBLIC_REVIEWERS) && Object.isFrozen(PUBLIC_REVIEW_ASSIGNMENTS));
 }
 
@@ -274,9 +314,11 @@ const PAGE = html(createElement(EvidenceArticle, { article: A }));
   t('[render] D. all ten sections render once, in order', JSON.stringify(h2) === JSON.stringify(expected), JSON.stringify(h2));
   t('[render] D. one h1, the headline', (PAGE.match(/<h1/g) ?? []).length === 1 && PAGE.includes(`>${MANUSCRIPT.headline}</h1>`));
   t('[render] D. standfirst', PAGE.includes(MANUSCRIPT.standfirst));
-  t('[render] D. reviewer byline, title and dates', PAGE.includes('Reviewed by') && PAGE.includes('Alex Fixture, MD, FACP') &&
-    PAGE.includes('Consultant physician') && PAGE.includes('21 September 2026') && PAGE.includes('dateTime="2026-09-21"'));
+  t('[render] D. clinical review line, title and dates', PAGE.includes('Clinically reviewed by') && PAGE.includes('Dr. Alex Fixture') &&
+    PAGE.includes('Family Medicine and Public Health Physician') && PAGE.includes('21 September 2026') && PAGE.includes('dateTime="2026-09-21"'));
   t('[leak] D. the internal governance role never appears on the page', !/\bFOUNDER\b/.test(PAGE) && !/\bFounder\b/.test(PAGE));
+  t('[leak] D. no postnominal credential appears on the page',
+    !/\b(?:MBBS|MBChB|MD|DO|PhD|MPH|MBA|MSc|FRCP|FACP|FAAFP|RD|RDN)\b\.?/.test(PAGE.replace(/<[^>]+>/g, ' ')));
   const esc = s => s.replace(/&/g, '&amp;').replace(/'/g, '&#x27;').replace(/"/g, '&quot;');
   const allText = MANUSCRIPT.sections.flatMap(s => s.blocks.flatMap(b => (b.k === 'ul' ? b.items : [b.text])));
   t('[render] D. every governed sentence and list item renders', allText.every(x => PAGE.includes(esc(x))), allText.filter(x => !PAGE.includes(esc(x))).slice(0, 2).join(' | '));
@@ -298,8 +340,8 @@ const PAGE = html(createElement(EvidenceArticle, { article: A }));
   t('[leak] D. the display model carries only whitelisted fields',
     JSON.stringify(Object.keys(A).sort()) === JSON.stringify(['canonicalUrl', 'dateModified', 'educationalDisclaimer', 'evidenceLabel', 'headline', 'lastReviewedAt',
       'lastReviewedLabel', 'path', 'publishedAt', 'publishedLabel', 'reviewer', 'sections', 'slug', 'source', 'standfirst']));
-  t('[leak] D. the reviewer model carries only name, credentials, title and byline',
-    JSON.stringify(Object.keys(A.reviewer).sort()) === JSON.stringify(['byline', 'credentials', 'name', 'title']));
+  t('[leak] D. the reviewer model carries only honorific, name, credentials, title and byline',
+    JSON.stringify(Object.keys(A.reviewer).sort()) === JSON.stringify(['byline', 'credentials', 'honorific', 'name', 'title']));
   t('[render] D. no treatment directive, brand or prohibited term was added by the renderer',
     !/\b(ozempic|wegovy|mounjaro|zepbound|novo nordisk|eli lilly|calculator|score)\b/i.test(PAGE.replace(/<[^>]+>/g, ' ')));
 }
@@ -347,10 +389,14 @@ section('-- F. Metadata and structured data, for an exposable article only --');
   t('[render] F. headline, description, url', ld.headline === MANUSCRIPT.headline && ld.description === MANUSCRIPT.standfirst && ld.url === url);
   t('[render] F. datePublished, dateModified, lastReviewed from records',
     ld.datePublished === EVIDENCE.publishedAt && ld.dateModified === '2026-09-21' && ld.lastReviewed === MANUSCRIPT.lastReviewedAt);
-  t('[render] F. reviewer by role only — no invented name or credentials',
-    ld.reviewedBy['@type'] === 'Person' && ld.reviewedBy.name === 'Alex Fixture, MD, FACP' &&
-    ld.reviewedBy.honorificSuffix === 'MD, FACP' && ld.reviewedBy.jobTitle === 'Consultant physician' &&
+  t('[render] F. reviewer is the controlled record: name, honorific prefix, approved title',
+    ld.reviewedBy['@type'] === 'Person' && ld.reviewedBy.name === 'Alex Fixture' &&
+    ld.reviewedBy.honorificPrefix === 'Dr.' && ld.reviewedBy.jobTitle === 'Family Medicine and Public Health Physician' &&
     !JSON.stringify(ld.reviewedBy).includes('FOUNDER') && !/\bFounder\b/.test(JSON.stringify(ld.reviewedBy)));
+  t('[leak] F. no postnominal is emitted in JSON-LD',
+    !('honorificSuffix' in ld.reviewedBy) && !/\b(?:MBBS|MBChB|MD|DO|PhD|MPH|MBA|MSc|FRCP|FACP|FAAFP)\b/.test(JSON.stringify(ld.reviewedBy)));
+  t('[leak] F. no postnominal in metadata or JSON-LD as a whole',
+    !/\b(?:MBBS|MBChB|MPH|MBA)\b/.test(JSON.stringify(ld) + JSON.stringify(md)));
   t('[render] F. publisher is MyoGuard Protocol / Meridian Wellness Systems LLC', ld.publisher.name === 'MyoGuard Protocol' && ld.publisher.legalName === 'Meridian Wellness Systems LLC');
   t('[render] F. cited source is the verified DOI', ld.citation.url === 'https://doi.org/10.5555/synthetic.0001');
   const ldText = JSON.stringify(ld);

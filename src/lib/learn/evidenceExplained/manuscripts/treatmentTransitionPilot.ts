@@ -31,7 +31,7 @@ export const TREATMENT_TRANSITION_PILOT = {
   manuscriptStatus: 'DRAFT',
   headline: 'Stopping a GLP-1 Medicine? Why the Next Plan Matters',
   standfirst:
-    'Stopping or interrupting treatment should not mean that metabolic care ends. New real-world research shows that many people restart treatment or use another weight-management approach, reinforcing the importance of a clinically supervised transition plan.',
+    'Stopping or interrupting treatment should not mean that metabolic care ends. Real-world research shows that many people restart treatment or use another weight-management approach, reinforcing the importance of a clinically supervised transition plan.',
   reviewedBy: 'FOUNDER',
   draftedAt: '2026-09-27',
   lastReviewedAt: '2026-09-27',
@@ -79,7 +79,7 @@ export const TREATMENT_TRANSITION_PILOT = {
       heading: 'What does this study not prove?',
       blocks: [
         { k: 'p', text: 'This study does not prove that stopping treatment prevents weight regain. It also does not establish that restarting medication, switching treatment or using another intervention is best for every patient.' },
-        { k: 'p', text: 'The researchers relied on routine health records. Some care, including informal dietary or lifestyle changes and compounded medicines, may not have been recorded. The people who received additional treatment may also have differed from those who did not.' },
+        { k: 'p', text: 'The researchers relied on routine health records. Some care, including informal dietary or lifestyle changes and medicines prepared by compounding pharmacies, may not have been recorded. The people who received additional treatment may also have differed from those who did not.' },
       ],
     },
     {
