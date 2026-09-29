@@ -27,7 +27,8 @@ export const isAnalyticsEnabled =
 //
 // Every analytics property that can contain a URL or path is rewritten here to
 // its literal Next.js route pattern. This is the single choke point: it applies
-// to $pageview, $pageleave, and all custom events alike.
+// to $pageview and all custom events alike. ($pageleave is no longer captured —
+// see the P0 note in PostHogProvider.)
 //
 // Side benefit: analytics reports show one row per ROUTE instead of one row per
 // patient, so "top pages" stays legible instead of exploding in cardinality.
@@ -164,10 +165,29 @@ const URL_PROPERTIES = [
   '$current_url', '$initial_current_url',
   '$referrer',    '$initial_referrer',
   '$referring_domain',
+  // P0 (2026-09-29): posthog-js sends the FIRST page of a session, raw, on every
+  // event in that session. Unlisted, these carried share tokens, patient and
+  // result IDs, and Clerk's redirect_url query — to PostHog, in production.
+  '$session_entry_url', '$session_entry_referrer',
 ] as const;
 
 /** Analytics properties that carry a bare path. */
-const PATH_PROPERTIES = ['$pathname', '$initial_pathname'] as const;
+const PATH_PROPERTIES = [
+  '$pathname', '$initial_pathname',
+  // P0 (2026-09-29): the previous page's raw path, attached to $pageview and
+  // $pageleave by posthog-js's pageview tracking.
+  '$prev_pageview_pathname',
+  '$session_entry_pathname',
+] as const;
+
+const LISTED_PROPERTIES: ReadonlySet<string> = new Set([...URL_PROPERTIES, ...PATH_PROPERTIES]);
+
+// Safety net for URL-bearing properties posthog-js adds that are not listed
+// above. The P0 was exactly this: the sanitiser knew six property names and the
+// SDK sent three more. Any `$`-prefixed property named like a URL or a path is
+// redacted too, so a future SDK property cannot silently reintroduce the leak.
+const UNLISTED_URL_KEY  = /^\$.*(?:url|referrer)$/i;
+const UNLISTED_PATH_KEY = /^\$.*pathname$/i;
 
 /**
  * Wired into `posthog.init({ sanitize_properties })` — runs against the final
@@ -189,6 +209,14 @@ export function sanitizeAnalyticsProperties(
   for (const key of PATH_PROPERTIES) {
     const value = properties[key];
     if (typeof value === 'string') properties[key] = redactAnalyticsPath(value);
+  }
+
+  for (const key of Object.keys(properties)) {
+    if (LISTED_PROPERTIES.has(key)) continue;
+    const value = properties[key];
+    if (typeof value !== 'string') continue;
+    if (UNLISTED_URL_KEY.test(key))       properties[key] = redactAnalyticsUrl(value);
+    else if (UNLISTED_PATH_KEY.test(key)) properties[key] = redactAnalyticsPath(value);
   }
 
   return properties;

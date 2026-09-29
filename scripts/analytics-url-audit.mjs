@@ -242,6 +242,155 @@ check('future route with uuid',
   '/x/[id]');
 console.log('');
 
+// ─── 6. P0 2026-09-29 — every URL-bearing property, whole payloads ───────────
+//
+// The sanitiser covered six property names; posthog-js also sent
+// $prev_pageview_pathname and $session_entry_url/_pathname raw, carrying share
+// tokens and patient/result IDs to PostHog. These checks enumerate every
+// property the SDK is known to emit, exercise the unlisted-property safety net,
+// and scan whole sanitised event payloads recursively for any raw identifier.
+// Synthetic identifiers only.
+
+console.log(BOLD('6. P0 — all URL-bearing properties and whole payloads'));
+
+const { readFileSync } = await import('node:fs');
+
+const SYN = {
+  token:  'FAKE_PROBE_TOKEN',
+  user:   'FAKE_USER_ID',
+  result: 'FAKE_RESULT_ID',
+  slug:   'fake-evidence-slug',
+  query:  'FAKE_QUERY_SECRET',
+  frag:   'FAKE_FRAGMENT_SECRET',
+};
+const SENSITIVE = [
+  [`/report/${SYN.token}`,              '/report/[token]'],
+  [`/doctor/patients/${SYN.user}`,      '/doctor/patients/[userId]'],
+  [`/dashboard/results/${SYN.result}`,  '/dashboard/results/[id]'],
+  [`/learn/evidence/${SYN.slug}`,       '/learn/evidence/[slug]'],
+];
+const ORIGIN = 'https://www.myoguard.health';
+const URL_KEYS  = ['$current_url', '$initial_current_url', '$referrer', '$initial_referrer',
+                   '$session_entry_url', '$session_entry_referrer'];
+const PATH_KEYS = ['$pathname', '$initial_pathname', '$prev_pageview_pathname', '$session_entry_pathname'];
+
+/** Every string anywhere in `value`, however deeply nested. */
+function strings(value, out = []) {
+  if (typeof value === 'string') out.push(value);
+  else if (value && typeof value === 'object') for (const v of Object.values(value)) strings(v, out);
+  return out;
+}
+function checkPayloadClean(label, payload) {
+  const found = Object.values(SYN).filter(secret => strings(payload).some(s => s.includes(secret)));
+  if (found.length === 0) {
+    passed++;
+    console.log(`  ${GREEN('✓')} ${label} ${DIM('— no raw identifier anywhere in payload')}`);
+  } else {
+    failures.push({ label, actual: found.join(', '), expected: 'no raw synthetic identifier' });
+    console.log(`  ${RED('✗')} ${label} ${RED('— RAW IDENTIFIER PRESENT:')} ${found.join(', ')}`);
+  }
+}
+
+// 6a. Each listed property, each sensitive route, full URL and bare path.
+for (const [raw, pattern] of SENSITIVE) {
+  const full = `${ORIGIN}${raw}?session=${SYN.query}&utm_source=newsletter#${SYN.frag}`;
+  for (const key of URL_KEYS) {
+    check(`${key} normalises ${pattern} (full URL, query + fragment)`,
+      sanitizeAnalyticsProperties({ [key]: full })[key],
+      `${ORIGIN}${pattern}?utm_source=newsletter`);
+  }
+  for (const key of PATH_KEYS) {
+    check(`${key} normalises ${pattern} (bare path)`,
+      sanitizeAnalyticsProperties({ [key]: raw })[key],
+      pattern);
+  }
+  // A bare path in a URL property, and a full URL in a path property.
+  check(`$session_entry_url normalises a bare ${pattern}`,
+    sanitizeAnalyticsProperties({ $session_entry_url: raw }).$session_entry_url, pattern);
+}
+
+// 6b. Clerk's sign-in redirect carries the protected path in its query string.
+const redirect = `${ORIGIN}/sign-in?redirect_url=${encodeURIComponent(`${ORIGIN}/doctor/patients/${SYN.user}`)}`;
+check('$session_entry_url drops Clerk redirect_url carrying a patient ID',
+  sanitizeAnalyticsProperties({ $session_entry_url: redirect }).$session_entry_url,
+  `${ORIGIN}/sign-in`);
+
+// 6c. Safety net: unlisted `$` properties named like a URL or a path.
+check('unlisted $…_url is redacted by the safety net',
+  sanitizeAnalyticsProperties({ $future_entry_url: `${ORIGIN}/report/${SYN.token}` }).$future_entry_url,
+  `${ORIGIN}/report/[token]`);
+check('unlisted $…_referrer is redacted by the safety net',
+  sanitizeAnalyticsProperties({ $future_referrer: `${ORIGIN}/dashboard/results/${SYN.result}` }).$future_referrer,
+  `${ORIGIN}/dashboard/results/[id]`);
+check('unlisted $…_pathname is redacted by the safety net',
+  sanitizeAnalyticsProperties({ $future_pathname: `/doctor/patients/${SYN.user}` }).$future_pathname,
+  '/doctor/patients/[userId]');
+
+// 6d. Whole event payloads, as posthog-js builds them, scanned recursively.
+function bag(extra) {
+  const [reportPath] = SENSITIVE[0];
+  return {
+    $current_url: `${ORIGIN}${reportPath}?session=${SYN.query}#${SYN.frag}`,
+    $pathname: reportPath,
+    $host: 'www.myoguard.health',
+    $referrer: `${ORIGIN}/doctor/patients/${SYN.user}`,
+    $referring_domain: 'www.myoguard.health',
+    $initial_current_url: `${ORIGIN}/dashboard/results/${SYN.result}`,
+    $initial_pathname: `/learn/evidence/${SYN.slug}`,
+    $initial_referrer: '$direct',
+    $session_entry_url: `${ORIGIN}${reportPath}?x=${SYN.query}#${SYN.frag}`,
+    $session_entry_pathname: reportPath,
+    $session_entry_referrer: `${ORIGIN}/learn/evidence/${SYN.slug}`,
+    $prev_pageview_pathname: `/dashboard/results/${SYN.result}`,
+    $prev_pageview_id: 'b0e7a1f0-0000-4000-8000-000000000000',
+    $prev_pageview_duration: 12.5,
+    ...extra,
+  };
+}
+checkPayloadClean('$pageview payload',  sanitizeAnalyticsProperties(bag({})));
+checkPayloadClean('$pageleave payload', sanitizeAnalyticsProperties(bag({})));
+checkPayloadClean('custom MyoGuard event payload',
+  sanitizeAnalyticsProperties(bag({ source: 'evidence_export_panel', flow: 'authenticated_assessment' })));
+
+// 6e. Non-sensitive values are not altered unnecessarily.
+check('ordinary public path survives in $prev_pageview_pathname',
+  sanitizeAnalyticsProperties({ $prev_pageview_pathname: '/learn/protein-on-glp-1' }).$prev_pageview_pathname,
+  '/learn/protein-on-glp-1');
+check('ordinary public URL survives in $session_entry_url',
+  sanitizeAnalyticsProperties({ $session_entry_url: `${ORIGIN}/research/muscle-preservation` }).$session_entry_url,
+  `${ORIGIN}/research/muscle-preservation`);
+check('custom categorical property is untouched',
+  sanitizeAnalyticsProperties({ source: 'evidence_export_panel' }).source,
+  'evidence_export_panel');
+check('non-string $prev_pageview_duration is untouched',
+  sanitizeAnalyticsProperties({ $prev_pageview_duration: 12.5 }).$prev_pageview_duration,
+  12.5);
+{
+  // The safety net rewrites strings only. A non-string under a URL- or
+  // path-shaped key must come back as the very same value.
+  const arr = ['/report/x'], obj = { u: '/report/x' };
+  const nonStrings = sanitizeAnalyticsProperties({
+    $future_flag_url: true, $future_list_url: arr, $future_obj_pathname: obj, $future_count_referrer: 7,
+  });
+  check('safety net leaves a boolean untouched', nonStrings.$future_flag_url, true);
+  check('safety net leaves an array untouched (same reference)', nonStrings.$future_list_url === arr && arr[0] === '/report/x', true);
+  check('safety net leaves an object untouched (same reference)', nonStrings.$future_obj_pathname === obj && obj.u === '/report/x', true);
+  check('safety net leaves a number untouched', nonStrings.$future_count_referrer, 7);
+}
+check('$direct sentinel preserved in $session_entry_referrer',
+  sanitizeAnalyticsProperties({ $session_entry_referrer: '$direct' }).$session_entry_referrer,
+  '$direct');
+
+// 6f. Page-leave capture is disabled in the production configuration.
+const PROVIDER_SRC = readFileSync(new URL('../src/components/analytics/PostHogProvider.tsx', import.meta.url), 'utf8');
+check('capture_pageleave is false in the PostHog init options',
+  /capture_pageleave:\s*false/.test(PROVIDER_SRC) && !/capture_pageleave:\s*true/.test(PROVIDER_SRC), true);
+check('advanced_disable_flags is true — the flags request carried raw $initial_* URLs',
+  /advanced_disable_flags:\s*true/.test(PROVIDER_SRC), true);
+check('sanitize_properties is still wired into init',
+  /sanitize_properties:\s*sanitizeAnalyticsProperties/.test(PROVIDER_SRC), true);
+console.log('');
+
 // ─── Results ─────────────────────────────────────────────────────────────────
 
 console.log(BOLD('Results'));

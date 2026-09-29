@@ -42,7 +42,15 @@ import {
 const POSTHOG_INIT_OPTIONS = {
   api_host: POSTHOG_HOST,
   capture_pageview: false,   // manual via PageView component
-  capture_pageleave: true,
+  // P0 (2026-09-29): off. $pageleave carried the previous page's raw path in
+  // $prev_pageview_pathname, including report share tokens. The sanitiser now
+  // redacts that property too; not sending the event at all is the containment.
+  capture_pageleave: false,
+  // P0 (2026-09-29): the feature-flag request sent person_properties
+  // ($initial_current_url, $initial_pathname) raw — sanitize_properties never
+  // sees it, because it is not an event. MyoGuard uses no feature flags,
+  // surveys or experiments, so the request is not made at all.
+  advanced_disable_flags: true,
   autocapture: false,        // explicit events only — no accidental PHI capture
   persistence: "localStorage+cookie",
 

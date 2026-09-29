@@ -198,7 +198,7 @@ section('-- F. PostHog is ready before any first-load capture runs --');
   // nothing about HOW. Person-profile policy and UTM handling in particular.
   t('[safety] every init option is preserved verbatim',
     /capture_pageview: false/.test(PROVIDER)
-    && /capture_pageleave: true/.test(PROVIDER)
+    && /capture_pageleave: false/.test(PROVIDER)   // P0 2026-09-29: page-leave capture disabled
     && /autocapture: false/.test(PROVIDER)
     && /disable_session_recording: true/.test(PROVIDER)
     && /mask_all_text: true/.test(PROVIDER)
