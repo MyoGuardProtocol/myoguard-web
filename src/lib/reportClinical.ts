@@ -15,6 +15,8 @@
  *   Functions: buildInterpretation, buildSuggestedActions, buildEscalationSignal
  */
 
+import { PROTEIN_ADHERENCE_INTERPRETATION_WITHHELD } from '@/src/lib/clinical/proteinIntegrityContainment';
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type Band = 'CRITICAL' | 'HIGH' | 'MODERATE' | 'LOW';
@@ -76,8 +78,11 @@ export function buildInterpretation(params: {
   checkins:        Array<{ proteinAdherence: number | null; exerciseAdherence: number | null }>;
   glp1Stage?:      string | null;
 }): Interpretation {
+  // Protein Clinical Integrity P0 containment: proteinTargetG and proteinIntakeG
+  // are accepted but no longer read. Callers pass Assessment.proteinGrams as
+  // "intake", and that column holds the calculated Clinical Protein Floor.
   const {
-    band, leanLossEstPct, proteinTargetG, proteinIntakeG,
+    band, leanLossEstPct,
     exerciseDaysWk, hydrationLitres, fatigue, nausea, muscleWeakness,
     trendStatus, checkins, glp1Stage,
   } = params;
@@ -94,24 +99,10 @@ export function buildInterpretation(params: {
   // ── Key risk drivers ────────────────────────────────────────────────────────
   const drivers: InterpDriver[] = [];
 
-  // 1. Protein deficit
-  const proteinDeficit = proteinTargetG - proteinIntakeG;
-  if (proteinDeficit > 30) {
-    drivers.push({
-      severity: 'concern',
-      text: `Protein deficit: −${Math.round(proteinDeficit)} g/day below target (reported ${Math.round(proteinIntakeG)} g, target ${Math.round(proteinTargetG)} g) — primary anabolic stimulus insufficient`,
-    });
-  } else if (proteinDeficit > 10) {
-    drivers.push({
-      severity: 'caution',
-      text: `Protein intake below target (${Math.round(proteinIntakeG)} g/day; target ${Math.round(proteinTargetG)} g/day) — gap may be addressable through meal timing or supplementation`,
-    });
-  } else {
-    drivers.push({
-      severity: 'ok',
-      text: `Protein intake meeting or approaching target (${Math.round(proteinIntakeG)} g/day of ${Math.round(proteinTargetG)} g/day target)`,
-    });
-  }
+  // 1. Protein — Protein Clinical Integrity P0 containment: the protein-deficit
+  // driver is suppressed. It subtracted the calculated Clinical Protein Floor
+  // (labelled "reported") from the upper end of the calculated range, so its
+  // verdict followed from body weight and activity, not from intake.
 
   // 2. Exercise frequency
   if (exerciseDaysWk < 2) {
@@ -192,17 +183,18 @@ export function buildInterpretation(params: {
     (TREND_PROJECTION[trendStatus] ?? TREND_PROJECTION.insufficient);
 
   // ── Protocol adherence signal ────────────────────────────────────────────────
+  // Protein Clinical Integrity P0 containment: WeeklyCheckin.proteinAdherence is
+  // stored as a ratio (about 0–1) and was classified here as a percentage, so
+  // every patient read as "Low". No protein average or classification is
+  // produced; where protein adherence data exist, the withheld notice is shown.
   const withProtein  = checkins.filter(c => c.proteinAdherence  != null);
   const withExercise = checkins.filter(c => c.exerciseAdherence != null);
 
-  const avgProteinAdh  = withProtein.length
-    ? Math.round(withProtein.reduce((s, c) => s + c.proteinAdherence!, 0) / withProtein.length)
-    : null;
   const avgExerciseAdh = withExercise.length
     ? Math.round(withExercise.reduce((s, c) => s + c.exerciseAdherence!, 0) / withExercise.length)
     : null;
 
-  if (avgProteinAdh === null && avgExerciseAdh === null) {
+  if (withProtein.length === 0 && avgExerciseAdh === null) {
     return {
       riskCategory,
       keyDrivers: drivers,
@@ -216,14 +208,8 @@ export function buildInterpretation(params: {
 
   const lines: string[] = [];
 
-  if (avgProteinAdh !== null) {
-    if (avgProteinAdh >= 80) {
-      lines.push(`Protein adherence: High (avg ${avgProteinAdh}%) — dietary target met consistently`);
-    } else if (avgProteinAdh >= 50) {
-      lines.push(`Protein adherence: Moderate (avg ${avgProteinAdh}%) — adherence gaps present; consider supplementation or meal-timing strategies`);
-    } else {
-      lines.push(`Protein adherence: Low (avg ${avgProteinAdh}%) — primary intervention target; deficit is compounding catabolism risk`);
-    }
+  if (withProtein.length > 0) {
+    lines.push(PROTEIN_ADHERENCE_INTERPRETATION_WITHHELD);
   }
 
   if (avgExerciseAdh !== null) {
@@ -236,12 +222,8 @@ export function buildInterpretation(params: {
     }
   }
 
-  const bothKnown  = avgProteinAdh !== null && avgExerciseAdh !== null;
-  const bothStrong = bothKnown && avgProteinAdh >= 70 && avgExerciseAdh >= 70;
-  const bothPoor   = bothKnown && avgProteinAdh < 50  && avgExerciseAdh < 50;
-
-  if (bothStrong) lines.push('Overall adherence signal: Strong — continue current protocol approach');
-  else if (bothPoor) lines.push('Overall adherence signal: Poor — multidomain intervention review indicated');
+  // The combined protein-and-exercise signal depended on the protein
+  // classification above and is suppressed with it.
 
   return { riskCategory, keyDrivers: drivers, leanMassProjection, adherenceSignal: { summary: '', lines } };
 }
@@ -266,24 +248,16 @@ export function buildSuggestedActions(params: {
   checkins:        Array<{ proteinAdherence: number | null; exerciseAdherence: number | null }>;
   glp1Stage?:      string | null;
 }): SuggestedAction[] {
+  // Protein Clinical Integrity P0 containment: proteinTargetG, proteinIntakeG and
+  // checkins are accepted but no longer read. The protein-deficit and protein-
+  // adherence actions they drove are suppressed (see below).
   const {
-    band, proteinTargetG, proteinIntakeG, exerciseDaysWk,
+    band, exerciseDaysWk,
     hydrationLitres, fatigue, nausea, muscleWeakness,
-    trendStatus, checkins, glp1Stage,
+    trendStatus, glp1Stage,
   } = params;
 
-  const proteinDeficit = proteinTargetG - proteinIntakeG;
   const symptomAvg     = (fatigue + nausea + muscleWeakness) / 3;
-
-  // ── Compute adherence averages from check-ins ────────────────────────────────
-  const withProtein  = checkins.filter(c => c.proteinAdherence  != null);
-  const withExercise = checkins.filter(c => c.exerciseAdherence != null);
-  const avgProteinAdh  = withProtein.length
-    ? Math.round(withProtein.reduce((s, c) => s + c.proteinAdherence!, 0) / withProtein.length)
-    : null;
-  const avgExerciseAdh = withExercise.length
-    ? Math.round(withExercise.reduce((s, c) => s + c.exerciseAdherence!, 0) / withExercise.length)
-    : null;
 
   // ── Build a prioritised pool of clinical candidates ──────────────────────────
   type Candidate = { priority: number; action: SuggestedAction };
@@ -310,26 +284,9 @@ export function buildSuggestedActions(params: {
     });
   }
 
-  // 2. Protein deficit — primary anabolic driver
-  if (proteinDeficit > 30) {
-    candidates.push({
-      priority: 2,
-      action: {
-        urgency:   'urgent',
-        timeframe: 'Immediate',
-        text: `Increase daily protein intake to the protocol target of ${Math.round(proteinTargetG)} g/day (current reported intake: ${Math.round(proteinIntakeG)} g/day; deficit: −${Math.round(proteinDeficit)} g/day). Consider referral to a registered dietitian for structured supplementation planning.`,
-      },
-    });
-  } else if (proteinDeficit > 10) {
-    candidates.push({
-      priority: 3,
-      action: {
-        urgency:   'recommended',
-        timeframe: 'Within 7 days',
-        text: `Increase daily protein intake toward the ${Math.round(proteinTargetG)} g/day protocol target. Meal timing optimisation and whey protein supplementation (20–40 g/serving post-exercise) may address the current gap of −${Math.round(proteinDeficit)} g/day.`,
-      },
-    });
-  }
+  // 2. Protein deficit — Protein Clinical Integrity P0 containment: suppressed.
+  // It presented the calculated Clinical Protein Floor as "current reported
+  // intake" and recommended action on the gap between two calculated references.
 
   // 3. Exercise frequency — myoprotective stimulus
   if (exerciseDaysWk < 2) {
@@ -364,17 +321,9 @@ export function buildSuggestedActions(params: {
     });
   }
 
-  // 5. Adherence-based action (only when explicit check-in data confirms low adherence)
-  if (avgProteinAdh !== null && avgProteinAdh < 50 && proteinDeficit <= 10) {
-    candidates.push({
-      priority: 4,
-      action: {
-        urgency:   'recommended',
-        timeframe: 'Within 7 days',
-        text: `Protein adherence is averaging ${avgProteinAdh}% over recent check-ins. Consider a behavioural coaching session or app-based meal tracking to improve consistency with the ${Math.round(proteinTargetG)} g/day target.`,
-      },
-    });
-  }
+  // 5. Adherence-based action — Protein Clinical Integrity P0 containment:
+  // suppressed. It classified the stored adherence ratio as a percentage and
+  // depended on the protein-deficit value suppressed above.
 
   // 6. Dose escalation phase monitoring
   if (glp1Stage === 'DOSE_ESCALATION') {
@@ -432,8 +381,12 @@ export function buildEscalationSignal(params: {
   leanLossEstPct:  number;
   trendStatus:     string;
 }): EscalationSignal {
+  // Protein Clinical Integrity P0 containment: proteinDeficit is accepted but no
+  // longer read. Callers compute it as the upper end of the calculated range
+  // minus Assessment.proteinGrams, which holds the calculated Clinical Protein
+  // Floor — a gap between two references, not an intake deficit.
   const {
-    riskBand, symptomAvg, proteinDeficit, exerciseDaysWk,
+    riskBand, symptomAvg, exerciseDaysWk,
     hydrationLitres, leanLossEstPct, trendStatus,
   } = params;
 
@@ -452,13 +405,8 @@ export function buildEscalationSignal(params: {
     });
   }
 
-  // 2. Critical protein deficit — primary sarcopenic driver
-  if (proteinDeficit > 30) {
-    triggers.push({
-      level: 'urgent',
-      text:  `Severe protein deficit (−${Math.round(proteinDeficit)} g/day) — anabolic stimulus severely insufficient for muscle preservation during GLP-1 therapy`,
-    });
-  }
+  // 2. Critical protein deficit — Protein Clinical Integrity P0 containment:
+  // suppressed (see the note on proteinDeficit above).
 
   // 3. Critically low exercise — unmitigated sarcopenic risk
   if (exerciseDaysWk < 2) {

@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import type { PatientRow } from './PatientCommandCenter';
+import { PROTEIN_CEILING_LABEL } from '@/src/lib/clinical/proteinContainment';
+import { PROTEIN_ADHERENCE_INTERPRETATION_WITHHELD } from '@/src/lib/clinical/proteinIntegrityContainment';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -151,9 +153,6 @@ const GI_SYMPTOM_SET = new Set(['Nausea', 'Vomiting', 'Constipation', 'Bloating'
 
 function MdmPanel({ latest, assessments }: { latest: DrawerAssessment; assessments: DrawerAssessment[] }) {
   const ms          = latest.muscleScore;
-  const proteinTarget = ms?.proteinTargetG ?? latest.weightKg * 1.4;
-  const proteinPct    = proteinTarget > 0 ? (latest.proteinGrams / proteinTarget) * 100 : null;
-  const targetGPerKg  = proteinTarget / latest.weightKg;
   const gripVelocity  = computeGripVelocity(assessments);
 
   const giSymptoms = latest.symptoms.filter(s => GI_SYMPTOM_SET.has(s));
@@ -172,31 +171,20 @@ function MdmPanel({ latest, assessments }: { latest: DrawerAssessment; assessmen
       </p>
 
       {/* ── Protein ──────────────────────────────────────────────────────── */}
-      <div style={{ marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.55)' }}>Protein Intake vs Target</span>
-          <span style={{
-            fontFamily: 'monospace', fontSize: 11, fontWeight: 700,
-            color: proteinPct == null ? 'rgba(255,255,255,0.3)' : proteinPct >= 90 ? '#2DD4BF' : proteinPct >= 75 ? '#FCD34D' : '#FB923C',
-          }}>
-            {Math.round(latest.proteinGrams)}g / {Math.round(proteinTarget)}g
-          </span>
+      {/* Protein Clinical Integrity P0 containment: the "Protein Intake vs Target"
+          bar compared Assessment.proteinGrams — the calculated Clinical Protein
+          Floor, not intake — with the upper end of the range. Suppressed; only the
+          calculated reference is shown, under its governed label. */}
+      {ms?.proteinTargetG != null && (
+        <div style={{ marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.55)' }}>{PROTEIN_CEILING_LABEL}</span>
+            <span style={{ fontFamily: 'monospace', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>
+              {Math.round(ms.proteinTargetG)}g / day
+            </span>
+          </div>
         </div>
-        <div style={{ height: 4, background: 'rgba(255,255,255,0.07)', borderRadius: 99, overflow: 'hidden' }}>
-          {proteinPct != null && (
-            <div style={{
-              width:      `${Math.min(proteinPct, 100)}%`,
-              height:     '100%',
-              background: proteinPct >= 90 ? '#2DD4BF' : proteinPct >= 75 ? '#FCD34D' : '#FB923C',
-              borderRadius: 99,
-              transition: 'width 0.4s ease',
-            }} />
-          )}
-        </div>
-        <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>
-          Target: {targetGPerKg.toFixed(1)} g/kg &middot; {latest.weightKg} kg
-        </p>
-      </div>
+      )}
 
       {/* ── Grip Velocity ────────────────────────────────────────────────── */}
       <div style={{ marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
@@ -349,15 +337,16 @@ function deriveDecisionCue(
     action: 'Continue monitoring and reassess at next protocol check-in.',
   };
 
-  const proteinTarget = latest.muscleScore?.proteinTargetG ?? latest.weightKg * 1.4;
-  const proteinPct    = proteinTarget > 0 ? latest.proteinGrams / proteinTarget : 1;
+  // Protein Clinical Integrity P0 containment: the "Protein Deficit" driver is
+  // suppressed. It divided Assessment.proteinGrams (the calculated Clinical
+  // Protein Floor, not intake) by the upper end of the range — always 0.80–0.82 —
+  // so it was the primary driver for every patient and hid the drivers below.
   const hasGI         = latest.symptoms.some(s => GI_DRIVER_TERMS.includes(s.toLowerCase()));
   const sleepLow      = latest.sleepHours != null && latest.sleepHours < 6.5;
   const recoveryWeak  = latest.recoveryStatus === 'critical' || latest.recoveryStatus === 'impaired';
   const sriDecline    = scores.length >= 2 && (scores[0] - scores[1]) < -5;
 
-  if (proteinPct < 0.85) return { driver: 'Protein Deficit',     action: 'Review protein intake and reinforce target pathway.' };
-  if (hasGI)             return { driver: 'GI Burden',            action: 'Assess GI tolerance and intake consistency.' };
+  if (hasGI)           return { driver: 'GI Burden',            action: 'Assess GI tolerance and intake consistency.' };
   if (sleepLow || recoveryWeak) return { driver: 'Recovery Impairment', action: 'Review sleep recovery and fatigue burden.' };
   if (sriDecline)        return { driver: 'SRI Decline',          action: 'Review recent SRI trajectory and adherence pattern.' };
   return                        { driver: 'General Monitoring',   action: 'Continue monitoring and reassess at next protocol check-in.' };
@@ -743,7 +732,15 @@ export default function PatientDrawer({
                       <p style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>
                         Weekly Adherence (latest)
                       </p>
-                      <AdherenceBar label="Protein Adherence"  pct={latestCheckin?.proteinAdherence  ?? null} />
+                      {/* Protein Clinical Integrity P0 containment: proteinAdherence is
+                          stored as a ratio (about 0–1) and this bar read it as a
+                          percentage, so 0.9 rendered as "1%". The bar is withheld;
+                          logged protein values remain in the check-in history. */}
+                      {latestCheckin?.proteinAdherence != null && (
+                        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', lineHeight: 1.5, marginBottom: 10 }}>
+                          {PROTEIN_ADHERENCE_INTERPRETATION_WITHHELD}
+                        </p>
+                      )}
                       <AdherenceBar label="Exercise Adherence" pct={latestCheckin?.exerciseAdherence ?? null} />
                       {latestCheckin?.sleepHours != null && (
                         <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.06)' }}>

@@ -161,9 +161,10 @@ export default async function ResultsPage({
   const prevBand        = prev ? (prev.riskBand as Band)                              : null;
   const bandImproved    = prev ? (score > Math.round(prev.score))                     : null;
 
-  const lowProtein    = assessment.proteinGrams && ms.proteinTargetG
-    ? assessment.proteinGrams < ms.proteinTargetG * 0.85
-    : false;
+  // Protein Clinical Integrity P0 containment: the protein supplement trigger is
+  // removed. It compared Assessment.proteinGrams — the calculated Clinical Protein
+  // Floor, not intake — with the upper end of the range, so it was true for every
+  // patient and told them their "reported protein intake" was below target.
   const hasGISymptoms = assessment.symptoms.some((s: string) =>
     ['nausea', 'vomiting', 'constipation', 'gastroparesis', 'bloating', 'reduced appetite']
       .includes(s.toLowerCase())
@@ -384,7 +385,6 @@ export default async function ResultsPage({
         {/* ══════════════════════════════════════════════════════════════════════ */}
         <SupplementCTA
           dark
-          lowProtein={lowProtein}
           hasGISymptoms={hasGISymptoms}
           lowRecovery={lowRecovery}
         />
@@ -539,7 +539,9 @@ export default async function ResultsPage({
           <div className="grid grid-cols-2 gap-px" style={{ background: 'rgba(26,39,68,0.4)' }}>
             {[
               { label: 'Body weight',    value: `${assessment.weightKg} kg`                    },
-              { label: 'Protein intake', value: `${Math.round(assessment.proteinGrams)} g/day` },
+              // Protein Clinical Integrity P0 containment: "Protein intake" showed
+              // Assessment.proteinGrams, the calculated Clinical Protein Floor.
+              // Suppressed; it is not the patient's intake.
               { label: 'Training days',  value: `${assessment.exerciseDaysWk} days/wk`         },
               { label: 'Hydration',      value: `${assessment.hydrationLitres} L/day`          },
             ].map(({ label, value }) => (

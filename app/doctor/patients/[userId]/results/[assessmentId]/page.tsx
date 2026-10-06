@@ -202,8 +202,10 @@ export default async function PhysicianAssessmentResultPage({
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: '20px' }}>
             {[
-              { label: 'Daily Protein',  value: `${Math.round(assessment.proteinGrams)}g` },
-              { label: 'Exercise Days',  value: `${assessment.exerciseDaysWk} day${assessment.exerciseDaysWk !== 1 ? 's' : ''}/week` },
+              // Protein Clinical Integrity P0 containment: "Daily Protein" displayed
+              // Assessment.proteinGrams, the calculated Clinical Protein Floor, as an
+              // assessment input. Suppressed; the floor is not intake.
+              { label: 'Exercise Days', value: `${assessment.exerciseDaysWk} day${assessment.exerciseDaysWk !== 1 ? 's' : ''}/week` },
               { label: 'Daily Hydration', value: `${assessment.hydrationLitres.toFixed(1)}L` },
               { label: 'Symptoms',       value: assessment.symptoms.length ? `${assessment.symptoms.length} reported` : 'None' },
             ].map(item => (

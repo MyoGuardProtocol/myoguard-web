@@ -294,9 +294,10 @@ export default async function ReportPage() {
   }
 
   // ── Supplement relevance signals ─────────────────────────────────────────────
-  const lowProtein    = latestAssessment.proteinGrams && ms.proteinTargetG
-    ? latestAssessment.proteinGrams < ms.proteinTargetG * 0.85
-    : false;
+  // Protein Clinical Integrity P0 containment: the protein supplement trigger is
+  // removed. It compared Assessment.proteinGrams — the calculated Clinical Protein
+  // Floor, not intake — with the upper end of the range, so it was true for every
+  // patient and told them their "reported protein intake" was below target.
   const hasGISymptoms = latestAssessment.symptoms.some((s: string) =>
     ['nausea', 'vomiting', 'constipation', 'gastroparesis', 'bloating', 'reduced appetite']
       .includes(s.toLowerCase())
@@ -761,7 +762,6 @@ export default async function ReportPage() {
           {/* ══════════════════════════════════════════════════════════════════ */}
           <SupplementCTA
             dark
-            lowProtein={lowProtein}
             hasGISymptoms={hasGISymptoms}
             lowRecovery={lowRecovery}
           />
@@ -1035,13 +1035,9 @@ export default async function ReportPage() {
                     {latestAssessment.weightKg} kg
                   </p>
                 </div>
-                <div style={{ padding: '14px 16px', borderBottom: '1px solid #1A2744' }}>
-                  <p style={{ fontSize: '10px', color: '#94A3B8', textTransform: 'uppercase',
-                    letterSpacing: '0.06em', marginBottom: '4px' }}>Protein Intake</p>
-                  <p style={{ fontSize: '14px', fontWeight: '600', color: '#F1F5F9' }}>
-                    {Math.round(latestAssessment.proteinGrams)} g/day
-                  </p>
-                </div>
+                {/* Protein Clinical Integrity P0 containment: the "Protein Intake" tile
+                    showed Assessment.proteinGrams, the calculated Clinical Protein
+                    Floor. Suppressed; it is not the patient's intake. */}
                 <div style={{ padding: '14px 16px', borderRight: '1px solid #1A2744' }}>
                   <p style={{ fontSize: '10px', color: '#94A3B8', textTransform: 'uppercase',
                     letterSpacing: '0.06em', marginBottom: '4px' }}>Exercise Frequency</p>

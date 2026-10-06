@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isAcceptedWeight, WEIGHT_KG_RANGE } from "@/src/lib/units/weight";
 
 // ─── Assessment intake (mirrors AssessmentInput from protocolEngine) ──────────
 
@@ -16,7 +17,14 @@ export const AssessmentInputSchema = z.object({
   glp1Stage:     z.enum(['INITIATION', 'DOSE_ESCALATION', 'MAINTENANCE', 'DISCONTINUATION']).optional(),
   gripStrengthKg: z.number().positive().optional(),
   exerciseDaysWk: z.number().int().min(0).max(7).optional(),
-});
+})
+// Protein Clinical Integrity P0 containment (PROT-UNIT-002): weight was only
+// checked as non-empty text. It must now be a number that, in kilograms, falls in
+// the range the assessment forms already enforce. No new limit is introduced.
+.refine(
+  d => isAcceptedWeight(d.weight, d.unit),
+  { message: `Weight must be between ${WEIGHT_KG_RANGE.min} and ${WEIGHT_KG_RANGE.max} kg`, path: ['weight'] },
+);
 
 export type AssessmentInputSchema = z.infer<typeof AssessmentInputSchema>;
 

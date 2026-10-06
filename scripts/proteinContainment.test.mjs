@@ -112,8 +112,11 @@ section('-- C. Physician-facing numeric CDS remains available --');
     t(`[safety] C. physician surface still reads the value: ${p}`,
       /proteinTargetG/.test(src(p)));
   }
+  // Protein Clinical Integrity P0 containment removed the metrics row that paired
+  // this figure with the floor shown as "Reported Value". The upper end is still
+  // printed, in the Protocol section, under the governed ceiling label.
   t('[safety] C. physician print still renders a gram figure',
-    /proteinTargetG \? `up to \$\{Math\.round\(ms\.proteinTargetG\)\}g`/
+    /\{PROTEIN_CEILING_LABEL\}[\s\S]{0,200}\{Math\.round\(plan\.proteinTargetG\)\}g/
       .test(src('app/doctor/patients/[userId]/print/page.tsx')));
   t('[safety] C. the ceiling is no longer printed as a minimum',
     !/`≥ \$\{Math\.round\(ms\.proteinTargetG\)/

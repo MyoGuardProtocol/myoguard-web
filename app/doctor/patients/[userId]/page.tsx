@@ -94,30 +94,20 @@ const HIGH_DOSE_THRESHOLDS: Record<string, number> = {
 };
 
 /**
- * Derives the 5 muscle-protection factor cards from the latest assessment.
+ * Derives the muscle-protection factor cards from the latest assessment.
  * Mirrors the same logic used on the patient-facing dashboard so the physician
  * sees exactly the same risk breakdown the patient sees.
+ *
+ * Protein Clinical Integrity P0 containment: the protein card is suppressed.
+ * It read Assessment.proteinGrams — the calculated Clinical Protein Floor, not
+ * intake — as the patient's intake, and its "below minimum" / "not a current
+ * concern" verdict followed from activity level alone. The calculated floor and
+ * range remain on the Clinical Cockpit above.
  */
 function deriveFactors(
   a:       PatientAssmt,
   profile: PatientProfile | null,
 ): Factor[] {
-  // ── 1. Protein ────────────────────────────────────────────────────────────
-  const proteinMin = Math.round(a.weightKg * 1.4);
-  const gapG       = Math.round(a.proteinGrams - proteinMin);
-  const gapPct     = a.proteinGrams / proteinMin;
-
-  const proteinImpact: ImpactLevel =
-    gapPct >= 1.0 ? 'LOW' : gapPct >= 0.9 ? 'MODERATE' : 'HIGH';
-
-  const proteinState = gapPct >= 1.0
-    ? `${Math.round(a.proteinGrams)}g / day · +${gapG}g above minimum`
-    : `${Math.round(a.proteinGrams)}g / day · ${gapG}g below minimum`;
-
-  const proteinDetail = gapPct >= 1.0
-    ? `Patient is meeting the ${proteinMin}g/day minimum for their body weight. Protein intake is not a current concern.`
-    : `Patient is below the ${proteinMin}g/day minimum needed to preserve muscle on GLP-1 therapy. Consider a protein counselling referral.`;
-
   // ── 2. Activity ───────────────────────────────────────────────────────────
   const activityDays  = a.exerciseDaysWk;
   const activityLevel = activityDays >= 5 ? 'active' : activityDays >= 3 ? 'moderate' : 'sedentary';
@@ -187,7 +177,6 @@ function deriveFactors(
   const hydrationDetail = `Target ${a.hydrationLitres.toFixed(1)}L daily. Adequate hydration supports muscle protein synthesis and reduces GI side effect burden.`;
 
   return [
-    { icon: '🍗', label: 'Protein Intake',  state: proteinState,   detail: proteinDetail,   impact: proteinImpact   },
     { icon: '🏃', label: 'Activity Level',  state: activityLabel,  detail: activityDetail,  impact: activityImpact  },
     { icon: '💊', label: 'GLP-1 Dose',      state: glp1State,      detail: glp1Detail,      impact: glp1Impact      },
     { icon: '⚡', label: 'Symptoms',        state: symptomsState,  detail: symptomsDetail,  impact: symptomsImpact  },
@@ -264,12 +253,12 @@ export default async function PatientDetailPage({
   const rm   = RISK_META[band] ?? RISK_META.LOW;
 
   // ── Clinical escalation derivation (physician-only) ────────────────────────
+  // Protein Clinical Integrity P0 containment: the protein-deficit trigger is
+  // suppressed. It subtracted Assessment.proteinGrams (the calculated Clinical
+  // Protein Floor, not intake) from the upper end of the calculated range, so it
+  // fired by body weight and activity alone, and it labelled the floor "reported".
   const latestMs       = latest?.muscleScore;
-  const proteinDeficit = latestMs
-    ? (latestMs.proteinTargetG ?? 0) - (latest?.proteinGrams ?? 0)
-    : 0;
   const escalate =
-    proteinDeficit > 30 ||
     (latest?.exerciseDaysWk ?? 0) < 2 ||
     (latestMs?.leanLossEstPct ?? 0) > 25;
 
@@ -439,12 +428,6 @@ export default async function PatientDetailPage({
                   ⚠ Clinical Escalation Alert
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {proteinDeficit > 30 && (
-                    <p style={{ fontSize: '13px', color: '#fca5a5' }}>
-                      Critical protein deficit: −{Math.round(proteinDeficit)}g/day below target
-                      ({latest?.proteinGrams}g reported, {latestMs?.proteinTargetG}g required)
-                    </p>
-                  )}
                   {(latest?.exerciseDaysWk ?? 0) < 2 && (
                     <p style={{ fontSize: '13px', color: '#fca5a5' }}>
                       Insufficient resistance stimulus: {latest?.exerciseDaysWk} session(s)/week
@@ -473,18 +456,6 @@ export default async function PatientDetailPage({
                 Suggested Clinical Actions
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {proteinDeficit > 30 && (
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-                    <span style={{ fontSize: '10px', fontWeight: '700',
-                      color: '#FB7185', background: 'rgba(248,113,133,0.12)',
-                      padding: '3px 8px', borderRadius: '99px',
-                      flexShrink: 0, marginTop: '2px' }}>URGENT</span>
-                    <p style={{ fontSize: '13px', color: '#F1F5F9', lineHeight: '1.5' }}>
-                      Increase daily protein to {latestMs?.proteinTargetG}g/day.
-                      Consider structured supplementation — whey protein or dietitian referral.
-                    </p>
-                  </div>
-                )}
                 {(latest?.exerciseDaysWk ?? 0) < 2 && (
                   <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
                     <span style={{ fontSize: '10px', fontWeight: '700',
@@ -531,7 +502,6 @@ export default async function PatientDetailPage({
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 {[
-                  { label: 'Protein',      value: `${Math.round(latest.proteinGrams)}g/day`         },
                   { label: 'Activity',     value: `${latest.exerciseDaysWk} day${latest.exerciseDaysWk !== 1 ? 's' : ''}/wk` },
                   { label: 'Hydration',    value: `${latest.hydrationLitres.toFixed(1)}L/day`        },
                   { label: 'Symptoms',     value: latest.symptoms.length ? `${latest.symptoms.length} reported` : 'None' },

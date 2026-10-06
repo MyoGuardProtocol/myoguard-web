@@ -6,6 +6,13 @@ import Link from 'next/link';
 import { z } from 'zod';
 import posthog from 'posthog-js';
 import { isAnalyticsEnabled, AnalyticsEvents } from '@/src/lib/posthog';
+import {
+  isAcceptedWeight,
+  weightInputToKg,
+  WEIGHT_KG_RANGE,
+  WEIGHT_LB_DISPLAY_RANGE,
+  type WeightUnit,
+} from '@/src/lib/units/weight';
 
 // ─── Symptoms list ───────────────────────────────────────────────────────────
 const SYMPTOMS = [
@@ -145,13 +152,33 @@ export default function AssessmentPage() {
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [serverError, setServerError] = useState('');
+  // Protein Clinical Integrity P0 containment (PROT-UNIT-001): weight may be
+  // entered in kg or lb. It is validated and submitted in kilograms only.
+  const [weightUnit, setWeightUnit] = useState<WeightUnit>('kg');
 
   // ── Helpers ──────────────────────────────────────────────────────────────
+  const weightError = (value: string, unit: WeightUnit): string | undefined => {
+    if (value.trim() === '') return 'Weight is required';
+    if (isAcceptedWeight(value, unit)) return undefined;
+    return unit === 'lbs'
+      ? `Please enter a weight between ${WEIGHT_LB_DISPLAY_RANGE.min} and ${WEIGHT_LB_DISPLAY_RANGE.max} lbs`
+      : `Please enter a weight between ${WEIGHT_KG_RANGE.min} and ${WEIGHT_KG_RANGE.max} kg`;
+  };
+
+  const changeWeightUnit = (unit: WeightUnit) => {
+    // The typed number is cleared rather than reinterpreted in the new unit.
+    setWeightUnit(unit);
+    setFormState(prev => ({ ...prev, weightKg: '' }));
+    setFieldErrors(prev => ({ ...prev, weightKg: undefined }));
+  };
+
   const setField = <K extends keyof FormData>(key: K, value: FormData[K]) => {
     const next = { ...form, [key]: value };
     setFormState(next);
 
-    if (submitAttempted && key !== 'symptoms') {
+    if (submitAttempted && key === 'weightKg') {
+      setFieldErrors(prev => ({ ...prev, weightKg: weightError(String(value), weightUnit) }));
+    } else if (submitAttempted && key !== 'symptoms') {
       const partial = FormSchema.shape[key as keyof typeof FormSchema.shape];
       const result  = partial.safeParse(value);
       setFieldErrors(prev => ({
@@ -171,9 +198,11 @@ export default function AssessmentPage() {
   };
 
   const validate = (): FieldErrors => {
-    const result = FormSchema.safeParse(form);
-    if (result.success) return {};
     const errs: FieldErrors = {};
+    const weightMessage = weightError(form.weightKg, weightUnit);
+    if (weightMessage) errs.weightKg = weightMessage;
+    const result = FormSchema.omit({ weightKg: true }).safeParse(form);
+    if (result.success) return errs;
     for (const issue of result.error.issues) {
       const key = issue.path[0] as keyof FieldErrors;
       if (!errs[key]) errs[key] = issue.message;
@@ -190,7 +219,8 @@ export default function AssessmentPage() {
     setFieldErrors(errs);
     if (Object.keys(errs).length > 0) return;
 
-    const parsedWeight  = parseFloat(String(form.weightKg));
+    // Always kilograms from here on, whichever unit was entered.
+    const parsedWeight  = weightInputToKg(String(form.weightKg), weightUnit);
     const parsedProtein = parseFloat(String(form.proteinGrams));
     const parsedSleep   = form.sleepHours
       ? parseFloat(String(form.sleepHours))
@@ -209,7 +239,7 @@ export default function AssessmentPage() {
     }
     if (parsedWeight > 0 && parsedProtein / parsedWeight > 4.0) {
       setServerError(
-        `Protein intake of ${parsedProtein}g/day appears unusually high for ${parsedWeight}kg body weight. Please verify your entries.`
+        `Protein intake of ${parsedProtein}g/day appears unusually high for ${Math.round(parsedWeight * 10) / 10}kg body weight. Please verify your entries.`
       );
       return;
     }
@@ -230,7 +260,9 @@ export default function AssessmentPage() {
                            form.drugLabel.toLowerCase().includes('zepbound');
 
       const payload: Record<string, unknown> = {
-        weight:         form.weightKg,
+        // Normalised to kg before submission; the engine receives the same
+        // kilogram value it would have computed from the entered unit.
+        weight:         String(parsedWeight),
         unit:           'kg',
         medication:     isTirz ? 'tirzepatide' : 'semaglutide',
         doseMg:         selectedDrug?.value ?? 0,
@@ -353,20 +385,52 @@ export default function AssessmentPage() {
 
           {/* ── Weight ── */}
           <div>
-            <label htmlFor="weightKg" style={{
-              display: 'block', fontSize: '13px', fontWeight: '600',
-              color: '#F1F5F9', marginBottom: '6px',
-            }}>
-              Current Body Weight (kg)
-            </label>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+              <label htmlFor="weightKg" style={{
+                display: 'block', fontSize: '13px', fontWeight: '600',
+                color: '#F1F5F9',
+              }}>
+                Current Body Weight ({weightUnit})
+              </label>
+              {/* kg / lbs toggle — same pattern as the public assessment */}
+              <div role="group" aria-label="Weight unit" style={{
+                display:      'flex',
+                borderRadius: '999px',
+                border:       '1px solid #1A2744',
+                overflow:     'hidden',
+                background:   '#080C14',
+              }}>
+                {(['kg', 'lbs'] as const).map(unit => (
+                  <button
+                    key={unit}
+                    type="button"
+                    aria-pressed={unit === weightUnit}
+                    onClick={() => changeWeightUnit(unit)}
+                    style={{
+                      padding:    '3px 10px',
+                      fontSize:   '11px',
+                      fontWeight: unit === weightUnit ? 700 : 400,
+                      background: unit === weightUnit ? '#2DD4BF' : 'transparent',
+                      color:      unit === weightUnit ? '#080C14' : '#94A3B8',
+                      border:     'none',
+                      cursor:     'pointer',
+                      lineHeight: '1.6',
+                      transition: 'background 0.15s, color 0.15s',
+                    }}
+                  >
+                    {unit}
+                  </button>
+                ))}
+              </div>
+            </div>
             <input
               id="weightKg"
               type="number"
               inputMode="decimal"
-              placeholder="e.g. 89"
-              min={30}
-              max={250}
-              step={0.1}
+              placeholder={weightUnit === 'kg' ? 'e.g. 89' : 'e.g. 196'}
+              min={weightUnit === 'kg' ? WEIGHT_KG_RANGE.min : WEIGHT_LB_DISPLAY_RANGE.min}
+              max={weightUnit === 'kg' ? WEIGHT_KG_RANGE.max : WEIGHT_LB_DISPLAY_RANGE.max}
+              step={weightUnit === 'kg' ? 0.1 : 1}
               value={form.weightKg}
               onChange={e => setField('weightKg', e.target.value)}
               className="myg-input"
@@ -407,9 +471,11 @@ export default function AssessmentPage() {
                 <span aria-hidden>⚠</span> {fieldErrors.proteinGrams}
               </p>
             )}
-            <p style={{ marginTop: '6px', fontSize: '12px', color: '#94A3B8' }}>
-              Used to assess adequacy against your clinical protein floor.
-            </p>
+            {/* Protein Clinical Integrity P0 containment: the hint "Used to assess
+                adequacy against your clinical protein floor." was removed — the
+                server path does not use this value. The field, its validation and
+                payload are unchanged; the three-path intake design (REPORTED /
+                ESTIMATED / UNKNOWN) is deferred to the governed workstream. */}
           </div>
 
           {/* ── GLP-1 Medication + Dose ── */}

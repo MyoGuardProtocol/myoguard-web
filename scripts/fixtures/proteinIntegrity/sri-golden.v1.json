@@ -1,0 +1,680 @@
+{
+  "_comment": "Generated from src/lib/protocolEngine.ts at commit 601742d BEFORE the Protein Clinical Integrity P0 containment build. The containment must not change any value here. Regenerating this file is never a fix for a failing assertion.",
+  "engineCommit": "601742d",
+  "cases": [
+    {
+      "input": {
+        "weight": "60",
+        "unit": "kg",
+        "medication": "semaglutide",
+        "doseMg": 2.4,
+        "activityLevel": "sedentary",
+        "symptoms": []
+      },
+      "expected": {
+        "weightKg": 60,
+        "myoguardScore": 57,
+        "riskBand": "HIGH",
+        "proteinStandard": 72,
+        "proteinAggressive": 90,
+        "proteinStepTargetG": null,
+        "leanLossEstPct": 18,
+        "recoveryStatus": "optimal",
+        "criticalOverrideApplied": false,
+        "giSeverity": "none",
+        "stageMultiplierApplied": 1,
+        "hydration": 2.1
+      }
+    },
+    {
+      "input": {
+        "weight": "60",
+        "unit": "kg",
+        "medication": "tirzepatide",
+        "doseMg": 10,
+        "activityLevel": "moderate",
+        "symptoms": [
+          "Nausea"
+        ],
+        "sleepHours": 5,
+        "sleepQuality": 2
+      },
+      "expected": {
+        "weightKg": 60,
+        "myoguardScore": 65,
+        "riskBand": "MODERATE",
+        "proteinStandard": 84,
+        "proteinAggressive": 102,
+        "proteinStepTargetG": null,
+        "leanLossEstPct": 8,
+        "recoveryStatus": "impaired",
+        "criticalOverrideApplied": false,
+        "giSeverity": "mild",
+        "stageMultiplierApplied": 1,
+        "hydration": 2.1
+      }
+    },
+    {
+      "input": {
+        "weight": "60",
+        "unit": "kg",
+        "medication": "semaglutide",
+        "doseMg": 0.5,
+        "activityLevel": "active",
+        "symptoms": [
+          "Nausea",
+          "Reduced appetite"
+        ],
+        "glp1Stage": "DOSE_ESCALATION",
+        "exerciseDaysWk": 2
+      },
+      "expected": {
+        "weightKg": 60,
+        "myoguardScore": 60,
+        "riskBand": "MODERATE",
+        "proteinStandard": 96,
+        "proteinAggressive": 120,
+        "proteinStepTargetG": 82,
+        "leanLossEstPct": 8,
+        "recoveryStatus": "optimal",
+        "criticalOverrideApplied": false,
+        "giSeverity": "moderate",
+        "stageMultiplierApplied": 1.25,
+        "hydration": 2.1
+      }
+    },
+    {
+      "input": {
+        "weight": "89",
+        "unit": "kg",
+        "medication": "tirzepatide",
+        "doseMg": 10,
+        "activityLevel": "sedentary",
+        "symptoms": [
+          "Vomiting",
+          "Fatigue"
+        ],
+        "glp1Stage": "MAINTENANCE",
+        "exerciseDaysWk": 6,
+        "sleepHours": 8
+      },
+      "expected": {
+        "weightKg": 89,
+        "myoguardScore": 67,
+        "riskBand": "MODERATE",
+        "proteinStandard": 106.8,
+        "proteinAggressive": 133.5,
+        "proteinStepTargetG": 75,
+        "leanLossEstPct": 8,
+        "recoveryStatus": "optimal",
+        "criticalOverrideApplied": false,
+        "giSeverity": "severe",
+        "stageMultiplierApplied": 1,
+        "hydration": 3.1
+      }
+    },
+    {
+      "input": {
+        "weight": "89",
+        "unit": "kg",
+        "medication": "semaglutide",
+        "doseMg": 2.4,
+        "activityLevel": "moderate",
+        "symptoms": [
+          "Muscle weakness",
+          "Constipation",
+          "Bloating"
+        ]
+      },
+      "expected": {
+        "weightKg": 89,
+        "myoguardScore": 50,
+        "riskBand": "HIGH",
+        "proteinStandard": 124.6,
+        "proteinAggressive": 151.3,
+        "proteinStepTargetG": null,
+        "leanLossEstPct": 18,
+        "recoveryStatus": "optimal",
+        "criticalOverrideApplied": false,
+        "giSeverity": "mild",
+        "stageMultiplierApplied": 1,
+        "hydration": 3.1
+      }
+    },
+    {
+      "input": {
+        "weight": "89",
+        "unit": "kg",
+        "medication": "tirzepatide",
+        "doseMg": 2.5,
+        "activityLevel": "active",
+        "symptoms": [],
+        "sleepHours": 5,
+        "sleepQuality": 2
+      },
+      "expected": {
+        "weightKg": 89,
+        "myoguardScore": 90,
+        "riskBand": "LOW",
+        "proteinStandard": 142.4,
+        "proteinAggressive": 178,
+        "proteinStepTargetG": null,
+        "leanLossEstPct": 2,
+        "recoveryStatus": "impaired",
+        "criticalOverrideApplied": false,
+        "giSeverity": "none",
+        "stageMultiplierApplied": 1,
+        "hydration": 3.1
+      }
+    },
+    {
+      "input": {
+        "weight": "100",
+        "unit": "kg",
+        "medication": "semaglutide",
+        "doseMg": 2.4,
+        "activityLevel": "sedentary",
+        "symptoms": [
+          "Nausea"
+        ],
+        "glp1Stage": "DOSE_ESCALATION",
+        "exerciseDaysWk": 2
+      },
+      "expected": {
+        "weightKg": 100,
+        "myoguardScore": 50,
+        "riskBand": "HIGH",
+        "proteinStandard": 120,
+        "proteinAggressive": 150,
+        "proteinStepTargetG": null,
+        "leanLossEstPct": 18,
+        "recoveryStatus": "optimal",
+        "criticalOverrideApplied": false,
+        "giSeverity": "mild",
+        "stageMultiplierApplied": 1.25,
+        "hydration": 3.5
+      }
+    },
+    {
+      "input": {
+        "weight": "100",
+        "unit": "kg",
+        "medication": "tirzepatide",
+        "doseMg": 10,
+        "activityLevel": "moderate",
+        "symptoms": [
+          "Nausea",
+          "Reduced appetite"
+        ],
+        "glp1Stage": "MAINTENANCE",
+        "exerciseDaysWk": 6,
+        "sleepHours": 8
+      },
+      "expected": {
+        "weightKg": 100,
+        "myoguardScore": 80,
+        "riskBand": "LOW",
+        "proteinStandard": 140,
+        "proteinAggressive": 170,
+        "proteinStepTargetG": 119,
+        "leanLossEstPct": 2,
+        "recoveryStatus": "optimal",
+        "criticalOverrideApplied": false,
+        "giSeverity": "moderate",
+        "stageMultiplierApplied": 1,
+        "hydration": 3.5
+      }
+    },
+    {
+      "input": {
+        "weight": "100",
+        "unit": "kg",
+        "medication": "semaglutide",
+        "doseMg": 0.5,
+        "activityLevel": "active",
+        "symptoms": [
+          "Vomiting",
+          "Fatigue"
+        ]
+      },
+      "expected": {
+        "weightKg": 100,
+        "myoguardScore": 85,
+        "riskBand": "LOW",
+        "proteinStandard": 160,
+        "proteinAggressive": 200,
+        "proteinStepTargetG": 112,
+        "leanLossEstPct": 2,
+        "recoveryStatus": "optimal",
+        "criticalOverrideApplied": false,
+        "giSeverity": "severe",
+        "stageMultiplierApplied": 1,
+        "hydration": 3.5
+      }
+    },
+    {
+      "input": {
+        "weight": "140",
+        "unit": "kg",
+        "medication": "tirzepatide",
+        "doseMg": 10,
+        "activityLevel": "sedentary",
+        "symptoms": [
+          "Muscle weakness",
+          "Constipation",
+          "Bloating"
+        ],
+        "sleepHours": 5,
+        "sleepQuality": 2
+      },
+      "expected": {
+        "weightKg": 140,
+        "myoguardScore": 17,
+        "riskBand": "CRITICAL",
+        "proteinStandard": 168,
+        "proteinAggressive": 210,
+        "proteinStepTargetG": null,
+        "leanLossEstPct": 30,
+        "recoveryStatus": "impaired",
+        "criticalOverrideApplied": false,
+        "giSeverity": "mild",
+        "stageMultiplierApplied": 1,
+        "hydration": 4.9
+      }
+    },
+    {
+      "input": {
+        "weight": "140",
+        "unit": "kg",
+        "medication": "semaglutide",
+        "doseMg": 2.4,
+        "activityLevel": "moderate",
+        "symptoms": [],
+        "glp1Stage": "DOSE_ESCALATION",
+        "exerciseDaysWk": 2
+      },
+      "expected": {
+        "weightKg": 140,
+        "myoguardScore": 60,
+        "riskBand": "MODERATE",
+        "proteinStandard": 196,
+        "proteinAggressive": 238,
+        "proteinStepTargetG": null,
+        "leanLossEstPct": 8,
+        "recoveryStatus": "optimal",
+        "criticalOverrideApplied": false,
+        "giSeverity": "none",
+        "stageMultiplierApplied": 1.25,
+        "hydration": 4.9
+      }
+    },
+    {
+      "input": {
+        "weight": "140",
+        "unit": "kg",
+        "medication": "tirzepatide",
+        "doseMg": 2.5,
+        "activityLevel": "active",
+        "symptoms": [
+          "Nausea"
+        ],
+        "glp1Stage": "MAINTENANCE",
+        "exerciseDaysWk": 6,
+        "sleepHours": 8
+      },
+      "expected": {
+        "weightKg": 140,
+        "myoguardScore": 95,
+        "riskBand": "LOW",
+        "proteinStandard": 224,
+        "proteinAggressive": 280,
+        "proteinStepTargetG": null,
+        "leanLossEstPct": 2,
+        "recoveryStatus": "optimal",
+        "criticalOverrideApplied": false,
+        "giSeverity": "mild",
+        "stageMultiplierApplied": 1,
+        "hydration": 4.9
+      }
+    },
+    {
+      "input": {
+        "weight": "250",
+        "unit": "kg",
+        "medication": "semaglutide",
+        "doseMg": 2.4,
+        "activityLevel": "sedentary",
+        "symptoms": [
+          "Nausea",
+          "Reduced appetite"
+        ]
+      },
+      "expected": {
+        "weightKg": 250,
+        "myoguardScore": 47,
+        "riskBand": "HIGH",
+        "proteinStandard": 300,
+        "proteinAggressive": 375,
+        "proteinStepTargetG": 255,
+        "leanLossEstPct": 18,
+        "recoveryStatus": "optimal",
+        "criticalOverrideApplied": false,
+        "giSeverity": "moderate",
+        "stageMultiplierApplied": 1,
+        "hydration": 8.8
+      }
+    },
+    {
+      "input": {
+        "weight": "250",
+        "unit": "kg",
+        "medication": "tirzepatide",
+        "doseMg": 10,
+        "activityLevel": "moderate",
+        "symptoms": [
+          "Vomiting",
+          "Fatigue"
+        ],
+        "sleepHours": 5,
+        "sleepQuality": 2
+      },
+      "expected": {
+        "weightKg": 250,
+        "myoguardScore": 55,
+        "riskBand": "HIGH",
+        "proteinStandard": 350,
+        "proteinAggressive": 425,
+        "proteinStepTargetG": 245,
+        "leanLossEstPct": 18,
+        "recoveryStatus": "impaired",
+        "criticalOverrideApplied": false,
+        "giSeverity": "severe",
+        "stageMultiplierApplied": 1,
+        "hydration": 8.8
+      }
+    },
+    {
+      "input": {
+        "weight": "250",
+        "unit": "kg",
+        "medication": "semaglutide",
+        "doseMg": 0.5,
+        "activityLevel": "active",
+        "symptoms": [
+          "Muscle weakness",
+          "Constipation",
+          "Bloating"
+        ],
+        "glp1Stage": "DOSE_ESCALATION",
+        "exerciseDaysWk": 2
+      },
+      "expected": {
+        "weightKg": 250,
+        "myoguardScore": 44,
+        "riskBand": "HIGH",
+        "proteinStandard": 400,
+        "proteinAggressive": 500,
+        "proteinStepTargetG": null,
+        "leanLossEstPct": 18,
+        "recoveryStatus": "optimal",
+        "criticalOverrideApplied": false,
+        "giSeverity": "mild",
+        "stageMultiplierApplied": 1.25,
+        "hydration": 8.8
+      }
+    },
+    {
+      "input": {
+        "weight": "200",
+        "unit": "lbs",
+        "medication": "tirzepatide",
+        "doseMg": 10,
+        "activityLevel": "sedentary",
+        "symptoms": [],
+        "glp1Stage": "MAINTENANCE",
+        "exerciseDaysWk": 6,
+        "sleepHours": 8
+      },
+      "expected": {
+        "weightKg": 90.7,
+        "myoguardScore": 82,
+        "riskBand": "LOW",
+        "proteinStandard": 108.8,
+        "proteinAggressive": 136.1,
+        "proteinStepTargetG": null,
+        "leanLossEstPct": 2,
+        "recoveryStatus": "optimal",
+        "criticalOverrideApplied": false,
+        "giSeverity": "none",
+        "stageMultiplierApplied": 1,
+        "hydration": 3.2
+      }
+    },
+    {
+      "input": {
+        "weight": "200",
+        "unit": "lbs",
+        "medication": "semaglutide",
+        "doseMg": 2.4,
+        "activityLevel": "moderate",
+        "symptoms": [
+          "Nausea"
+        ]
+      },
+      "expected": {
+        "weightKg": 90.7,
+        "myoguardScore": 75,
+        "riskBand": "MODERATE",
+        "proteinStandard": 127,
+        "proteinAggressive": 154.2,
+        "proteinStepTargetG": null,
+        "leanLossEstPct": 8,
+        "recoveryStatus": "optimal",
+        "criticalOverrideApplied": false,
+        "giSeverity": "mild",
+        "stageMultiplierApplied": 1,
+        "hydration": 3.2
+      }
+    },
+    {
+      "input": {
+        "weight": "200",
+        "unit": "lbs",
+        "medication": "tirzepatide",
+        "doseMg": 2.5,
+        "activityLevel": "active",
+        "symptoms": [
+          "Nausea",
+          "Reduced appetite"
+        ],
+        "sleepHours": 5,
+        "sleepQuality": 2
+      },
+      "expected": {
+        "weightKg": 90.7,
+        "myoguardScore": 80,
+        "riskBand": "LOW",
+        "proteinStandard": 145.1,
+        "proteinAggressive": 181.4,
+        "proteinStepTargetG": 123,
+        "leanLossEstPct": 2,
+        "recoveryStatus": "impaired",
+        "criticalOverrideApplied": false,
+        "giSeverity": "moderate",
+        "stageMultiplierApplied": 1,
+        "hydration": 3.2
+      }
+    },
+    {
+      "input": {
+        "weight": "90.7184",
+        "unit": "kg",
+        "medication": "semaglutide",
+        "doseMg": 2.4,
+        "activityLevel": "sedentary",
+        "symptoms": [
+          "Vomiting",
+          "Fatigue"
+        ],
+        "glp1Stage": "DOSE_ESCALATION",
+        "exerciseDaysWk": 2
+      },
+      "expected": {
+        "weightKg": 90.7,
+        "myoguardScore": 42,
+        "riskBand": "HIGH",
+        "proteinStandard": 108.8,
+        "proteinAggressive": 136.1,
+        "proteinStepTargetG": 76,
+        "leanLossEstPct": 18,
+        "recoveryStatus": "optimal",
+        "criticalOverrideApplied": false,
+        "giSeverity": "severe",
+        "stageMultiplierApplied": 1.25,
+        "hydration": 3.2
+      }
+    },
+    {
+      "input": {
+        "weight": "90.7184",
+        "unit": "kg",
+        "medication": "tirzepatide",
+        "doseMg": 10,
+        "activityLevel": "moderate",
+        "symptoms": [
+          "Muscle weakness",
+          "Constipation",
+          "Bloating"
+        ],
+        "glp1Stage": "MAINTENANCE",
+        "exerciseDaysWk": 6,
+        "sleepHours": 8
+      },
+      "expected": {
+        "weightKg": 90.7,
+        "myoguardScore": 60,
+        "riskBand": "MODERATE",
+        "proteinStandard": 127,
+        "proteinAggressive": 154.2,
+        "proteinStepTargetG": null,
+        "leanLossEstPct": 8,
+        "recoveryStatus": "optimal",
+        "criticalOverrideApplied": false,
+        "giSeverity": "mild",
+        "stageMultiplierApplied": 1,
+        "hydration": 3.2
+      }
+    },
+    {
+      "input": {
+        "weight": "90.7184",
+        "unit": "kg",
+        "medication": "semaglutide",
+        "doseMg": 0.5,
+        "activityLevel": "active",
+        "symptoms": []
+      },
+      "expected": {
+        "weightKg": 90.7,
+        "myoguardScore": 100,
+        "riskBand": "LOW",
+        "proteinStandard": 145.1,
+        "proteinAggressive": 181.4,
+        "proteinStepTargetG": null,
+        "leanLossEstPct": 2,
+        "recoveryStatus": "optimal",
+        "criticalOverrideApplied": false,
+        "giSeverity": "none",
+        "stageMultiplierApplied": 1,
+        "hydration": 3.2
+      }
+    },
+    {
+      "input": {
+        "weight": "330",
+        "unit": "lbs",
+        "medication": "tirzepatide",
+        "doseMg": 10,
+        "activityLevel": "sedentary",
+        "symptoms": [
+          "Nausea"
+        ],
+        "sleepHours": 5,
+        "sleepQuality": 2
+      },
+      "expected": {
+        "weightKg": 149.7,
+        "myoguardScore": 42,
+        "riskBand": "HIGH",
+        "proteinStandard": 179.6,
+        "proteinAggressive": 224.6,
+        "proteinStepTargetG": null,
+        "leanLossEstPct": 18,
+        "recoveryStatus": "impaired",
+        "criticalOverrideApplied": false,
+        "giSeverity": "mild",
+        "stageMultiplierApplied": 1,
+        "hydration": 5.2
+      }
+    },
+    {
+      "input": {
+        "weight": "330",
+        "unit": "lbs",
+        "medication": "semaglutide",
+        "doseMg": 2.4,
+        "activityLevel": "moderate",
+        "symptoms": [
+          "Nausea",
+          "Reduced appetite"
+        ],
+        "glp1Stage": "DOSE_ESCALATION",
+        "exerciseDaysWk": 2
+      },
+      "expected": {
+        "weightKg": 149.7,
+        "myoguardScore": 52,
+        "riskBand": "HIGH",
+        "proteinStandard": 209.6,
+        "proteinAggressive": 254.5,
+        "proteinStepTargetG": 178,
+        "leanLossEstPct": 18,
+        "recoveryStatus": "optimal",
+        "criticalOverrideApplied": false,
+        "giSeverity": "moderate",
+        "stageMultiplierApplied": 1.25,
+        "hydration": 5.2
+      }
+    },
+    {
+      "input": {
+        "weight": "330",
+        "unit": "lbs",
+        "medication": "tirzepatide",
+        "doseMg": 2.5,
+        "activityLevel": "active",
+        "symptoms": [
+          "Vomiting",
+          "Fatigue"
+        ],
+        "glp1Stage": "MAINTENANCE",
+        "exerciseDaysWk": 6,
+        "sleepHours": 8
+      },
+      "expected": {
+        "weightKg": 149.7,
+        "myoguardScore": 85,
+        "riskBand": "LOW",
+        "proteinStandard": 239.5,
+        "proteinAggressive": 299.4,
+        "proteinStepTargetG": 168,
+        "leanLossEstPct": 2,
+        "recoveryStatus": "optimal",
+        "criticalOverrideApplied": false,
+        "giSeverity": "severe",
+        "stageMultiplierApplied": 1,
+        "hydration": 5.2
+      }
+    }
+  ]
+}

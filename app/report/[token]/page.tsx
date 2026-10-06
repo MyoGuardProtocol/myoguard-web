@@ -631,7 +631,9 @@ export default async function PublicReportPage({
             <div className="border border-slate-200 rounded-xl overflow-hidden">
               <div className="grid grid-cols-2 divide-x divide-y divide-slate-100">
                 <div className="px-4 py-3"><p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Body Weight</p><p className="text-sm font-bold text-slate-900">{latestAssessment.weightKg} kg</p></div>
-                <div className="px-4 py-3"><p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Protein Intake</p><p className="text-sm font-bold text-slate-900">{Math.round(latestAssessment.proteinGrams)} g/day</p></div>
+                {/* Protein Clinical Integrity P0 containment: the "Protein Intake" tile
+                    showed Assessment.proteinGrams, the calculated Clinical Protein
+                    Floor, as an assessment input. Suppressed; the floor is not intake. */}
                 <div className="px-4 py-3"><p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Exercise Frequency</p><p className="text-sm font-bold text-slate-900">{latestAssessment.exerciseDaysWk} days/week</p></div>
                 <div className="px-4 py-3"><p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Hydration</p><p className="text-sm font-bold text-slate-900">{latestAssessment.hydrationLitres} L/day</p></div>
                 {user.profile?.glp1Medication && (

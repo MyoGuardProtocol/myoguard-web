@@ -103,11 +103,13 @@ function getFlags(
   else if (patient.recoveryStatus === 'impaired') flags.push('Sleep Deficit');
 
   // ── Protein ───────────────────────────────────────────────────────────────
+  // Protein Clinical Integrity P0 containment: the "Protein Gap" flag compared
+  // Assessment.proteinGrams — the calculated Clinical Protein Floor, not intake —
+  // with the upper end of the calculated range, so it fired for every patient.
+  // Suppressed. The ProgressLog check below reads logged values and is kept.
   const target = patient.proteinTargetG ?? patient.weightKg * 1.4;
   if (has72hProteinDeficit(patient.recentProteinLogs, target)) {
     flags.push('Protein Deficit');
-  } else if (patient.proteinGrams < target * 0.9) {
-    flags.push('Protein Gap');
   }
 
   // ── Activity ──────────────────────────────────────────────────────────────

@@ -7,26 +7,27 @@
 // Explanation strings use governed clinical vocabulary only.
 
 import { prisma } from '@/src/lib/prisma';
+import { PROTEIN_ADHERENCE_INTERPRETATION_WITHHELD } from '@/src/lib/clinical/proteinIntegrityContainment';
 import {
   INTELLIGENCE_WINDOWS,
-  deriveConfidence,
   type AdherenceSignal,
-  type AdherenceStatus,
 } from './types';
 
-// ─── Adherence thresholds ─────────────────────────────────────────────────────
+// ─── Protein Clinical Integrity P0 containment ────────────────────────────────
 //
-// WeeklyCheckin.proteinAdherence is treated as a percentage value (0–100).
-// Source: the field tracks adherence relative to the patient's protein target.
+// This layer classified WeeklyCheckin.proteinAdherence as a percentage (0–100)
+// against thresholds of 90 (target_achieved) and 70 (near_target). The stored
+// value is a ratio (about 0–1; /api/checkins), so every patient with protein
+// check-ins was classified persistent_deficit — including fully adherent ones —
+// and that status drove physician review prioritisation, insight counts and
+// Clinical Evidence Record text.
 //
-// target_achieved:    ≥ 90% of protein target (average across qualifying check-ins)
-// near_target:        70–89% of protein target
-// persistent_deficit: < 70% of protein target
+// The classification is withheld. The canonical adherence scale and denominator
+// are reserved for a Founder clinical ruling (Protein Clinical Integrity Gate
+// v1.0, Decision E). The previous thresholds (90 / 70) were governance constants
+// and are not redefined here; restore the classification only under that ruling.
 //
-// These thresholds are governance constants — do not adjust without explicit approval.
-
-const TARGET_ACHIEVED_PCT  = 90;
-const NEAR_TARGET_PCT      = 70;
+// No stored value is read differently or altered.
 
 // ─── Signal computation ───────────────────────────────────────────────────────
 
@@ -40,13 +41,13 @@ const NEAR_TARGET_PCT      = 70;
  * for this layer. This is the single governed adherence model for intelligence
  * signals — not a recomputed estimate from raw intake fields.
  *
- * Status derivation (by average adherence over qualifying check-ins):
- *   insufficient_data  — 0 qualifying check-ins with proteinAdherence data
- *   target_achieved    — average ≥ 90% of protein target
- *   near_target        — average 70–89% of protein target
- *   persistent_deficit — average < 70% of protein target
+ * Status derivation, under Protein Clinical Integrity P0 containment:
+ *   insufficient_data — always. With no qualifying check-ins the explanation
+ *                       says no data was recorded; with qualifying check-ins it
+ *                       says interpretation is withheld. target_achieved,
+ *                       near_target and persistent_deficit are not produced.
  *
- * Confidence: high = 3+, moderate = 2, low = 1, insufficient_data = 0.
+ * Confidence: insufficient_data — no classification is asserted.
  * Explanation strings are deterministic clinical copy — no AI-generated language.
  */
 export async function computeAdherence(patientId: string): Promise<AdherenceSignal> {
@@ -64,7 +65,6 @@ export async function computeAdherence(patientId: string): Promise<AdherenceSign
   });
 
   const count      = checkins.length;
-  const confidence = deriveConfidence(count);
 
   // ── No qualifying data ───────────────────────────────────────────────────────
   if (count === 0) {
@@ -78,38 +78,12 @@ export async function computeAdherence(patientId: string): Promise<AdherenceSign
     };
   }
 
-  // ── Average adherence across qualifying check-ins ────────────────────────────
-  const sum          = checkins.reduce((acc, c) => acc + (c.proteinAdherence ?? 0), 0);
-  const avgAdherence = sum / count;
-
-  let status: AdherenceStatus;
-  let explanation: string;
-
-  if (avgAdherence >= TARGET_ACHIEVED_PCT) {
-    status = 'target_achieved';
-    explanation =
-      `Average protein adherence of ${avgAdherence.toFixed(1)}% observed across ` +
-      `${count} check-in${count !== 1 ? 's' : ''} in the ` +
-      `${INTELLIGENCE_WINDOWS.ADHERENCE_WINDOW_DAYS}-day observation window. ` +
-      'Adherence pattern is consistent with protocol target.';
-
-  } else if (avgAdherence >= NEAR_TARGET_PCT) {
-    status = 'near_target';
-    explanation =
-      `Average protein adherence of ${avgAdherence.toFixed(1)}% observed across ` +
-      `${count} check-in${count !== 1 ? 's' : ''} in the ` +
-      `${INTELLIGENCE_WINDOWS.ADHERENCE_WINDOW_DAYS}-day observation window. ` +
-      'Adherence pattern is approaching the protocol target.';
-
-  } else {
-    status = 'persistent_deficit';
-    explanation =
-      `Average protein adherence of ${avgAdherence.toFixed(1)}% observed across ` +
-      `${count} check-in${count !== 1 ? 's' : ''} in the ` +
-      `${INTELLIGENCE_WINDOWS.ADHERENCE_WINDOW_DAYS}-day observation window. ` +
-      'Adherence pattern reflects a persistent gap relative to the protocol protein target. ' +
-      'Physician review of nutritional support may be appropriate.';
-  }
-
-  return { status, confidence, explanation };
+  // ── Qualifying data exist — interpretation withheld ──────────────────────────
+  // No average and no classification is computed (see the containment note at
+  // the top of this file).
+  return {
+    status:      'insufficient_data',
+    confidence:  'insufficient_data',
+    explanation: PROTEIN_ADHERENCE_INTERPRETATION_WITHHELD,
+  };
 }

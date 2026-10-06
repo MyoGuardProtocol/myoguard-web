@@ -18,6 +18,7 @@ import { redirect, notFound } from 'next/navigation';
 import { prisma } from '@/src/lib/prisma';
 import Link from 'next/link';
 import PrintButton from './PrintButton';
+import { PROTEIN_CEILING_LABEL } from '@/src/lib/clinical/proteinContainment';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -234,21 +235,10 @@ export default async function PrintPage({
                   </tr>
                 </thead>
                 <tbody>
-                  {/* Protein */}
-                  <tr>
-                    <td>Protein Intake</td>
-                    <td className="mono" style={{ fontWeight: 700 }}>{Math.round(latest.proteinGrams)}g / day</td>
-                    {/* SRI-R1C: proteinTargetG is proteinAggressive — the upper end of the
-                        calculated range. The previous "≥" presented that ceiling as a
-                        minimum. Number unchanged; only the operator is corrected. */}
-                    <td className="mono">{ms?.proteinTargetG ? `up to ${Math.round(ms.proteinTargetG)}g` : `up to ${Math.round(latest.weightKg * 1.4)}g`}</td>
-                    <td>
-                      {latest.proteinGrams >= latest.weightKg * 1.4
-                        ? <span style={{ color: '#065F46', fontWeight: 600 }}>✓ Meeting target</span>
-                        : <span style={{ color: '#9A3412', fontWeight: 600 }}>✗ Below target</span>
-                      }
-                    </td>
-                  </tr>
+                  {/* Protein Clinical Integrity P0 containment: the "Protein Intake" row
+                      is suppressed. Its "Reported Value" was Assessment.proteinGrams —
+                      the calculated Clinical Protein Floor, not intake — and its
+                      ✓/✗ status compared that floor with 1.4 g/kg. */}
                   {/* Lean loss */}
                   {ms?.leanLossEstPct != null && (
                     <tr>
@@ -340,11 +330,13 @@ export default async function PrintPage({
               </p>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
-                {/* Protein */}
+                {/* Protein — Protein Clinical Integrity P0 containment: plan.proteinTargetG
+                    is the upper end of the calculated range, not the "standard" floor.
+                    Relabelled with the governed SRI-R1C label; number unchanged. */}
                 <div style={{ border: '1px solid #E2E8F0', borderRadius: 8, padding: '10px 12px', borderLeft: '3px solid #0D9488' }}>
-                  <p style={{ fontSize: 9, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Protein Target</p>
+                  <p style={{ fontSize: 9, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>{PROTEIN_CEILING_LABEL}</p>
                   <p className="mono" style={{ fontSize: 15, fontWeight: 800, color: '#0F172A' }}>
-                    {Math.round(plan.proteinTargetG)}g<span style={{ fontSize: 10, fontWeight: 400, color: '#64748B' }}> / day (standard)</span>
+                    {Math.round(plan.proteinTargetG)}g<span style={{ fontSize: 10, fontWeight: 400, color: '#64748B' }}> / day</span>
                   </p>
                   {plan.proteinSources.length > 0 && (
                     <p style={{ fontSize: 9.5, color: '#64748B', marginTop: 4 }}>
