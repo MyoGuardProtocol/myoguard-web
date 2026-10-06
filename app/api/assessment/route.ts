@@ -409,7 +409,9 @@ export async function POST(req: NextRequest) {
         assessmentId:     result.assessment.id,
         riskBand:         result.muscleScore.riskBand,
         leanVelocityFlag: leanVelocityFlag as LeanVelocityFlag,
-        leanLossEstPct:   protocol.leanLossEstPct,
+        // SRI Containment C1 (K1): leanLossEstPct is no longer passed to the
+        // physician email. leanVelocityPct is still passed: the trigger stores
+        // it in the Notification audit row; it is no longer rendered in the email.
         leanVelocityPct:  leanVelocityPct ?? 0,
       }).catch((err) => console.error('[assessment] Physician priority review trigger failed:', err));
     }
@@ -466,7 +468,6 @@ export async function GET() {
           select: {
             score:          true,
             riskBand:       true,
-            leanLossEstPct: true,
             explanation:    true,
           },
         },

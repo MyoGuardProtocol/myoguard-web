@@ -45,7 +45,6 @@ export type PatientRow = {
   prevScore:          number | null;
   band:               string;
   flags:              string[];
-  leanLossPct:        number | null;
   lastAssessmentDate: string;
   recoveryStatus:     string | null;
   latestAssessmentId: string | null;

@@ -46,7 +46,6 @@ const PATIENT_SELECT = {
         select: {
           score:                  true,
           riskBand:               true,
-          leanLossEstPct:         true,
           proteinTargetG:         true,
           explanation:            true,
           // SRI v2 fields
@@ -54,7 +53,6 @@ const PATIENT_SELECT = {
           proteinStepTargetG:     true,
           giSeverity:             true,
           leanVelocityFlag:           true,
-          leanVelocityPct:            true,
           stageMultiplierApplied:     true,
           recentProteinAdherencePct:  true,
         },
@@ -257,10 +255,9 @@ export default async function PatientDetailPage({
   // suppressed. It subtracted Assessment.proteinGrams (the calculated Clinical
   // Protein Floor, not intake) from the upper end of the calculated range, so it
   // fired by body weight and activity alone, and it labelled the floor "reported".
-  const latestMs       = latest?.muscleScore;
+  // SRI Containment C1 (K1): the lean-loss-estimate trigger (> 25%) is removed.
   const escalate =
-    (latest?.exerciseDaysWk ?? 0) < 2 ||
-    (latestMs?.leanLossEstPct ?? 0) > 25;
+    (latest?.exerciseDaysWk ?? 0) < 2;
 
   return (
     <main className="min-h-screen bg-slate-50 font-sans">
@@ -353,14 +350,8 @@ export default async function PatientDetailPage({
               )}
 
               {/* Clinical stats grid */}
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 {[
-                  {
-                    label: 'Lean Loss Risk',
-                    value: latest.muscleScore?.leanLossEstPct != null
-                      ? `${latest.muscleScore.leanLossEstPct.toFixed(1)}%`
-                      : '—',
-                  },
                   {
                     label: 'Protein Target',
                     value: latest.muscleScore?.proteinTargetG != null
@@ -379,14 +370,7 @@ export default async function PatientDetailPage({
                 ))}
               </div>
 
-              {/* Evidentiary status for the Lean Loss Risk figure above.
-                  Stated once for the block rather than inside the 3-column
-                  tile, where repeating it would break readability. */}
-              {latest.muscleScore?.leanLossEstPct != null && (
-                <p className="text-[10px] text-slate-500 leading-snug mt-2">
-                  Lean Loss Risk is a band-associated expert-consensus estimate; not a validated individual prediction.
-                </p>
-              )}
+              {/* SRI Containment C1 (K1): Lean Loss Risk tile and its note removed. */}
             </div>
 
             {/* ── Clinical Cockpit (SRI v2 command center) ────────────────── */}
@@ -400,13 +384,11 @@ export default async function PatientDetailPage({
                 muscleScore:     a.muscleScore ? {
                   score:                  a.muscleScore.score,
                   riskBand:               a.muscleScore.riskBand as string,
-                  leanLossEstPct:         a.muscleScore.leanLossEstPct,
                   proteinTargetG:         a.muscleScore.proteinTargetG,
                   proteinStandardG:       a.muscleScore.proteinStandardG       ?? null,
                   proteinStepTargetG:     a.muscleScore.proteinStepTargetG     ?? null,
                   giSeverity:             a.muscleScore.giSeverity             ?? null,
                   leanVelocityFlag:       a.muscleScore.leanVelocityFlag       ?? null,
-                  leanVelocityPct:        a.muscleScore.leanVelocityPct        ?? null,
                   stageMultiplierApplied:    a.muscleScore.stageMultiplierApplied    ?? null,
                   recentProteinAdherencePct: a.muscleScore.recentProteinAdherencePct ?? null,
                 } : null,
@@ -432,12 +414,6 @@ export default async function PatientDetailPage({
                     <p style={{ fontSize: '13px', color: '#fca5a5' }}>
                       Insufficient resistance stimulus: {latest?.exerciseDaysWk} session(s)/week
                       — minimum 2 required
-                    </p>
-                  )}
-                  {(latestMs?.leanLossEstPct ?? 0) > 25 && (
-                    <p style={{ fontSize: '13px', color: '#fca5a5' }}>
-                      Elevated band-associated lean-mass-loss estimate: {latestMs?.leanLossEstPct}%
-                      {' '}— expert-consensus derived, not a validated individual prediction
                     </p>
                   )}
                 </div>

@@ -187,7 +187,7 @@ export default async function PublicReportPage({
     glp1Stage:       user.profile?.glp1Stage ?? null,
   };
 
-  const interp  = buildInterpretation({ leanLossEstPct: ms.leanLossEstPct, ...sharedSignals });
+  const interp  = buildInterpretation(sharedSignals);
   const actions = buildSuggestedActions(sharedSignals);
 
   const signal = buildEscalationSignal({
@@ -196,7 +196,6 @@ export default async function PublicReportPage({
     proteinDeficit:  ms.proteinTargetG - latestAssessment.proteinGrams,
     exerciseDaysWk:  latestAssessment.exerciseDaysWk,
     hydrationLitres: latestAssessment.hydrationLitres,
-    leanLossEstPct:  ms.leanLossEstPct,
     trendStatus:     digest?.trendStatus ?? 'insufficient',
   });
 
@@ -400,7 +399,9 @@ export default async function PublicReportPage({
                     Lean Mass Trajectory
                   </p>
                   <p className="text-xs text-slate-600 leading-relaxed">
-                    {interp.leanMassProjection.split('. ').slice(1).join('. ')}
+                    {/* SRI Containment C1 (K1): the projection now holds only the
+                        trend sentence, which is the text this line already showed. */}
+                    {interp.leanMassProjection}
                   </p>
                 </div>
               </div>
@@ -901,7 +902,6 @@ async function fetchUser(userId: string) {
             select: {
               score:          true,
               riskBand:       true,
-              leanLossEstPct: true,
               proteinTargetG: true,
               explanation:    true,
             },

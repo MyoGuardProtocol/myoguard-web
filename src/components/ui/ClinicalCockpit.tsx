@@ -26,13 +26,11 @@ export type CockpitAssmt = {
   muscleScore: {
     score:                  number;
     riskBand:               string;
-    leanLossEstPct:         number;
     proteinTargetG:         number;
     proteinStandardG:       number | null;
     proteinStepTargetG:     number | null;
     giSeverity:             string | null;
     leanVelocityFlag:       string | null;
-    leanVelocityPct:        number | null;
     stageMultiplierApplied:    number | null;
     recentProteinAdherencePct: number | null;
   } | null;
@@ -226,7 +224,6 @@ export default function ClinicalCockpit({ assessments }: { assessments: CockpitA
 
   // ── 2. Lean velocity
   const velFlag = ms.leanVelocityFlag ?? 'insufficient_data';
-  const velPct  = ms.leanVelocityPct;
 
   let daysBetween: number | null = null;
   if (assessments.length >= 2) {
@@ -404,21 +401,8 @@ export default function ClinicalCockpit({ assessments }: { assessments: CockpitA
             </span>
           </div>
 
-          {velPct != null && (
-            <p style={{
-              fontSize:    '24px',
-              fontWeight:  900,
-              color:       C.rose,
-              fontFamily:  'Georgia, serif',
-              marginBottom:'3px',
-            }}>
-              +{velPct.toFixed(1)}%
-            </p>
-          )}
-
-          <p style={{ fontSize: '11px', color: C.muted, lineHeight: 1.5 }}>
-            {velPct != null ? 'Δ lean loss estimate vs. prior' : 'No delta available'}
-          </p>
+          {/* SRI Containment C1 (K1): the lean-loss-estimate delta (leanVelocityPct,
+              a difference of two leanLossEstPct values) and its caption are removed. */}
 
           {daysBetween != null && (
             <p style={{ fontSize: '11px', color: C.muted, marginTop: '5px' }}>

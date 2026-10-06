@@ -46,7 +46,12 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { email, protocolResult, formData } = parsed.data;
+  const { email, formData } = parsed.data;
+  // SRI Containment C1 (K1): EmailCaptureSchema (not modifiable under C1) still
+  // accepts leanLossEstPct, but it is dropped here, before the email template
+  // and before the n8n webhook payload, so it is neither rendered nor forwarded.
+  const { leanLossEstPct: _containedLeanLoss, ...protocolResult } = parsed.data.protocolResult;
+  void _containedLeanLoss;
 
   // ── Recipient throttle ──────────────────────────────────────────────────
   //
@@ -159,7 +164,6 @@ type TemplateData = {
     proteinAggressive: number;
     fiber:             number;
     hydration:         number;
-    leanLossEstPct:    number;
     explanation:       string;
   };
   formData: {
@@ -365,23 +369,6 @@ function buildProtocolEmail({ protocolResult, formData }: TemplateData): string 
             </td>
           </tr>
 
-          <!-- Lean loss risk -->
-          ${protocolResult.leanLossEstPct > 0 ? `
-          <tr>
-            <td style="padding-bottom:16px;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;">
-                <tr>
-                  <td style="padding:16px 20px;">
-                    <p style="margin:0 0 4px;font-size:12px;font-weight:700;color:#b45309;">⚠ Lean Mass Loss Risk</p>
-                    <p style="margin:0;font-size:13px;color:#78350f;line-height:1.5;">
-                      Your current risk band is <strong>${RISK_LABELS[band] ?? band}</strong>, based on your GLP-1 dose and activity pattern.
-                      Protein needs differ between individuals and should be set with a clinician.
-                    </p>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>` : ''}
 
           <!-- CTA -->
           <tr>

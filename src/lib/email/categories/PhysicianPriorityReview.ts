@@ -29,10 +29,8 @@ export interface PhysicianPriorityReviewPayload {
   riskBand:         'CRITICAL' | 'HIGH' | 'MODERATE' | 'LOW';
   /** Lean mass velocity signal that triggered this notification */
   leanVelocityFlag: LeanVelocityFlag;
-  /** Estimated lean mass loss percentage at this assessment cycle */
-  leanLossEstPct:   number;
-  /** Delta in lean loss percentage vs prior qualifying assessment (pct points) */
-  leanVelocityPct:  number;
+  // SRI Containment C1 (K1): the email no longer carries leanLossEstPct or the
+  // leanVelocityPct delta derived from it.
   /** Total assessments on record for this patient */
   assessmentCount:  number;
 }
@@ -49,7 +47,7 @@ export interface PhysicianPriorityReviewTriggerInput {
   assessmentId:     string;
   riskBand:         'CRITICAL' | 'HIGH' | 'MODERATE' | 'LOW';
   leanVelocityFlag: LeanVelocityFlag;
-  leanLossEstPct:   number;
+  /** Stored in the Notification audit row only; not rendered (SRI Containment C1). */
   leanVelocityPct:  number;
 }
 
@@ -108,8 +106,7 @@ export function buildPhysicianPriorityReviewEmail({
   payload,
 }: PhysicianPriorityReviewEmailOptions): string {
   const {
-    patientName, riskBand, leanVelocityFlag,
-    leanLossEstPct, leanVelocityPct, assessmentCount,
+    patientName, riskBand, leanVelocityFlag, assessmentCount,
   } = payload;
 
   const style = ESCALATION_STYLE[leanVelocityFlag];
@@ -129,24 +126,20 @@ export function buildPhysicianPriorityReviewEmail({
     .slice(0, 40);
 
   // Signal description — restrained, institutional, not alarmist
+  //
+  // SRI Containment C1 (K1): the parenthetical lean-loss delta
+  // ("Δ n percentage points since the qualifying prior assessment") is removed.
   const signalDescription = leanVelocityFlag === 'critical_review'
-    ? `Lean mass velocity markers have exceeded the escalated review threshold ` +
-      `(&#916;&thinsp;${leanVelocityPct.toFixed(1)} percentage points since the qualifying prior assessment). ` +
+    ? `Lean mass velocity markers have exceeded the escalated review threshold. ` +
       `Prompt physician review is recommended to assess protocol appropriateness.`
-    : `Lean mass velocity markers met the standard review threshold ` +
-      `(&#916;&thinsp;${leanVelocityPct.toFixed(1)} percentage points since the qualifying prior assessment). ` +
+    : `Lean mass velocity markers met the standard review threshold. ` +
       `Physician review is recommended at earliest clinical convenience.`;
 
   // Clinical summary — deterministic; no AI-generated language.
   //
-  // The lean-mass figure is retained for the physician audience but is now
-  // explicitly qualified: it is a fixed band-associated expert-consensus
-  // constant, not a calibrated, validated or patient-specific prediction.
-  // The numeric value itself is unchanged.
+  // SRI Containment C1 (K1): the estimated lean-mass-loss sentence is removed.
   const clinicalSummary =
     `Current SRI classification: ${BAND_LABEL[riskBand] ?? riskBand}. ` +
-    `Estimated lean mass loss at current assessment: ${leanLossEstPct.toFixed(1)}% ` +
-    `(band-associated expert-consensus estimate; not a validated individual prediction). ` +
     `Assessment cycle: ${assessmentCount} assessment${assessmentCount !== 1 ? 's' : ''} on record.`;
 
   const content = `
@@ -251,7 +244,7 @@ export async function triggerPhysicianPriorityReview(
 ): Promise<void> {
   const {
     patientId, assessmentId, riskBand,
-    leanVelocityFlag, leanLossEstPct, leanVelocityPct,
+    leanVelocityFlag, leanVelocityPct,
   } = input;
 
   // 1. Look up patient — need fullName and physicianId
@@ -306,8 +299,6 @@ export async function triggerPhysicianPriorityReview(
       assessmentId,
       riskBand,
       leanVelocityFlag,
-      leanLossEstPct,
-      leanVelocityPct,
       assessmentCount,
     },
   });

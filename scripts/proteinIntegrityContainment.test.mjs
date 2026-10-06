@@ -169,8 +169,10 @@ section('-- C. False "Protein Gap" and "Protein Deficit" outputs --');
     /'GI Burden'/.test(d) && /'Recovery Impairment'/.test(d) && /'SRI Decline'/.test(d));
   const rec = code(F.record);
   t('[safety]    C. record escalation no longer depends on a protein deficit', !/proteinDeficit/.test(rec));
-  t('[preserve]  C. record escalation still covers exercise and lean-loss estimate',
-    /const escalate =\s*\(latest\?\.exerciseDaysWk \?\? 0\) < 2 \|\|\s*\(latestMs\?\.leanLossEstPct \?\? 0\) > 25;/.test(rec));
+  // SRI Containment C1 (K1) removed the lean-loss-estimate clause; the exercise
+  // trigger is preserved exactly.
+  t('[preserve]  C. record escalation still covers exercise (lean-loss clause removed by SRI Containment C1)',
+    /const escalate =\s*\(latest\?\.exerciseDaysWk \?\? 0\) < 2;/.test(rec) && !/leanLossEstPct/.test(code(F.record)));
   t('[safety]    C. record has no urgent "Increase daily protein" action', !/Increase daily protein/.test(rec));
   t('[safety]    C. record factor cards contain no protein card', !/label:\s*'Protein Intake'/.test(rec));
 }

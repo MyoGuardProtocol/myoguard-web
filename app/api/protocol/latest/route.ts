@@ -16,7 +16,6 @@ import { prisma } from '@/src/lib/prisma';
  *   assessmentDate:  string (ISO)
  *   score:           number
  *   riskBand:        'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL'
- *   leanLossEstPct:  number
  *   proteinTargetG:  number   (aggressive upper-bound target)
  *   explanation:     string
  *   protocolPlan: {
@@ -33,12 +32,13 @@ import { prisma } from '@/src/lib/prisma';
  *     assessmentDate: string (ISO)
  *     score:          number
  *     riskBand:       string
- *     leanLossEstPct: number
  *     proteinTargetG: number
  *   } | null
  * }
  *
  * Returns 404 when the user has no assessments yet.
+ *
+ * SRI Containment C1 (K1): leanLossEstPct is not selected and not returned.
  */
 export async function GET() {
   const { userId } = await auth();
@@ -68,7 +68,6 @@ export async function GET() {
           select: {
             score:          true,
             riskBand:       true,
-            leanLossEstPct: true,
             proteinTargetG: true,
             explanation:    true,
           },
@@ -106,7 +105,6 @@ export async function GET() {
       assessmentDate: latest.assessmentDate.toISOString(),
       score:          latest.muscleScore.score,
       riskBand:       latest.muscleScore.riskBand,
-      leanLossEstPct: latest.muscleScore.leanLossEstPct,
       proteinTargetG: latest.muscleScore.proteinTargetG,
       explanation:    latest.muscleScore.explanation,
       protocolPlan:   latest.protocolPlan ?? null,
@@ -118,7 +116,6 @@ export async function GET() {
             assessmentDate: previous.assessmentDate.toISOString(),
             score:          previous.muscleScore.score,
             riskBand:       previous.muscleScore.riskBand,
-            leanLossEstPct: previous.muscleScore.leanLossEstPct,
             proteinTargetG: previous.muscleScore.proteinTargetG,
           }
         : null,

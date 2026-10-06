@@ -102,7 +102,6 @@ export default async function ResultsPage({
         select: {
           score:          true,
           riskBand:       true,
-          leanLossEstPct: true,
           proteinTargetG: true,
           explanation:    true,
         },
@@ -135,7 +134,6 @@ export default async function ResultsPage({
         select: {
           score:          true,
           riskBand:       true,
-          leanLossEstPct: true,
           proteinTargetG: true,
         },
       },
@@ -226,7 +224,7 @@ export default async function ResultsPage({
 
           {/* Radial gauge */}
           <div className="max-w-[220px] mx-auto mb-5">
-            <ScoreGauge score={score} band={band} leanLossPct={ms.leanLossEstPct} />
+            <ScoreGauge score={score} band={band} />
           </div>
 
           {/* Current band / already in Low Risk.
@@ -394,7 +392,6 @@ export default async function ResultsPage({
         {/* ══════════════════════════════════════════════════════════════════════ */}
         <ClinicalAlert
           band={band}
-          leanLossPct={ms.leanLossEstPct}
           message={LEAN_LOSS_MSG[band]}
           patientFacing
         />

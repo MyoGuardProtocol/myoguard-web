@@ -18,13 +18,7 @@ type Band = 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL';
 
 type Props = {
   band:          Band;
-  /**
-   * Retained in the prop contract (callers and the engine are unchanged) but
-   * no longer rendered. The value is a fixed band-associated expert-consensus
-   * constant, not a validated individual prediction. The band-keyed severity
-   * bar below conveys the same standing qualitatively.
-   */
-  leanLossPct:   number;
+  // SRI Containment C1 (K1): the former `leanLossPct` prop is removed.
   message:       string;
   patientFacing?: boolean;
 };

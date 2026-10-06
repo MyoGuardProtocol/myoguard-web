@@ -84,7 +84,6 @@ export default function ProtocolResults({
         <ScoreCard
           myoguardScore={results.myoguardScore}
           riskBand={results.riskBand}
-          leanLossEstPct={results.leanLossEstPct}
           explanation={results.explanation}
         />
       </div>

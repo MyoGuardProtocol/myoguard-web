@@ -1,6 +1,6 @@
 import type { ProtocolResult, RiskBand } from '@/src/types';
 
-type ScoreCardProps = Pick<ProtocolResult, 'myoguardScore' | 'riskBand' | 'leanLossEstPct' | 'explanation'>;
+type ScoreCardProps = Pick<ProtocolResult, 'myoguardScore' | 'riskBand' | 'explanation'>;
 
 /**
  * Presentation map keyed by the engine's authoritative `riskBand`.
@@ -70,13 +70,8 @@ const BAND_PRESENTATION: Record<RiskBand, {
   },
 };
 
-/**
- * `leanLossEstPct` remains part of the prop contract (callers and the engine
- * output are unchanged) but is deliberately NOT rendered here. The value is a
- * fixed band-associated expert-consensus constant, not a validated individual
- * prediction, so presenting it to a patient as "~N%" overstated its standing.
- * The authoritative band interpretation below carries the clinical meaning.
- */
+// SRI Containment C1 (K1): the lean-loss estimate is no longer part of the
+// prop contract.
 export default function ScoreCard({ myoguardScore, riskBand, explanation }: ScoreCardProps) {
   // Authoritative band from the engine — never recomputed from myoguardScore.
   const risk = BAND_PRESENTATION[riskBand];

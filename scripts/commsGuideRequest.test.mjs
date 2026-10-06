@@ -252,10 +252,11 @@ section('-- G. An approved asset is declared, and the gate still governs --');
 // ── H. Existing pathways unchanged ───────────────────────────────────────────
 section('-- H. Existing delivery and governance are untouched --');
 {
-  t('[safety] 17. preliminary SRI delivery still uses its own template id',
-    /service\.preliminary_sri\.v1/.test(SRI));
-  t('[safety] 17. preliminary SRI delivery still sends through the gateway',
-    /sendServiceEmail\(/.test(SRI));
+  // SRI Containment C1 (K2-C): the preliminary-SRI send path is disabled.
+  t('[safety] 17. preliminary SRI delivery is disabled by SRI Containment C1 (410)',
+    /status:\s*410/.test(SRI));
+  t('[safety] 17. preliminary SRI delivery makes no gateway send',
+    !/sendServiceEmail\(/.test(SRI));
   t('[safety] 18. protocol delivery still uses its own template id',
     /service\.protocol_delivery\.v1/.test(CAP));
   t('[safety] 18. protocol delivery still sends through the gateway',

@@ -61,7 +61,6 @@ export default async function PhysicianAssessmentResultPage({
         select: {
           score:          true,
           riskBand:       true,
-          leanLossEstPct: true,
           proteinTargetG: true,
           explanation:    true,
         },
@@ -169,10 +168,9 @@ export default async function PhysicianAssessmentResultPage({
           )}
 
           {/* Key stats */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: '12px' }}>
             {[
               { label: PROTEIN_CEILING_LABEL, value: ms?.proteinTargetG != null ? `${Math.round(ms.proteinTargetG)}g/day` : '—' },
-              { label: 'Lean Loss Risk', value: ms?.leanLossEstPct != null ? `${ms.leanLossEstPct.toFixed(1)}%` : '—' },
               { label: 'Body Weight',    value: `${assessment.weightKg}kg` },
             ].map(stat => (
               <div key={stat.label} style={{ background: '#111927', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
@@ -182,13 +180,7 @@ export default async function PhysicianAssessmentResultPage({
             ))}
           </div>
 
-          {/* Evidentiary status for the Lean Loss Risk tile above. Stated once
-              for the block rather than inside the 3-column tile. */}
-          {ms?.leanLossEstPct != null && (
-            <p style={{ fontSize: '10px', color: '#64748B', lineHeight: 1.45, marginTop: '10px' }}>
-              Lean Loss Risk is a band-associated expert-consensus estimate; not a validated individual prediction.
-            </p>
-          )}
+          {/* SRI Containment C1 (K1): Lean Loss Risk tile and its note removed. */}
         </div>
 
         {/* Assessment inputs */}
@@ -237,34 +229,16 @@ export default async function PhysicianAssessmentResultPage({
           )}
         </div>
 
-        {/* MuscleScore explanation + lean loss */}
-        {(ms?.explanation || ms?.leanLossEstPct != null) && (
+        {/* MuscleScore explanation. SRI Containment C1 (K1): lean-loss estimate removed. */}
+        {ms?.explanation && (
           <div style={{
             background: '#0D1421', border: '1px solid #1A2744',
             borderRadius: '16px', padding: '24px 28px',
             display: 'flex', flexDirection: 'column', gap: '20px',
           }}>
-            {ms?.leanLossEstPct != null && (
-              <div>
-                <p style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
-                  Lean Mass Loss Estimate
-                </p>
-                <p style={{
-                  fontSize: '28px', fontWeight: 900,
-                  fontFamily: 'Georgia, serif',
-                  color: ms.leanLossEstPct >= 25 ? '#EF4444' : ms.leanLossEstPct >= 15 ? '#F97316' : '#F59E0B',
-                }}>
-                  {ms.leanLossEstPct.toFixed(1)}%
-                </p>
-                <p style={{ fontSize: '12px', color: '#64748B', marginTop: '4px' }}>
-                  Estimated lean mass at risk during current GLP-1 protocol.
-                  {' '}Band-associated expert-consensus estimate; not a validated individual prediction.
-                </p>
-              </div>
-            )}
 
             {ms?.explanation && (
-              <div style={{ paddingTop: ms?.leanLossEstPct != null ? '20px' : 0, borderTop: ms?.leanLossEstPct != null ? '1px solid #1A2744' : 'none' }}>
+              <div>
                 <p style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px' }}>
                   Score Explanation
                 </p>
