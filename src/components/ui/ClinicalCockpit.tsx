@@ -7,7 +7,8 @@
  *   2. Is the intervention working?
  *   3. Is GI intolerance blocking success?
  *
- * TOP LAYER    — SRI Trajectory, Lean Mass Velocity, GI Constraint, Protein Target
+ * TOP LAYER    — SRI Trajectory, GI Constraint, Protein Target
+ *                (Lean Mass Velocity card removed — SRI Containment C1.1, K1.1)
  * SECONDARY    — Recovery/Sleep, Grip Strength, GLP-1 Stage, Alerts Panel
  *
  * Server component — no 'use client'.
@@ -26,13 +27,10 @@ export type CockpitAssmt = {
   muscleScore: {
     score:                  number;
     riskBand:               string;
-    leanLossEstPct:         number;
     proteinTargetG:         number;
     proteinStandardG:       number | null;
     proteinStepTargetG:     number | null;
     giSeverity:             string | null;
-    leanVelocityFlag:       string | null;
-    leanVelocityPct:        number | null;
     stageMultiplierApplied:    number | null;
     recentProteinAdherencePct: number | null;
   } | null;
@@ -224,36 +222,9 @@ export default function ClinicalCockpit({ assessments }: { assessments: CockpitA
       band:  a.muscleScore!.riskBand,
     }));
 
-  // ── 2. Lean velocity
-  const velFlag = ms.leanVelocityFlag ?? 'insufficient_data';
-  const velPct  = ms.leanVelocityPct;
-
-  let daysBetween: number | null = null;
-  if (assessments.length >= 2) {
-    daysBetween = Math.round(
-      (assessments[0].assessmentDate.getTime() - assessments[1].assessmentDate.getTime())
-      / (1000 * 60 * 60 * 24),
-    );
-  }
-
-  const VEL_LABEL: Record<string, string> = {
-    insufficient_data: 'Insufficient data',
-    stable:            'Stable',
-    concerning:        'Concerning',
-    critical_review:   'Critical Review',
-  };
-
-  const velColor = (velFlag === 'concerning' || velFlag === 'critical_review')
-    ? C.rose
-    : velFlag === 'stable'
-    ? C.teal
-    : C.slate;
-
-  const velBg = (velFlag === 'concerning' || velFlag === 'critical_review')
-    ? C.roseBg
-    : velFlag === 'stable'
-    ? C.tealBg
-    : C.slateBg;
+  // ── 2. Lean velocity — SRI Containment C1.1 (K1.1): removed. The flag, its
+  // labels ("Concerning", "Critical Review"), colours and the card are no longer
+  // derived or rendered here.
 
   // ── 3. GI constraint
   const giSev = ms.giSeverity ?? 'none';
@@ -325,23 +296,14 @@ export default function ClinicalCockpit({ assessments }: { assessments: CockpitA
       ? assessments[1].muscleScore.score - ms.score
       : null;
 
-  const adherencePct = ms.recentProteinAdherencePct;
-
-  // Level 3: critical_review AND confirmed floor adherence < 60%
-  const isLevel3 =
-    velFlag === 'critical_review' &&
-    adherencePct != null &&
-    adherencePct < 60;
+  // Level 3 — SRI Containment C1.1 (K1.1): removed. Its only trigger was the
+  // lean-velocity flag (critical_review) combined with protein adherence.
 
   // Level 2 triggers; collected so each reason renders as its own card
   const level2: string[] = [];
   if (sriDrop != null && sriDrop >= 15)
     level2.push(`SRI declined ${Math.round(sriDrop)} points`);
-  if (velFlag === 'concerning')
-    level2.push('Lean mass velocity at concerning rate of change');
-  // Downgrade: critical_review without adherence data → Level 2
-  if (velFlag === 'critical_review' && adherencePct == null)
-    level2.push('Lean velocity elevated — protein adherence data unavailable');
+  // SRI Containment C1.1 (K1.1): the two lean-velocity Level 2 reasons are removed.
 
   // Level 1 triggers; only surfaced when no Level 2 or Level 3 is active
   const level1: { reason: string }[] = [];
@@ -378,54 +340,8 @@ export default function ClinicalCockpit({ assessments }: { assessments: CockpitA
         <SriTrajectoryChart points={trajectoryPts} />
       </div>
 
-      {/* 2 + 4. Lean Mass Velocity | Protein Target */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-
-        {/* 2. Lean Mass Velocity */}
-        <div style={card}>
-          <p style={eyebrow}>Lean Mass Velocity</p>
-
-          <div style={{
-            display:      'inline-flex',
-            alignItems:   'center',
-            gap:          '6px',
-            background:   velBg,
-            border:       `1px solid ${velColor}30`,
-            borderRadius: '8px',
-            padding:      '7px 12px',
-            marginBottom: '12px',
-          }}>
-            <span style={{
-              width: '8px', height: '8px', borderRadius: '50%',
-              background: velColor, flexShrink: 0,
-            }} />
-            <span style={{ fontSize: '13px', fontWeight: 700, color: velColor }}>
-              {VEL_LABEL[velFlag] ?? velFlag}
-            </span>
-          </div>
-
-          {velPct != null && (
-            <p style={{
-              fontSize:    '24px',
-              fontWeight:  900,
-              color:       C.rose,
-              fontFamily:  'Georgia, serif',
-              marginBottom:'3px',
-            }}>
-              +{velPct.toFixed(1)}%
-            </p>
-          )}
-
-          <p style={{ fontSize: '11px', color: C.muted, lineHeight: 1.5 }}>
-            {velPct != null ? 'Δ lean loss estimate vs. prior' : 'No delta available'}
-          </p>
-
-          {daysBetween != null && (
-            <p style={{ fontSize: '11px', color: C.muted, marginTop: '5px' }}>
-              {daysBetween} day{daysBetween !== 1 ? 's' : ''} between assessments
-            </p>
-          )}
-        </div>
+      {/* 4. Protein Target */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
 
         {/* 4. Protein Target */}
         <div style={card}>
@@ -708,37 +624,8 @@ export default function ClinicalCockpit({ assessments }: { assessments: CockpitA
       <div style={card}>
         <p style={eyebrow}>Radar Alerts</p>
 
-        {isLevel3 ? (
-          /* Level 3 — Priority Clinical Review */
-          <div style={{
-            padding:      '14px 16px',
-            background:   'rgba(251,113,133,0.16)',
-            border:       `1px solid rgba(251,113,133,0.45)`,
-            borderLeft:   `4px solid ${C.rose}`,
-            borderRadius: '8px',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-              <span style={{ color: C.rose, fontSize: '14px', flexShrink: 0 }}>⚠</span>
-              <span style={{
-                fontSize:      '10px',
-                fontWeight:    700,
-                color:         C.rose,
-                textTransform: 'uppercase',
-                letterSpacing: '0.10em',
-              }}>
-                Priority Clinical Review Required
-              </span>
-            </div>
-            <p style={{ fontSize: '12px', color: '#FDA4AF', lineHeight: 1.6, paddingLeft: '22px' }}>
-              Lean velocity concern with severe protein adherence deficit
-              {adherencePct != null && (
-                <span style={{ color: C.rose, fontWeight: 700 }}>
-                  {' '}({adherencePct.toFixed(1)}% of Clinical Protein Floor)
-                </span>
-              )}
-            </p>
-          </div>
-        ) : level2.length > 0 ? (
+        {/* Level 3 card removed — SRI Containment C1.1 (K1.1). */}
+        {level2.length > 0 ? (
           /* Level 2 — Acute Risk */
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {level2.map((reason, i) => (
@@ -782,13 +669,11 @@ export default function ClinicalCockpit({ assessments }: { assessments: CockpitA
               </div>
             ))}
           </div>
-        ) : (
-          /* No alerts */
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ color: C.teal, fontSize: '15px' }}>✓</span>
-            <p style={{ fontSize: '13px', color: C.muted }}>No immediate clinical alerts. Protocol stable.</p>
-          </div>
-        )}
+        ) : null}
+        {/* SRI Containment C1.1 (K1.1): the "No immediate clinical alerts. Protocol
+            stable." line is deleted for every patient. With the lean-velocity
+            alerts removed it would otherwise have been shown in their place,
+            substituting a reassurance for a suppressed signal. */}
       </div>
 
     </div>

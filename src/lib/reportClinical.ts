@@ -66,7 +66,6 @@ export interface EscalationSignal {
 
 export function buildInterpretation(params: {
   band:            Band;
-  leanLossEstPct:  number;
   proteinTargetG:  number;
   proteinIntakeG:  number;
   exerciseDaysWk:  number;
@@ -82,7 +81,7 @@ export function buildInterpretation(params: {
   // are accepted but no longer read. Callers pass Assessment.proteinGrams as
   // "intake", and that column holds the calculated Clinical Protein Floor.
   const {
-    band, leanLossEstPct,
+    band,
     exerciseDaysWk, hydrationLitres, fatigue, nausea, muscleWeakness,
     trendStatus, checkins, glp1Stage,
   } = params;
@@ -178,9 +177,11 @@ export function buildInterpretation(params: {
     declining:    'Trajectory declining — protocol escalation is recommended to arrest progression.',
     insufficient: 'Insufficient longitudinal data for trajectory assessment; recommend reassessment in 2–4 weeks.',
   };
+  // SRI Containment C1 (K1): the leading lean-loss percentage sentence is
+  // removed. Only the trend sentence remains, which is what both report
+  // surfaces already displayed.
   const leanMassProjection =
-    `Estimated lean mass loss risk at current assessment cycle: ${leanLossEstPct}%. ` +
-    (TREND_PROJECTION[trendStatus] ?? TREND_PROJECTION.insufficient);
+    TREND_PROJECTION[trendStatus] ?? TREND_PROJECTION.insufficient;
 
   // ── Protocol adherence signal ────────────────────────────────────────────────
   // Protein Clinical Integrity P0 containment: WeeklyCheckin.proteinAdherence is
@@ -378,7 +379,6 @@ export function buildEscalationSignal(params: {
   proteinDeficit:  number;
   exerciseDaysWk:  number;
   hydrationLitres: number;
-  leanLossEstPct:  number;
   trendStatus:     string;
 }): EscalationSignal {
   // Protein Clinical Integrity P0 containment: proteinDeficit is accepted but no
@@ -387,7 +387,7 @@ export function buildEscalationSignal(params: {
   // Floor — a gap between two references, not an intake deficit.
   const {
     riskBand, symptomAvg, exerciseDaysWk,
-    hydrationLitres, leanLossEstPct, trendStatus,
+    hydrationLitres, trendStatus,
   } = params;
 
   // Suppress unused-variable warning for riskBand — it is intentionally
@@ -416,19 +416,8 @@ export function buildEscalationSignal(params: {
     });
   }
 
-  // 4. Elevated band-associated lean-mass-loss estimate — threshold of >5%.
-  //
-  // `leanLossEstPct` is the engine's fixed per-band constant (LEAN_LOSS_BY_BAND),
-  // NOT a measured longitudinal rate — so the previous wording ("Rapid … loss")
-  // overstated its evidentiary status. The threshold, the trigger condition and
-  // the urgency level are all unchanged; only the surfaced reasoning is now
-  // explicit about what the number is.
-  if (leanLossEstPct > 5) {
-    triggers.push({
-      level: 'urgent',
-      text:  `Elevated band-associated lean-mass-loss estimate (${leanLossEstPct}%); expert-consensus derived, not a validated individual prediction — exceeds the acceptable threshold for standard GLP-1 monitoring protocol`,
-    });
-  }
+  // 4. Lean-mass-loss estimate — SRI Containment C1 (K1): suppressed. It fired
+  // on leanLossEstPct > 5 and stated that percentage in its reason text.
 
   // 5. Declining score trajectory — progressive deterioration
   if (trendStatus === 'declining') {

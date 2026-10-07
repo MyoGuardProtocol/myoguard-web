@@ -82,7 +82,6 @@ function getFlags(
     proteinTargetG:    number | null;
     exerciseDaysWk:    number;
     symptoms:          string[];
-    leanLossEstPct:    number | null;
     recentProteinLogs: { logDate: Date; proteinGrams: number }[];
     gripAssessments:   { gripStrengthKg: number | null; assessmentDate: Date }[];
   },
@@ -122,8 +121,8 @@ function getFlags(
   // ── Grip velocity ─────────────────────────────────────────────────────────
   if (hasGripVelocityDecline(patient.gripAssessments)) flags.push('Grip Decline');
 
-  // ── Lean risk ─────────────────────────────────────────────────────────────
-  if (patient.leanLossEstPct != null && patient.leanLossEstPct >= 18) flags.push('High Lean Risk');
+  // ── Lean risk — SRI Containment C1 (K1): the "High Lean Risk" flag, which
+  // fired on leanLossEstPct >= 18, is removed.
 
   // Priority flags are always shown first; total capped at 3
   return [...priority, ...flags].slice(0, 3);
@@ -273,7 +272,6 @@ export default async function PatientsPage() {
             select: {
               score:          true,
               riskBand:       true,
-              leanLossEstPct: true,
               proteinTargetG: true,
             },
           },
@@ -313,11 +311,9 @@ export default async function PatientsPage() {
           proteinTargetG:    ms?.proteinTargetG ?? null,
           exerciseDaysWk:    latest.exerciseDaysWk,
           symptoms:          latest.symptoms,
-          leanLossEstPct:    ms?.leanLossEstPct ?? null,
           recentProteinLogs: p.progressLogs,
           gripAssessments:   p.assessments,
         }),
-        leanLossPct:        ms?.leanLossEstPct         ?? null,
         lastAssessmentDate: latest.assessmentDate.toISOString(),
         recoveryStatus:     latest.recoveryStatus,
         latestAssessmentId: latest.id,

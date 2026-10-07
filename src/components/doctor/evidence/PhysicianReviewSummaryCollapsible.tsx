@@ -97,8 +97,8 @@ export default function PhysicianReviewSummaryCollapsible({ summary }: Props) {
           }}
         >
 
-          {/* Five sections */}
-          {SECTIONS.map(({ key, label }) => (
+          {/* Five sections. SRI Containment C1.2 (K1.2): an empty section is not rendered. */}
+          {SECTIONS.filter(({ key }) => summary[key]).map(({ key, label }) => (
             <div key={key} style={{ marginBottom: '20px' }}>
               <p
                 style={{

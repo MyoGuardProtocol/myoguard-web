@@ -125,13 +125,10 @@ section('-- A. The visible document is Manuscript v1.2 and nothing else --');
   // It says the preliminary instrument is educational and that the full SRI
   // carries additional clinical factors and physician oversight. If it is ever
   // softened, this lock is where that must be noticed.
-  const DECLARED_CONTINUATION_TEXT = [
-    'Want to understand your own muscle-health risk?',
-    "You can complete MyoGuard's Preliminary Sarcopenia Risk Index (SRI). It uses a small set of "
-      + 'core inputs and is educational; your full SRI includes additional clinical factors and '
-      + 'physician oversight.',
-    'Complete your Preliminary SRI →',
-  ];
+  //
+  // SRI Containment C1.1 (K2.2): the continuation is removed, so nothing is
+  // declared for it any more — if any of its sentences reappears, the lock fails.
+  const DECLARED_CONTINUATION_TEXT = [];
   const isAllowedGap = g => {
     let s = g.trim();
     for (const declared of [...DECLARED_ACTION_TEXT, ...DECLARED_CONTINUATION_TEXT]) {
@@ -243,13 +240,15 @@ section('-- D. No new clinical claim, target or commercial ask --');
   // what the recipient asked for and must remain the email's primary purpose;
   // the continuation is second and sits after all eight pages.
   const links = [...HTML.matchAll(/href="([^"]+)"/g)].map(m => m[1].replace(/&amp;/g, '&'));
-  t('[safety] the asset carries exactly two links, and no more',
-    (HTML.match(/<a\s/g) || []).length === 2 && links.length === 2);
+  // SRI Containment C1.1 (K2.2): the Preliminary SRI continuation is removed,
+  // so the PDF action is once again the only link.
+  t('[safety] the asset carries exactly one link (C1.1), and no more',
+    (HTML.match(/<a\s/g) || []).length === 1 && links.length === 1);
   t('[safety] the Guide as a PDF is the first and primary link',
     /^https:\/\/[^?#]*\/guides\/myoguard-protein-guide-v1\.2\.pdf$/.test(links[0]));
-  t('[safety] the second link is the Preliminary SRI, and there is only one',
-    links.filter(u => u.includes('#sri-form')).length === 1
-    && links[1].includes('#sri-form'));
+  t('[safety] no Preliminary SRI link or wording remains (C1.1)',
+    links.every(u => !u.includes('#sri-form') && !/preliminary_sri/.test(u))
+    && !/Preliminary (Sarcopenia Risk Index|SRI)/i.test(visible) && !/mg-continue/.test(HTML));
 
   // Tracking is still forbidden — but the thing that was ever forbidden is a
   // parameter that identifies the RECIPIENT. `utm_source=protein_guide_email`
@@ -260,13 +259,8 @@ section('-- D. No new clinical claim, target or commercial ask --');
   //
   // The PDF link keeps a clean path with no query string at all, which is what
   // proteinGuidePdf.test.mjs asserts from the other side.
-  const ALLOWED_PARAMS = new Set(['utm_source', 'utm_medium', 'utm_campaign']);
-  const paramsOf = u => [...new URL(u).searchParams.keys()];
   t('[safety] the PDF link carries no query string of any kind',
     !links[0].includes('?') && !links[0].includes('&') && !links[0].includes('#'));
-  t('[safety] the SRI link carries only fixed campaign attribution',
-    paramsOf(links[1]).every(k => ALLOWED_PARAMS.has(k))
-    && new URL(links[1]).searchParams.get('utm_source') === 'protein_guide_email');
   t('[safety] no link carries a token, address or recipient identity',
     links.every(u => !/(token=|[?&]t=|[?&]e=|uid=|email=|rid=|recipient)/i.test(u))
     && !/href="(mailto:|tel:)/i.test(HTML));

@@ -14,6 +14,7 @@
 // MyoGuard observes. MyoGuard does not predict.
 
 import { getPatientIntelligenceSummary } from '@/src/lib/intelligence/synthesis';
+import { presentableOverallContinuityStatus } from '@/src/lib/intelligence/quarantine';
 
 // ─── Serialized types ─────────────────────────────────────────────────────────
 //
@@ -29,9 +30,10 @@ export interface PhysicianScopedIntelligence {
   patientsRequiringAttention: number;
   patientsInsufficient:       number;
 
-  // Review signals
-  reviewRequiredCount:  number;
-  reviewThresholdCount: number;
+  // SRI Containment C1.2 (K1.2): the review-signal counts (review_recommended,
+  // review_threshold_crossed) originate from quarantined lean-velocity logic
+  // and are not carried. A patient whose overall status rests on that logic is
+  // left out of the continuity buckets above rather than reassigned.
 
   // Engagement concerns
   inactiveCount:          number;
@@ -57,10 +59,8 @@ export interface PhysicianScopedIntelligence {
     persistent_deficit: number;
     insufficient_data:  number;
   };
+  // SRI Containment C1.2 (K1.2): only the non-lean-velocity status is carried.
   physicianSignalDistribution: {
-    within_expected_range:    number;
-    review_recommended:       number;
-    review_threshold_crossed: number;
     continuity_concern:       number;
   };
 
@@ -72,7 +72,6 @@ export interface PhysicianExecutiveSummary {
   totalPatients:              number;
   patientsActive:             number;
   patientsRequiringAttention: number;
-  reviewRequiredCount:        number;
   /** ISO string */
   generatedAt: string;
 }
@@ -87,8 +86,6 @@ export function emptyPhysicianScopedIntelligence(): PhysicianScopedIntelligence 
     patientsConcern:            0,
     patientsRequiringAttention: 0,
     patientsInsufficient:       0,
-    reviewRequiredCount:        0,
-    reviewThresholdCount:       0,
     inactiveCount:              0,
     persistentDeficitCount:     0,
     trajectoryDistribution: {
@@ -111,9 +108,6 @@ export function emptyPhysicianScopedIntelligence(): PhysicianScopedIntelligence 
       insufficient_data:  0,
     },
     physicianSignalDistribution: {
-      within_expected_range:    0,
-      review_recommended:       0,
-      review_threshold_crossed: 0,
       continuity_concern:       0,
     },
     generatedAt: new Date().toISOString(),
@@ -150,12 +144,10 @@ export async function computePhysicianScopedIntelligence(
   const traj = { stable: 0, positive_trend: 0, variable: 0, declining_trend: 0, insufficient_data: 0 };
   const cont = { engaged: 0, inconsistent: 0, inactive: 0, insufficient_data: 0 };
   const adhr = { target_achieved: 0, near_target: 0, persistent_deficit: 0, insufficient_data: 0 };
-  const phys = { within_expected_range: 0, review_recommended: 0, review_threshold_crossed: 0, continuity_concern: 0 };
+  const phys = { continuity_concern: 0 };
   const over = { continuity_active: 0, continuity_concern: 0, continuity_at_risk: 0, insufficient_data: 0 };
 
   let patientsWithIntelligence = 0;
-  let reviewRequiredCount      = 0;
-  let reviewThresholdCount     = 0;
   let inactiveCount            = 0;
   let persistentDeficitCount   = 0;
 
@@ -163,19 +155,14 @@ export async function computePhysicianScopedIntelligence(
   for (const s of summaries) {
     if (s.overallContinuityStatus !== 'insufficient_data') patientsWithIntelligence++;
 
-    over[s.overallContinuityStatus]++;
+    // SRI Containment C1.2 (K1.2): withheld overall statuses are not counted.
+    const overall = presentableOverallContinuityStatus(s.overallContinuityStatus, s.physicianSignals.status);
+    if (overall) over[overall]++;
     traj[s.trajectory.status]++;
     cont[s.continuity.status]++;
     adhr[s.adherence.status]++;
-    phys[s.physicianSignals.status]++;
+    if (s.physicianSignals.status === 'continuity_concern') phys.continuity_concern++;
 
-    if (
-      s.physicianSignals.status === 'review_threshold_crossed' ||
-      s.physicianSignals.status === 'review_recommended'
-    ) {
-      reviewRequiredCount++;
-    }
-    if (s.physicianSignals.status === 'review_threshold_crossed') reviewThresholdCount++;
     if (s.continuity.status === 'inactive')                        inactiveCount++;
     if (s.adherence.status === 'persistent_deficit')               persistentDeficitCount++;
   }
@@ -187,8 +174,6 @@ export async function computePhysicianScopedIntelligence(
     patientsConcern:            over.continuity_concern,
     patientsRequiringAttention: over.continuity_at_risk,
     patientsInsufficient:       over.insufficient_data,
-    reviewRequiredCount,
-    reviewThresholdCount,
     inactiveCount,
     persistentDeficitCount,
     trajectoryDistribution:      traj,

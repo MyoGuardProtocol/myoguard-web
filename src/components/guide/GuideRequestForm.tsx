@@ -33,8 +33,8 @@
  * above means the browser is never told whether mail was actually sent, and no
  * event fired from here may pretend otherwise.
  *
- * WHAT FOLLOWS A SUCCESS (C-FUNNEL-2)
- * Founder decision, 23 September 2026: the success state carries one optional
+ * WHAT FOLLOWS A SUCCESS (C-FUNNEL-2; removed by SRI Containment C1.1, K2.2)
+ * Founder decision, 23 September 2026: the success state carried one optional
  * onward panel to the public Preliminary Sarcopenia Risk Index (SRI). It is an
  * offer, not a condition — the Guide has already been requested by the time it
  * appears, and it changes nothing about the delivery. The single-link rule on
@@ -45,7 +45,6 @@
 import { useState, type CSSProperties, type FormEvent } from 'react';
 import posthog from 'posthog-js';
 import { isAnalyticsEnabled, AnalyticsEvents } from '@/src/lib/posthog';
-import { PreliminarySriLink } from '@/src/components/learn/PreliminarySriLink';
 
 type Status = 'idle' | 'sending' | 'sent' | 'error';
 
@@ -184,9 +183,7 @@ export function GuideRequestForm() {
           Check your inbox in the next few minutes.
         </p>
 
-        <div style={{ marginTop: '18px' }}>
-          <PreliminarySriLink source="guide_success" />
-        </div>
+        {/* SRI Containment C1.1 (K2.2): the Preliminary SRI link panel is removed. */}
       </section>
     );
   }

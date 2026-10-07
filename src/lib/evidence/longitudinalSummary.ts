@@ -45,11 +45,10 @@ const ADHERENCE_TEXT: Record<string, string> = {
   insufficient_data: 'insufficient adherence data is available within the review window',
 };
 
+// SRI Containment C1.2 (K1.2): the quarantined lean-velocity statuses never
+// reach this module (evidencePacket.ts removes them), so they have no text.
 const PHYSICIAN_SIGNAL_TEXT: Record<string, string> = {
-  review_recommended:       'a physician review signal has been recorded',
-  review_threshold_crossed: 'a physician review threshold has been crossed — recorded for physician attention',
   continuity_concern:       'a continuity concern signal has been recorded for physician awareness',
-  within_expected_range:    'no physician review signal observed — observations within expected range',
 };
 
 // Resolves a status string against a text map.

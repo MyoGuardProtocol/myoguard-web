@@ -56,7 +56,6 @@ const statLabel: CSSProperties = {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function CCCExecutiveOverviewCard({ data }: Props) {
-  const reviewColor     = data.reviewRequiredCount    > 0 ? '#FB923C' : '#2DD4BF';
   const atRiskColor     = data.patientsRequiringAttention > 0 ? '#FCD34D' : '#2DD4BF';
 
   return (
@@ -71,11 +70,6 @@ export default function CCCExecutiveOverviewCard({ data }: Props) {
         <div>
           <p style={statVal}>{data.totalPatients}</p>
           <p style={statLabel}>Active Patients</p>
-        </div>
-
-        <div>
-          <p style={{ ...statVal, color: reviewColor }}>{data.reviewRequiredCount}</p>
-          <p style={statLabel}>Review Signals</p>
         </div>
 
         <div>

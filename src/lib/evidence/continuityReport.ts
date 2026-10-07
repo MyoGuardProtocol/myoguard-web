@@ -26,8 +26,8 @@ export interface ContinuityReport {
   adherenceStatus:         string;
   /** Confidence level for the adherence signal. */
   adherenceConfidence:     string;
-  /** Composite continuity status across all signal dimensions. */
-  overallContinuityStatus: string;
+  /** Composite continuity status across all signal dimensions. Null when withheld (SRI Containment C1.2). */
+  overallContinuityStatus: string | null;
   /** Number of check-ins within the continuity observation window. */
   checkinCount:            number;
   /** Plain-text observational summary combining all continuity dimensions. */
@@ -54,9 +54,9 @@ export function generateContinuityReport(
   const observationSummary = [
     `Continuity observed as "${continuity.status}" over ${continuity.windowDays} days.`,
     `Adherence observed as "${adherence.status}" over ${adherence.windowDays} days.`,
-    `Overall continuity status: ${overallContinuityStatus}.`,
+    overallContinuityStatus ? `Overall continuity status: ${overallContinuityStatus}.` : '',
     `${patientSummary.checkinCount} check-in${patientSummary.checkinCount !== 1 ? 's' : ''} recorded within the continuity window.`,
-  ].join(' ');
+  ].filter(Boolean).join(' ');
 
   return {
     windowDays,
@@ -64,7 +64,7 @@ export function generateContinuityReport(
     continuityConfidence:    continuity.confidence,
     adherenceStatus:         adherence.status,
     adherenceConfidence:     adherence.confidence,
-    overallContinuityStatus: overallContinuityStatus as string,
+    overallContinuityStatus,
     checkinCount:            patientSummary.checkinCount,
     observationSummary,
   };

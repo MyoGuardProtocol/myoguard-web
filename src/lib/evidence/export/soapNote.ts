@@ -123,13 +123,8 @@ export function generateSOAPNote(packet: ClinicalEvidenceRecord): string {
   // Never prescribe treatment. Final clinical decisions belong to the physician.
   lines.push('P — PLAN');
   lines.push('Final clinical decisions remain under physician discretion.');
-  if (
-    primarySignal &&
-    (primarySignal.status === 'review_recommended' ||
-      primarySignal.status === 'review_threshold_crossed')
-  ) {
-    lines.push('Consider review of identified longitudinal signals.');
-  }
+  // SRI Containment C1.2 (K1.2): the plan line keyed to the quarantined
+  // lean-velocity statuses is removed; those statuses no longer reach exports.
   lines.push(
     'All care planning and treatment decisions are the sole responsibility of the treating physician.',
   );

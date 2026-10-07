@@ -69,13 +69,9 @@ const BAND_CONFIG: Record<string, {
 type Props = {
   score:       number;   // 0–100
   band:        string;   // 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL'
-  /**
-   * Retained in the prop contract (callers and the engine are unchanged) but
-   * no longer rendered. The value is a fixed band-associated expert-consensus
-   * constant, not a validated individual prediction, so surfacing it bare to a
-   * patient overstated its standing. The band label carries the interpretation.
-   */
-  leanLossPct: number;
+  // SRI Containment C1 (K1): the former `leanLossPct` prop is removed. It was
+  // not rendered, but as a client-component prop it was serialized into the
+  // page payload sent to the browser.
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────

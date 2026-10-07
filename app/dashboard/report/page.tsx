@@ -180,7 +180,6 @@ export default async function ReportPage() {
               select: {
                 score:          true,
                 riskBand:       true,
-                leanLossEstPct: true,
                 proteinTargetG: true,
                 explanation:    true,
               },
@@ -324,7 +323,7 @@ export default async function ReportPage() {
     glp1Stage:       user.profile?.glp1Stage ?? null,
   };
 
-  const interp  = buildInterpretation({ leanLossEstPct: ms.leanLossEstPct, ...sharedSignals });
+  const interp  = buildInterpretation(sharedSignals);
   const actions = buildSuggestedActions(sharedSignals);
 
   const signal = buildEscalationSignal({
@@ -333,7 +332,6 @@ export default async function ReportPage() {
     proteinDeficit:  ms.proteinTargetG - latestAssessment.proteinGrams,
     exerciseDaysWk:  latestAssessment.exerciseDaysWk,
     hydrationLitres: latestAssessment.hydrationLitres,
-    leanLossEstPct:  ms.leanLossEstPct,
     trendStatus:     digest?.trendStatus ?? 'insufficient',
   });
 
@@ -560,11 +558,6 @@ export default async function ReportPage() {
                     <span style={{ fontSize: '11px', fontWeight: '500', color: '#94A3B8' }}>
                       {db.subtitle}
                     </span>
-                  )}
-                  {false && (
-                  <span style={{ fontSize: '12px', fontWeight: '600', color: '#94A3B8' }}>
-                    {ms.leanLossEstPct}% estimated lean mass loss risk
-                  </span>
                   )}
                 </div>
               </div>
@@ -816,24 +809,6 @@ export default async function ReportPage() {
                     {interp.riskCategory.detail}
                   </p>
                 </div>
-
-                {false && (
-                <div style={{ padding: '16px 20px', borderBottom: '1px solid #1A2744' }}>
-                  <p style={{ fontSize: '10px', color: '#94A3B8', textTransform: 'uppercase',
-                    letterSpacing: '0.06em', marginBottom: '10px' }}>
-                    30-Day Lean Mass Projection
-                  </p>
-                  <p style={{ fontSize: '24px', fontWeight: '900', color: db.color,
-                    fontFamily: 'Georgia, serif', lineHeight: 1, marginBottom: '4px' }}>
-                    {ms.leanLossEstPct}%
-                    <span style={{ fontSize: '13px', fontWeight: '400',
-                      color: '#94A3B8', marginLeft: '6px' }}>lean loss risk</span>
-                  </p>
-                  <p style={{ fontSize: '12px', color: '#94A3B8', lineHeight: '1.5' }}>
-                    {interp.leanMassProjection.split('. ').slice(1).join('. ')}
-                  </p>
-                </div>
-                )}
               </div>
 
               {/* Row 2: Key Risk Drivers + Protocol Adherence */}

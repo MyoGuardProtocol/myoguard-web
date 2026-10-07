@@ -77,10 +77,18 @@ section('T. SHARED GOVERNANCE');
 // ═══════════════════════════════════════════════════════════════════════════
 
 // 1. every pathway reaches governance before the provider
+// SRI Containment C1 (K2-C): the preliminary-SRI send path is disabled. It
+// must send nothing at all rather than route through the helper.
+const DISABLED_BY_C1 = new Set(['app/api/protocol-email/route.ts']);
 for (const [label, file] of Object.entries(MIGRATED)) {
   const s = strip(src(file));
-  t(`[ordering]  T1 ${label} routes through the governed helper`,
-    /sendServiceEmail\(/.test(s));
+  if (DISABLED_BY_C1.has(file)) {
+    t(`[safety]    T1 ${label} is disabled by SRI Containment C1 and sends nothing`,
+      !/sendServiceEmail\(/.test(s) && /status:\s*410/.test(s));
+  } else {
+    t(`[ordering]  T1 ${label} routes through the governed helper`,
+      /sendServiceEmail\(/.test(s));
+  }
   t(`[safety]    T1 ${label} performs no raw Resend call`,
     !/api\.resend\.com/.test(s));
 }
@@ -227,19 +235,19 @@ t('[safety]    U19 protocol-email remains public',
   !/\bauth\(\)/.test(proto) && !/@clerk/.test(proto));
 t('[safety]    U20 email-capture remains public',
   !/\bauth\(\)/.test(capture) && !/@clerk/.test(capture));
-t('[safety]    U21 protocol-email validation preserved',
-  /safeParse\(/.test(proto) && /ProtocolEmailSchema/.test(proto));
+// SRI Containment C1 (K2-C): protocol-email is disabled — it reads no body,
+// consumes no throttle budget and makes no governed send. U21–U23, U28 and U29
+// assert that disabled state for protocol-email; email-capture is unchanged.
+t('[safety]    U21 protocol-email disabled (C1): answers 410 and reads no body',
+  /status:\s*410/.test(proto) && !/req\.json\(|safeParse\(/.test(proto));
 t('[safety]    U21 email-capture validation preserved',
   /safeParse\(/.test(capture) && /EmailCaptureSchema/.test(capture));
-t('[safety]    U22 protocol-email throttle preserved',
-  /consumeRecipientBudget\(/.test(proto));
+t('[safety]    U22 protocol-email disabled (C1): consumes no throttle budget',
+  !/consumeRecipientBudget\(/.test(proto));
 t('[safety]    U22 email-capture throttle preserved',
   /consumeRecipientBudget\(/.test(capture));
-t('[ordering]  U23 validation precedes throttle, throttle precedes send',
-  proto.indexOf('safeParse(') < proto.indexOf('consumeRecipientBudget(')
-  && proto.indexOf('consumeRecipientBudget(') < proto.indexOf('sendServiceEmail('));
-t('[ordering]  U23 malformed input returns before any governance call',
-  proto.indexOf('!parsed.success') < proto.indexOf('sendServiceEmail('));
+t('[safety]    U23 protocol-email disabled (C1): makes no governed send',
+  !/sendServiceEmail\(/.test(proto));
 t('[safety]    U24-27 requested delivery creates no consent artefact',
   !/communicationPreference|communicationConsentEvent|communicationRecipient/i.test(proto)
   && !/communicationPreference|communicationConsentEvent|communicationRecipient/i.test(capture));
@@ -251,12 +259,12 @@ t('[safety]    U26-27 requested delivery grants no future nurture permission',
   && !/\bEDUCATIONAL\b|\bMARKETING\b/.test(capture)
   && !/nurture|Protein Guide/i.test(proto)
   && !/nurture/i.test(capture));
-t('[behaviour] U28 suppressed destination short-circuits protocol-email',
-  /outcome === 'suppressed'[\s\S]{0,260}?return NextResponse/.test(proto));
+t('[behaviour] U28 protocol-email disabled (C1): no send, so no suppression path',
+  !/sendServiceEmail\(/.test(proto) && !/outcome === 'suppressed'/.test(proto));
 t('[behaviour] U28 suppressed destination reports not-delivered in capture',
   /delivered = sent\.outcome === 'sent'/.test(capture));
-t('[behaviour] U29 both create an event and persist the id via the helper',
-  /sendServiceEmail\(/.test(proto) && /sendServiceEmail\(/.test(capture));
+t('[behaviour] U29 email-capture creates an event via the helper; protocol-email (C1) does not',
+  /sendServiceEmail\(/.test(capture) && !/sendServiceEmail\(/.test(proto));
 
 // 30. the specific logging C3E-A found
 t('[safety]    U30 protocol-email no longer logs address+SRI+risk together',

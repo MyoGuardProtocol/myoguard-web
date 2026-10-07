@@ -22,7 +22,7 @@
  * Touches no database, contacts no provider, sends no email.
  */
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { GUIDE_PAGES, GUIDE_COVER } from '../src/lib/guide/proteinGuideContent.ts';
 
 let pass = 0, fail = 0;
@@ -41,7 +41,9 @@ const FORM   = strip(src('src/components/guide/GuideRequestForm.tsx'));
 // C-FUNNEL-2 added one onward panel shared by the article and the success
 // state. It is scanned with everything else deliberately: a forward path is
 // exactly the kind of surface on which a commercial ask would appear first.
-const SRI    = strip(src('src/components/learn/PreliminarySriLink.tsx'));
+// SRI Containment C1.1 (K2.2) deleted the onward panel; its absence is asserted in C.
+const SRI_PANEL_PATH = new URL('../src/components/learn/PreliminarySriLink.tsx', import.meta.url);
+const SRI    = existsSync(SRI_PANEL_PATH) ? strip(readFileSync(SRI_PANEL_PATH, 'utf8')) : '';
 const SITEMAP = src('app/sitemap.ts');
 const HOME   = src('app/page.tsx');
 const ALL    = TOPIC + INDEX + FORM + SRI;
@@ -74,9 +76,8 @@ section('-- A. Clinical wording comes from the approved manuscript --');
     'Your Guide is on its way.',
     'Check your inbox in the next few minutes.',
     'This is a one-time delivery. Requesting the Guide does not subscribe you to anything. See our',
-    // C-FUNNEL-2 — the optional onward panel. No clinical claim: it describes
-    // what the instrument is and states three times over that it is optional.
-    'MyoGuard also offers a preliminary Sarcopenia Risk Index (SRI), generated from a few questions about your treatment and your eating. It is optional, needs no account, and nothing above depends on it.',
+    // The C-FUNNEL-2 onward-panel sentence is no longer declared: the panel was
+    // deleted by SRI Containment C1.1 (K2.2), so it must not reappear.
     // House footer, per the project footer standard.
     'MyoGuard Protocol &middot; Physician-led Clinical Decision Support',
     '&copy; 2026 Meridian Wellness Systems LLC &middot; myoguard.health',
@@ -207,26 +208,19 @@ section('-- C. The Guide is not gated behind the SRI --');
   t('[safety] no sign-up or account creation is required',
     !/sign-up|sign-in|createAccount|register/i.test(ALL));
 
-  // ── The C-FUNNEL-2 forward path is an offer, not a gate ──────────────────
+  // ── The C-FUNNEL-2 forward path — removed by SRI Containment C1.1 (K2.2) ──
   //
-  // Founder decision, 23 September 2026: education MAY carry an optional path
-  // to the public Preliminary SRI, and the Guide MUST remain independently
-  // accessible. These assertions hold the second half of that sentence, which
-  // is the half that can be lost by accident.
-  t('[flow]   the onward panel points at the public preliminary instrument',
-    /const DESTINATION = '\/#sri-form'/.test(SRI));
-  t('[safety] the onward panel says in its own copy that it is optional',
-    /It is optional, needs no account/.test(SRI)
-    && /nothing above depends on it/.test(SRI));
-  t('[safety] the onward panel appears after the Guide is already requested',
-    SRI.indexOf('sri-form') > 0
-    && FORM.indexOf("status === 'sent'") < FORM.indexOf('PreliminarySriLink source="guide_success"'));
+  // The onward panel to the public Preliminary SRI is deleted: the public
+  // questionnaire no longer produces one. The Guide remains independently
+  // accessible, which is the half of the original decision these checks held.
+  t('[C1.1]   the onward panel component is deleted',
+    !existsSync(SRI_PANEL_PATH));
+  t('[C1.1]   no onward path exists on the article',
+    !/PreliminarySriLink|sri-form/.test(TOPIC));
+  t('[C1.1]   no onward path exists in the success state',
+    !/PreliminarySriLink|sri-form/.test(FORM));
   t('[safety] the Guide request panel is not conditional on the SRI',
     !/status === 'sri|sriComplete|hasSri|requireSri/i.test(FORM));
-  t('[safety] exactly one onward path exists on the article',
-    (TOPIC.match(/<PreliminarySriLink/g) || []).length === 1);
-  t('[safety] exactly one onward path exists in the success state',
-    (FORM.match(/<PreliminarySriLink/g) || []).length === 1);
 }
 
 section('-- D. Clinical positioning --');
@@ -281,8 +275,9 @@ section('-- E. Surface, routing and discovery --');
   // keeps clinical wording out of a bundle and off the client's control flow.
   t('[safety] the education pages remain server components',
     !/'use client'/.test(TOPIC) && !/'use client'/.test(INDEX));
-  t('[safety] only the request panel and the onward panel are client components',
-    /'use client'/.test(FORM) && /'use client'/.test(SRI));
+  // The onward panel was deleted by SRI Containment C1.1 (K2.2).
+  t('[safety] only the request panel is a client component',
+    /'use client'/.test(FORM) && SRI === '');
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

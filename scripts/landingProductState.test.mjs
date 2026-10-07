@@ -17,6 +17,11 @@
  *
  * Both were one missing condition away from returning, so they are pinned here.
  *
+ * SRI Containment C1 (Founder ruling after the SRI Residual Integrity Test):
+ * the Preliminary result, the locked panel, the email gate and its send were
+ * removed from the page and replaced by the Founder-approved interim copy.
+ * Sections A–E now pin that contained state; F is unchanged.
+ *
  *   [state]   — the right thing renders for the right authentication state.
  *   [truth]   — the page does not claim something that did not happen.
  *   [safety]  — a boundary this correction was forbidden to weaken.
@@ -50,10 +55,10 @@ section('-- A. Authentication state resolves before anything auth-dependent rend
   t('[state]  the page reads isLoaded alongside isSignedIn',
     /const \{ isSignedIn, isLoaded \} = useUser\(\)/.test(HOME));
 
-  t('[state]  the unauthenticated conversion bridge waits for Clerk',
-    /\{isLoaded && !isSignedIn && \(/.test(HOME));
-
-  t('[state]  the email gate / signed-in branch waits for Clerk',
+  // SRI Containment C1: the conversion bridge and the email gate were removed
+  // with the Preliminary result. The one remaining auth-dependent branch is the
+  // continuation action under the approved copy.
+  t('[state]  the continuation action waits for Clerk',
     /\{!isLoaded \? null : isSignedIn \? \(/.test(HOME));
 
   // Every auth-dependent branch must be behind isLoaded. A bare `!isSignedIn &&`
@@ -64,95 +69,59 @@ section('-- A. Authentication state resolves before anything auth-dependent rend
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-section('-- B. A signed-in visitor is never asked for an email to unlock --');
+section('-- B. SRI Containment C1 (K2): the Preliminary result is not shown --');
 {
-  const ANON_INSTRUCTION = 'Enter your email to unlock the complete clinical report.';
+  // Founder-approved interim copy, verbatim.
+  for (const line of [
+    'Thank you — your responses have been received.',
+    'MyoGuard is a physician-led platform. Your muscle-health risk assessment is completed as part of a physician-reviewed process rather than generated automatically from this short questionnaire.',
+    'Continue to create your account and begin your physician-reviewed assessment.',
+  ]) {
+    t(`[state]  approved copy present: "${line.slice(0, 40)}…"`, HOME.includes(line));
+  }
+  t('[state]  the approved copy appears only once the entries are received',
+    /\{received && \(/.test(HOME) && /setReceived\(true\)/.test(HOME));
 
-  t('[state]  the unlock instruction still exists for anonymous visitors',
-    HOME.includes(ANON_INSTRUCTION));
+  // No value, band, band colour, sub-value or derived text survives.
+  t('[safety] no Preliminary value, band or sub-value is computed or held',
+    !/computeLeanMassScore|computeRecoveryScore|getRisk\(|RISK_META|setResult\(|composite|leanScore|recoveryScore/.test(HOME));
+  t('[safety] no band label, risk-range or /100 rendering remains',
+    !/Low Risk|Moderate Risk|High Risk|Preliminary risk range|\/100|Clinical Assessment/.test(HOME));
+  t('[safety] the live recovery label beside the sleep slider is gone',
+    !/sleepLabel|Optimal for muscle recovery|recovery deficit|recovery impairment/.test(HOME));
+  t('[safety] nothing from the form is written to browser storage',
+    !/sessionStorage|localStorage/.test(HOME));
 
-  // It must be inside an isSignedIn branch, not standing unconditionally in the
-  // locked overlay as it was. Asserted structurally: the instruction and the
-  // signed-in alternative are the two arms of one ternary.
-  t('[state]  the unlock instruction is an authentication-dependent branch',
-    /isSignedIn\s*\?\s*'Continue from your dashboard\.'\s*:\s*'Enter your email to unlock the complete clinical report\.'/
-      .test(HOME.replace(/\s+/g, ' ')));
-
-  t('[state]  the signed-in alternative promises no access',
-    /'Continue from your dashboard\.'/.test(HOME)
-    && !/unlock|full clinical report|complete report/i.test('Continue from your dashboard.'));
-
-  // The lock is a boundary, not copy. It stays unconditional for everyone.
-  t('[safety] the locked panel itself is still shown to every visitor',
-    /Full protocol locked/.test(HOME)
-    && !/isSignedIn[^\n]*Full protocol locked/.test(HOME));
-  t('[safety] the blurred protocol remains non-interactive and unreleased',
-    /select-none pointer-events-none/.test(HOME)
-    && /backdrop-blur-sm/.test(HOME));
-  t('[safety] authentication alone is never said to release the full output',
-    !/signed in[^.]*unlocks|account[^.]*unlocks the full|now have access to the full/i.test(HOME));
+  // The pre-existing continuation actions are retained, unchanged.
+  t('[state]  the visitor action is the existing sign-up link',
+    /href="\/sign-up"/.test(HOME) && /Activate Full Clinical Protocol →/.test(HOME));
+  t('[state]  the signed-in action is the existing dashboard link',
+    /href="\/dashboard\/assessment"/.test(HOME) && /Go to my dashboard →/.test(HOME));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-section('-- C. The page does not claim an email that was never sent --');
+section('-- C. SRI Containment C1 (K2-C): no email is sent from this page --');
 {
-  // THE DEFECT: this sentence rendered unconditionally for signed-in visitors,
-  // while the only code that sends it is reachable only when signed out.
-  t('[truth]  the false "report has been sent" claim is gone',
-    !/Your protocol report has been sent to your email/.test(HOME));
-
-  t('[truth]  the signed-in state offers the dashboard action instead',
-    /Save this assessment to your dashboard to track progress over time\./.test(HOME)
-    && /href="\/dashboard\/assessment"/.test(HOME));
-
-  // The genuine confirmation stays exactly where a send really did occur —
-  // the `submitted` branch, downstream of a successful POST.
-  t('[truth]  the real send confirmation still exists on the send path',
-    /Protocol report sent to \{email\}/.test(HOME));
-  t('[truth]  the real confirmation is still gated on submitted',
-    HOME.indexOf('setSubmitted(true)') > 0
-    && HOME.indexOf('Protocol report sent to {email}') > HOME.indexOf('!submitted ?'));
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-section('-- D. No new send pathway, and the anonymous capture is untouched --');
-{
-  // The correction removed a false claim. It must not have added a send to
-  // make the claim true, which would have created an unrequested email to an
-  // authenticated user and a communications-governance question with it.
-  t('[safety] exactly one email send call exists on this page',
-    (HOME.match(/fetch\("\/api\/protocol-email"/g) || []).length === 1);
+  t('[safety] the Preliminary SRI email is no longer requested',
+    !/\/api\/protocol-email/.test(HOME) && !/handleEmailSubmit/.test(HOME));
   t('[safety] no second delivery endpoint was introduced',
     !/\/api\/guide-request|\/api\/email-capture|sendServiceEmail|resend/i.test(HOME));
-  t('[safety] the send is still reachable only from the anonymous gate',
-    HOME.indexOf('handleEmailSubmit') > 0
-    && /onClick=\{handleEmailSubmit\}/.test(HOME)
-    && HOME.indexOf('onClick={handleEmailSubmit}') > HOME.indexOf('!submitted ?'));
   t('[safety] no consent or preference is created anywhere on the page',
     !/grantConsent|CommunicationPreference|ConsentEvent|\bEDUCATIONAL\b|\bMARKETING\b/.test(HOME));
-
-  // The anonymous journey is unchanged in every respect that matters.
-  t('[state]  the anonymous email gate still collects one address',
-    /placeholder="Enter your email address"/.test(HOME)
-    && /Send my protocol report/.test(HOME));
+  t('[truth]  no delivery confirmation is claimed',
+    !/Protocol report sent to|report has been sent/i.test(HOME));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-section('-- E. Instrumentation this correction had to leave alone --');
+section('-- E. Instrumentation --');
 {
-  // C-FUNNEL-2C was explicitly barred from touching the sri_generated firing
-  // site: its failure in the Founder journey is unproven, and changing it would
-  // destroy the evidence. This asserts it survives, verbatim and guarded.
-  t('[measure] sri_generated still fires from handleCalculate, guarded',
-    /if \(isAnalyticsEnabled\) \{\s*posthog\.capture\(AnalyticsEvents\.SRI_GENERATED, \{ risk_band: risk \}\);\s*\}/
+  // SRI Containment C1 (K3): sri_generated keeps firing from handleCalculate,
+  // guarded, but carries no property — the risk_band property is removed.
+  t('[measure] sri_generated still fires from handleCalculate, guarded, with no property',
+    /if \(isAnalyticsEnabled\) \{\s*posthog\.capture\(AnalyticsEvents\.SRI_GENERATED\);\s*\}/
       .test(HOME));
-  t('[measure] sri_generated fires immediately after the result is set',
-    HOME.indexOf('setResult({ leanScore, recoveryScore, composite, risk })') <
-      HOME.indexOf('AnalyticsEvents.SRI_GENERATED')
-    && HOME.indexOf('AnalyticsEvents.SRI_GENERATED') -
-       HOME.indexOf('setResult({ leanScore, recoveryScore, composite, risk })') < 200);
-  t('[measure] sri_generated carries only the categorical risk band',
-    /AnalyticsEvents\.SRI_GENERATED, \{ risk_band: risk \}/.test(HOME));
+  t('[safety]  sri_generated carries no SRI-derived property',
+    !/AnalyticsEvents\.SRI_GENERATED\s*,/.test(HOME) && !/risk_band/.test(HOME));
 
   // Names are a contract with the analytics that already exist in production.
   for (const [key, value] of [
@@ -168,12 +137,10 @@ section('-- E. Instrumentation this correction had to leave alone --');
     (HOME.match(/posthog\.capture\(/g) || []).length ===
     (HOME.match(/isAnalyticsEnabled\)?\s*\{?\s*posthog\.capture\(/g) || []).length);
 
-  // The three GET_STARTED_CLICKED sites and their location labels survive the
-  // auth-branch edits around them.
-  t('[measure] the three get_started_clicked locations are intact',
+  // The email_gate location was removed with the email gate (C1, K2-C).
+  t('[measure] the remaining get_started_clicked locations are intact',
     /location: "hero"/.test(HOME)
-    && /location: "results_cta"/.test(HOME)
-    && /location: "email_gate"/.test(HOME));
+    && /location: "results_cta"/.test(HOME));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

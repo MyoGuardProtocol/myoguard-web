@@ -37,76 +37,11 @@ const ACTIVITY_OPTIONS = [
   { label: "Active",    subtitle: "Daily training",      bonus: 10 },
 ];
 
-// Preliminary (public, unauthenticated) assessment only.
-// These ranges are NOT the authoritative full-SRI bands and are deliberately
-// kept separate from src/lib/protocolEngine.ts. Results are presented as a
-// "Preliminary risk range", never as an authoritative full-SRI band.
-//
-// TODO Phase 2: align the preliminary assessment
-// with the authoritative SRI framework, including
-// thresholds and additional clinical inputs.
-type RiskBand = "LOW" | "MODERATE" | "HIGH";
-
-function getRisk(score: number): RiskBand {
-  if (score >= 70) return "LOW";
-  if (score >= 40) return "MODERATE";
-  return "HIGH";
-}
-
-function computeLeanMassScore(
-  weightKg: number,
-  proteinG: number,
-  drugValue: number,
-  drugMax: number,
-  giPenalty: number,
-  activityBonus: number,
-): number {
-  const target = weightKg * 1.6;
-  const adequacy = Math.min(proteinG / target, 1);
-  const dosePenalty = Math.min(drugValue / drugMax, 1) * 20;
-  const raw = adequacy * 100 - dosePenalty - giPenalty + activityBonus;
-  return Math.max(0, Math.min(100, Math.round(raw)));
-}
-
-function computeRecoveryScore(sleepHours: number): number {
-  if (sleepHours >= 7.5) return 95;
-  if (sleepHours >= 7) return 85;
-  if (sleepHours >= 6.5) return 72;
-  if (sleepHours >= 6) return 58;
-  if (sleepHours >= 5.5) return 42;
-  if (sleepHours >= 5) return 28;
-  return 14;
-}
-
-
-const RISK_META: Record<RiskBand, {
-  label: string;
-  color: string;
-  bar: string;
-  explanation: string;
-}> = {
-  LOW: {
-    label: "Low Risk",
-    color: "text-teal-600",
-    bar: "bg-teal-500",
-    explanation:
-      "Protein intake is well-matched to your GLP-1 dose stage and your anabolic recovery environment is supportive. Lean mass loss risk is within acceptable clinical range. Continue current protocol with quarterly monitoring.",
-  },
-  MODERATE: {
-    label: "Moderate Risk",
-    color: "text-amber-600",
-    bar: "bg-amber-400",
-    explanation:
-      "Protein adequacy or recovery environment is suboptimal relative to your GLP-1 dose stage. A sarcopenic trajectory is possible without intervention. Supplementation and structured resistance training are recommended.",
-  },
-  HIGH: {
-    label: "High Risk",
-    color: "text-red-600",
-    bar: "bg-red-500",
-    explanation:
-      "Significant lean mass loss risk detected. Current protein intake, GI symptom burden, and/or anabolic recovery conditions are not meeting the threshold required to protect skeletal muscle at your current GLP-1 dose. Immediate protocol review is indicated.",
-  },
-};
+// SRI Containment C1 (K2): the public Preliminary SRI produces no quantitative
+// or categorical output. The former Preliminary composite, lean and recovery
+// values, the risk band and its colours and explanatory copy are removed;
+// submitting the form validates the entries and shows the Founder-approved
+// interim copy only. Nothing is computed, stored or transmitted from it.
 
 export default function HomePage() {
   // `isLoaded` matters as much as `isSignedIn` here. Until Clerk resolves,
@@ -122,14 +57,7 @@ export default function HomePage() {
   const [disclaimerChecked, setDisclaimerChecked] = useState(false);
   const [sleepHours,       setSleepHours]       = useState(7);
   const [weightUnit,       setWeightUnit]       = useState<'kg' | 'lbs'>('kg');
-  const [result, setResult] = useState<{
-    leanScore: number;
-    recoveryScore: number;
-    composite: number;
-    risk: RiskBand;
-  } | null>(null);
-  const [email,     setEmail]     = useState("");
-  const [submitted, setSubmitted] = useState(false);
+  const [received,  setReceived]  = useState(false);
   const [formError, setFormError] = useState("");
 
   // Never track: names, emails, SRI values,
@@ -155,7 +83,7 @@ export default function HomePage() {
     const drug = GLP1_DRUGS.find((d) => d.label === selectedDrug);
 
     if (!rawW || !p || !drug || !activityLevel) {
-      setFormError("Please complete all required fields before generating your SRI.");
+      setFormError("Please complete all required fields.");
       return;
     }
 
@@ -188,65 +116,13 @@ export default function HomePage() {
       return;
     }
 
-    const giPenalty = Math.min(
-      SYMPTOM_OPTIONS
-        .filter((s) => symptoms.includes(s.label))
-        .reduce((sum, s) => sum + s.penalty, 0),
-      25,
-    );
-    const actBonus   = ACTIVITY_OPTIONS.find((a) => a.label === activityLevel)?.bonus ?? 0;
-    const leanScore  = computeLeanMassScore(w, p, drug.value, drug.max, giPenalty, actBonus);
-    const recoveryScore = computeRecoveryScore(sleepHours);
-    const composite  = leanScore;
-    const risk = getRisk(composite);
-    setResult({ leanScore, recoveryScore, composite, risk });
+    // SRI Containment C1 (K2, K3): no value or band is derived from the
+    // entries, and the analytics event carries no property.
+    setReceived(true);
     if (isAnalyticsEnabled) {
-      posthog.capture(AnalyticsEvents.SRI_GENERATED, { risk_band: risk });
+      posthog.capture(AnalyticsEvents.SRI_GENERATED);
     }
   }
-
-  async function handleEmailSubmit() {
-    if (!email.includes("@")) return;
-    if (!result) return;
-    try {
-      const res = await fetch("/api/protocol-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email,
-          score: result.composite,
-          leanScore: result.leanScore,
-          recoveryScore: result.recoveryScore,
-          risk: result.risk,
-        }),
-      });
-      if (res.ok) {
-        setSubmitted(true);
-        if (isAnalyticsEnabled) posthog.capture(AnalyticsEvents.EMAIL_CAPTURE_SUBMITTED, { source: 'landing_results_gate' });
-      } else {
-        setFormError("Failed to send. Please try again.");
-      }
-    } catch {
-      setFormError("Network error. Please try again.");
-    }
-  }
-
-  const sleepLabel =
-    sleepHours >= 7.5 ? "Optimal for muscle recovery" :
-    sleepHours >= 6.5 ? "Mild recovery deficit" :
-    sleepHours >= 5.5 ? "Moderate recovery deficit" :
-    "Significant recovery impairment";
-
-  const sleepColor =
-    sleepHours >= 7.5 ? "text-teal-600" :
-    sleepHours >= 6.5 ? "text-amber-500" :
-    sleepHours >= 5.5 ? "text-orange-500" :
-    "text-red-500";
-
-  // kg-equivalent of whatever the user entered (used in results section + validation)
-  const wKg = weightUnit === 'lbs'
-    ? Math.round(parseFloat(weight || '0') * 0.453592 * 10) / 10
-    : parseFloat(weight || '0');
 
   // Progress indicator — 4 required fields (symptoms optional)
   const fieldsComplete = [!!weight, !!protein, !!selectedDrug, !!activityLevel].filter(Boolean).length;
@@ -305,7 +181,7 @@ export default function HomePage() {
               }}
               className="bg-teal-600 text-white px-6 py-3.5 rounded-xl text-sm font-semibold hover:bg-teal-700 transition-colors cursor-pointer"
             >
-              Generate My Preliminary SRI →
+              Continue →
             </a>
             <p className="text-xs text-slate-400">
               No account required&nbsp;•&nbsp;Takes about 60 seconds
@@ -322,7 +198,6 @@ export default function HomePage() {
           <div className="rounded-2xl p-6 flex flex-col gap-5" style={{ background: '#0D1421', border: '1px solid #1A2744' }}>
             <div>
               <h2 className="text-base font-semibold" style={{ color: '#F1F5F9' }}>Muscle Protection Assessment</h2>
-              <p className="text-xs text-slate-400 mt-0.5">Powered by the Sarcopenia Risk Index (SRI)</p>
 
               {/* Progress indicator */}
               <div className="flex items-center gap-2 mt-3">
@@ -339,7 +214,7 @@ export default function HomePage() {
                 <span className="text-xs text-slate-400">
                   {fieldsComplete < totalFields
                     ? `${totalFields - fieldsComplete} field${totalFields - fieldsComplete > 1 ? "s" : ""} remaining`
-                    : "Ready to generate SRI"}
+                    : ""}
                 </span>
               </div>
             </div>
@@ -409,7 +284,7 @@ export default function HomePage() {
                   className="border border-[#1A2744] rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
                 <span className="text-xs text-slate-400 leading-relaxed">
-                  Enter your current average daily intake. Used to estimate adequacy against your clinical protein floor.
+                  Enter your current average daily intake.
                 </span>
               </label>
 
@@ -555,7 +430,6 @@ export default function HomePage() {
                   </span>
                   <div className="flex items-center gap-1.5">
                     <span className="text-sm font-bold text-white">{sleepHours}h</span>
-                    <span className={`text-xs font-medium ${sleepColor}`}>{sleepLabel}</span>
                   </div>
                 </div>
                 <input
@@ -573,7 +447,7 @@ export default function HomePage() {
                 </div>
                 <p className="text-xs text-slate-400">Typical adult range: 5–9 hours</p>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  Sleep duration is displayed as a recovery context indicator. Nocturnal GH and IGF-1 secretion support muscle protein synthesis — adequate sleep optimises your protocol outcomes. This parameter is not incorporated into the preliminary Sarcopenia Risk Index (SRI).
+                  Sleep duration is displayed as a recovery context indicator. Nocturnal GH and IGF-1 secretion support muscle protein synthesis — adequate sleep optimises your protocol outcomes.
                 </p>
               </div>
             </div>
@@ -612,9 +486,6 @@ export default function HomePage() {
                   </div>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <span className="text-xs font-bold text-amber-800">
-                    Required before generating SRI
-                  </span>
                   <span className="text-xs text-amber-700 leading-relaxed">
                     I understand this tool provides educational nutritional
                     reference information only. It does not constitute medical
@@ -662,188 +533,43 @@ export default function HomePage() {
               }}
             >
               {canCalculate
-                ? "Generate My Preliminary SRI →"
-                : "Complete all fields to generate Preliminary SRI"}
+                ? "Continue →"
+                : "Complete all fields"}
             </button>
 
-            {/* Results */}
-            {result && (
-              <div className="flex flex-col gap-4 border-t border-[#1A2744] pt-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
-
-                {/* Preliminary result — dramatic card */}
-                <div className="rounded-2xl p-4 flex items-center justify-between" style={{ background: '#0D1421' }}>
-                  <div>
-                    <p className="text-xs text-slate-400 mb-1">Preliminary Sarcopenia Risk Index (SRI)</p>
-                    <div className="flex items-baseline gap-2">
-                      <span className={`text-6xl font-bold tracking-tight ${
-                        result.risk === "LOW" ? "text-teal-600" :
-                        result.risk === "MODERATE" ? "text-amber-600" :
-                        "text-red-600"
-                      }`}>
-                        {result.composite}
-                      </span>
-                      <span className="text-slate-400 text-lg">/100</span>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <span className="text-[10px] uppercase tracking-widest text-slate-500">
-                      Preliminary risk range
-                    </span>
-                    <div className={`px-4 py-2 rounded-full text-sm font-semibold ${
-                      result.risk === "LOW"
-                        ? "bg-teal-100 text-teal-700"
-                        : result.risk === "MODERATE"
-                        ? "bg-amber-100 text-amber-700"
-                        : "bg-red-100 text-red-700"
-                    }`}>
-                      {RISK_META[result.risk].label}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Preliminary vs full SRI notice — must sit adjacent to the result */}
-                <p className="text-xs leading-relaxed" style={{ color: '#94A3B8' }}>
-                  This preliminary result is based on core inputs only. Your full SRI
-                  includes additional clinical factors and may differ.
-                </p>
-
-                {/* Gradient risk bar */}
-                <div className="flex flex-col gap-1">
-                  <div className="w-full h-3 rounded-full overflow-hidden relative" style={{ background: '#1A2744' }}>
-                    <div
-                      className="absolute inset-0 rounded-full"
-                      style={{
-                        background: "linear-gradient(to right, #ef4444 0%, #f59e0b 40%, #14b8a6 70%, #0d9488 100%)",
-                      }}
-                    />
-                    <div
-                      className="absolute top-0 right-0 h-full rounded-r-full transition-all duration-700"
-                      style={{ width: `${100 - result.composite}%`, background: '#080C14' }}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between text-xs text-slate-400">
-                    <span>0 — High Risk</span>
-                    <span>40</span>
-                    <span>70</span>
-                    <span>100 — Low Risk</span>
-                  </div>
-                </div>
-
-                {/* Contributing Factors 2×2 */}
-                {(() => {
-                  const proteinTarget = wKg > 0 ? wKg * 1.6 : 0;
-                  const proteinPct    = proteinTarget > 0 ? (parseFloat(protein) / proteinTarget) * 100 : 0;
-                  const giPenalty     = Math.min(
-                    SYMPTOM_OPTIONS.filter((s) => symptoms.includes(s.label))
-                      .reduce((sum, s) => sum + s.penalty, 0),
-                    25,
-                  );
-                  const factors = [
-                    {
-                      label: "Protein adequacy",
-                      value: proteinTarget > 0 ? `${Math.round(proteinPct)}%` : "—",
-                      tier:  proteinPct >= 90 ? "teal" : proteinPct >= 75 ? "amber" : "red",
-                    },
-                    {
-                      label: "GI burden",
-                      value: giPenalty === 0 ? "None" : giPenalty <= 14 ? "Moderate" : "High",
-                      tier:  giPenalty === 0 ? "teal" : giPenalty <= 14 ? "amber" : "red",
-                    },
-                    {
-                      label: "Recovery environment",
-                      value: `${sleepHours}h sleep`,
-                      tier:  sleepHours >= 7.5 ? "teal" : sleepHours >= 6 ? "amber" : "red",
-                    },
-                    {
-                      label: "Activity level",
-                      value: activityLevel ?? "—",
-                      tier:  activityLevel === "Active" ? "teal" : activityLevel === "Moderate" ? "amber" : "red",
-                    },
-                  ] as const;
-                  const palette = {
-                    teal:  { bg: "bg-teal-50",  border: "border-teal-100", label: "text-teal-600",  value: "text-teal-700"  },
-                    amber: { bg: "bg-amber-50", border: "border-amber-100",label: "text-amber-600", value: "text-amber-700" },
-                    red:   { bg: "bg-red-50",   border: "border-red-100",  label: "text-red-600",   value: "text-red-700"   },
-                  };
-                  return (
-                    <div className="grid grid-cols-2 gap-2">
-                      {factors.map((f) => {
-                        const c = palette[f.tier];
-                        return (
-                          <div key={f.label} className={`rounded-xl border p-3 ${c.bg} ${c.border}`}>
-                            <p className={`text-xs font-medium mb-1 ${c.label}`}>{f.label}</p>
-                            <p className={`text-sm font-bold ${c.value}`}>{f.value}</p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                })()}
-
-                {/* Sub-scores */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-xl p-3 flex flex-col gap-1" style={{ background: '#0D1421' }}>
-                    <p className="text-xs text-slate-400">Lean Mass Risk Index</p>
-                    <div className="flex items-baseline gap-1">
-                      <span className={`text-xl font-bold ${
-                        result.leanScore >= 70 ? "text-teal-600" :
-                        result.leanScore >= 40 ? "text-amber-600" : "text-red-600"
-                      }`}>{result.leanScore}</span>
-                      <span className="text-xs text-slate-400">/100</span>
-                    </div>
-                    <p className="text-xs text-slate-400">Protein + dose + GI</p>
-                  </div>
-                  <div className="rounded-xl p-3 flex flex-col gap-1" style={{ background: '#0D1421' }}>
-                    <p className="text-xs text-slate-400">Recovery Indicator</p>
-                    <div className="flex items-baseline gap-1">
-                      <span className={`text-xl font-bold ${sleepColor}`}>{sleepHours}h</span>
-                    </div>
-                    <p className={`text-xs font-medium ${sleepColor}`}>{sleepLabel}</p>
-                  </div>
-                </div>
-
-                {/* Clinical alert box */}
-                <div className={`rounded-xl border p-4 ${
-                  result.risk === "LOW"
-                    ? "bg-teal-50 border-teal-100"
-                    : result.risk === "MODERATE"
-                    ? "bg-amber-50 border-amber-100"
-                    : "bg-red-50 border-red-100"
-                }`}>
-                  <p className={`text-xs font-semibold mb-1 uppercase tracking-wider ${
-                    result.risk === "LOW" ? "text-teal-700" :
-                    result.risk === "MODERATE" ? "text-amber-700" :
-                    "text-red-700"
-                  }`}>
-                    Clinical Assessment
+            {/* SRI Containment C1 (K2). Shown once the entries pass validation.
+                Founder-approved interim copy, verbatim. No value, band, colour,
+                sub-value or derived text is rendered. The action below is the
+                account-creation / continuation action that already existed:
+                sign-up for a visitor, the dashboard for a signed-in visitor. */}
+            {received && (
+              <div className="flex flex-col gap-4 border-t border-[#1A2744] pt-4">
+                <div style={{
+                  background: '#0D1421',
+                  border: '1px solid rgba(45,212,191,0.35)',
+                  borderRadius: '16px',
+                  padding: '20px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                }}>
+                  <p style={{ fontSize: '14px', fontWeight: '700', color: '#F1F5F9' }}>
+                    Thank you — your responses have been received.
                   </p>
-                  <p className={`text-sm leading-relaxed ${
-                    result.risk === "LOW" ? "text-teal-800" :
-                    result.risk === "MODERATE" ? "text-amber-800" :
-                    "text-red-800"
-                  }`}>
-                    {RISK_META[result.risk].explanation}
+                  <p style={{ fontSize: '13px', color: '#94A3B8', lineHeight: '1.6' }}>
+                    MyoGuard is a physician-led platform. Your muscle-health risk assessment is completed as part of a physician-reviewed process rather than generated automatically from this short questionnaire.
                   </p>
-                </div>
-
-                {/* Conversion bridge — unauthenticated only, and only once
-                    Clerk has actually answered. */}
-                {isLoaded && !isSignedIn && (
-                  <div style={{
-                    background: '#0D1421',
-                    border: '1px solid rgba(45,212,191,0.35)',
-                    borderRadius: '16px',
-                    padding: '20px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '12px',
-                  }}>
-                    <p style={{ fontSize: '14px', fontWeight: '700', color: '#F1F5F9' }}>
-                      This is your Preliminary SRI.
-                    </p>
-                    <p style={{ fontSize: '13px', color: '#94A3B8', lineHeight: '1.6' }}>
-                      Create your account to unlock your full Clinical SRI Analysis — including treatment stage calibration, functional muscle tracking, and weekly monitoring.
-                    </p>
+                  <p style={{ fontSize: '13px', color: '#94A3B8', lineHeight: '1.6' }}>
+                    Continue to create your account and begin your physician-reviewed assessment.
+                  </p>
+                  {!isLoaded ? null : isSignedIn ? (
+                    <a
+                      href="/dashboard/assessment"
+                      className="w-full bg-teal-600 text-white py-3 rounded-xl text-sm font-medium text-center hover:bg-teal-700 transition-colors"
+                    >
+                      Go to my dashboard →
+                    </a>
+                  ) : (
                     <a
                       href="/sign-up"
                       onClick={() => { if (isAnalyticsEnabled) posthog.capture(AnalyticsEvents.GET_STARTED_CLICKED, { location: "results_cta" }); }}
@@ -861,156 +587,8 @@ export default function HomePage() {
                     >
                       Activate Full Clinical Protocol →
                     </a>
-                  </div>
-                )}
-
-                {/* Blurred protocol */}
-                <div className="relative rounded-xl overflow-hidden" style={{ border: '1px solid #1A2744' }}>
-                  <div className="p-4 flex flex-col gap-2 select-none pointer-events-none">
-                    <p className="text-xs font-semibold text-slate-300">Clinical Protocol — Full Report</p>
-                    {[
-                      "Protein target: __ g/day (1.6 g/kg adjusted for dose stage)",
-                      "Fibre target: __ g/day (GI-symptom staged)",
-                      "Hydration baseline: __ ml/day",
-                      "Supplement stack: Whey · Creatine · Vitamin D · Omega-3",
-                      "Resistance training: __ sessions/week",
-                      "Monitoring labs: Ferritin · B12 · Zinc · Magnesium · Thiamine",
-                      "GI management protocol: __ (based on symptom profile)",
-                      "Sleep optimisation: __ (based on recovery score)",
-                    ].map((line) => (
-                      <p key={line} className="text-xs text-slate-400">{line}</p>
-                    ))}
-                  </div>
-                  <div className="absolute inset-0 backdrop-blur-sm flex flex-col items-center justify-center gap-2 p-4" style={{ background: 'rgba(8,12,20,0.85)' }}>
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'rgba(45,212,191,0.08)', border: '1px solid rgba(45,212,191,0.2)' }}>
-                      <svg className="w-4 h-4" style={{ color: '#2DD4BF' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                      </svg>
-                    </div>
-                    {/* The lock itself is unconditional and stays that way: the
-                        full protocol is not released by this surface to anyone,
-                        signed in or not. What changes is only the instruction
-                        underneath, which used to tell an authenticated visitor to
-                        enter an email they had already given — the C-FUNNEL-2B
-                        contradiction. The signed-in wording points at the
-                        dashboard and promises no access, because authentication
-                        does not by itself release physician-governed output. */}
-                    <p className="text-xs font-semibold text-white text-center">Full protocol locked</p>
-                    {isLoaded && (
-                      <p className="text-xs text-slate-400 text-center">
-                        {isSignedIn
-                          ? 'Continue from your dashboard.'
-                          : 'Enter your email to unlock the complete clinical report.'}
-                      </p>
-                    )}
-                  </div>
+                  )}
                 </div>
-
-                {/* Email gate / signed-in CTA
-                    ────────────────────────────────────────────────────────────
-                    Three states, and the first of them is "Clerk has not
-                    answered yet". Rendering nothing until it has is what stops
-                    a signed-in visitor seeing the anonymous gate flash past.
-
-                    The signed-in copy no longer claims a report was emailed.
-                    It used to, unconditionally — but `handleEmailSubmit` is the
-                    only code that sends one and it is reachable ONLY from the
-                    unauthenticated branch below, so for a signed-in visitor who
-                    had just generated an SRI the sentence was simply false. No
-                    send was added to make it true: the claim was removed, and
-                    what remains is the dashboard action, which is real. */}
-                {!isLoaded ? null : isSignedIn ? (
-                  <div className="flex flex-col gap-3 bg-teal-50 border border-teal-100 rounded-2xl p-5">
-                    <p className="text-sm font-semibold text-teal-800">
-                      You are signed in
-                    </p>
-                    <p className="text-xs text-teal-600">
-                      Save this assessment to your dashboard to track progress over time.
-                    </p>
-                    <a
-                      href="/dashboard/assessment"
-                      className="w-full bg-teal-600 text-white py-3 rounded-xl text-sm font-medium text-center hover:bg-teal-700 transition-colors"
-                    >
-                      Go to my dashboard →
-                    </a>
-                  </div>
-                ) : !submitted ? (
-                  <div className="flex flex-col gap-3 rounded-2xl p-5" style={{ background: '#0D1421' }}>
-                    <div>
-                      <p className="text-sm font-semibold text-white">
-                        Unlock your full MyoGuard Protocol
-                      </p>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        Receive your complete clinical report, personalised targets, and supplement stack.
-                      </p>
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      {[
-                        "Exact protein target in grams for your weight",
-                        "GI-staged fibre protocol",
-                        "Personalised supplement stack",
-                        "Monitoring lab recommendations",
-                      ].map((b) => (
-                        <div key={b} className="flex items-center gap-2">
-                          <div className="w-4 h-4 rounded-full bg-teal-500 flex items-center justify-center flex-shrink-0">
-                            <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                          </div>
-                          <span className="text-xs text-slate-300">{b}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <input
-                      type="email"
-                      placeholder="Enter your email address"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="border border-slate-700 bg-slate-800 rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                    />
-                    <button
-                      onClick={handleEmailSubmit}
-                      className="w-full bg-teal-600 text-white py-3 rounded-xl text-sm font-semibold hover:bg-teal-500 transition-colors flex items-center justify-center gap-2"
-                    >
-                      Send my protocol report
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                      </svg>
-                    </button>
-                    <div className="flex items-center justify-center gap-4">
-                      <a
-                        href="/sign-up"
-                        className="text-xs text-teal-400 hover:underline"
-                        onClick={() => { if (isAnalyticsEnabled) posthog.capture(AnalyticsEvents.GET_STARTED_CLICKED, { location: "email_gate" }); }}
-                      >
-                        Create free account instead →
-                      </a>
-                      <span className="text-slate-600 text-xs">·</span>
-                      <span className="text-xs text-slate-400">No spam. Unsubscribe anytime.</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="bg-teal-50 border border-teal-100 rounded-2xl p-5 text-center flex flex-col gap-2">
-                    <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center mx-auto">
-                      <svg className="w-5 h-5 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <p className="text-sm font-semibold text-teal-800">
-                      Protocol report sent to {email}
-                    </p>
-                    <p className="text-xs text-teal-600">
-                      Check your inbox — full clinical report included.
-                    </p>
-                    <p className="text-xs text-teal-700 mt-1">
-                      or{" "}
-                      <a href="/sign-up" className="font-medium underline hover:text-teal-800">
-                        create a free account
-                      </a>{" "}
-                      to track progress over time
-                    </p>
-                  </div>
-                )}
               </div>
             )}
           </div>
@@ -1031,7 +609,7 @@ export default function HomePage() {
             {[
               {
                 title: "Real-time sarcopenia risk",
-                desc: "SRI generated against your GLP-1 dose stage and clinical protein floor",
+                desc: "",
               },
               {
                 title: "Personalised protein targets",

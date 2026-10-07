@@ -87,7 +87,7 @@ export default async function PrintPage({
         orderBy: { assessmentDate: 'desc' },
         take:    1,
         include: {
-          muscleScore:  { select: { score: true, riskBand: true, leanLossEstPct: true, proteinTargetG: true, explanation: true } },
+          muscleScore:  { select: { score: true, riskBand: true, proteinTargetG: true, explanation: true } },
           protocolPlan: { select: { proteinTargetG: true, proteinSources: true, supplementation: true, trainingPlan: true, hydrationTarget: true, electrolyteNotes: true, giGuidance: true } },
           physicianReview: { select: { overallImpression: true, followUpDays: true, note: true, reviewedAt: true } },
         },
@@ -239,27 +239,7 @@ export default async function PrintPage({
                       is suppressed. Its "Reported Value" was Assessment.proteinGrams —
                       the calculated Clinical Protein Floor, not intake — and its
                       ✓/✗ status compared that floor with 1.4 g/kg. */}
-                  {/* Lean loss */}
-                  {ms?.leanLossEstPct != null && (
-                    <tr>
-                      <td>
-                        Lean Mass Loss Risk
-                        <span style={{ display: 'block', fontSize: 8, color: '#64748B', fontWeight: 400, lineHeight: 1.35 }}>
-                          Band-associated expert-consensus estimate; not a validated individual prediction.
-                        </span>
-                      </td>
-                      <td className="mono" style={{ fontWeight: 700 }}>{ms.leanLossEstPct.toFixed(1)}%</td>
-                      <td className="mono">{'< 10%'}</td>
-                      <td>
-                        {ms.leanLossEstPct < 10
-                          ? <span style={{ color: '#065F46', fontWeight: 600 }}>✓ Acceptable</span>
-                          : ms.leanLossEstPct < 18
-                          ? <span style={{ color: '#92400E', fontWeight: 600 }}>⚠ Elevated</span>
-                          : <span style={{ color: '#9F1239', fontWeight: 600 }}>✗ High risk</span>
-                        }
-                      </td>
-                    </tr>
-                  )}
+                  {/* SRI Containment C1 (K1): Lean Mass Loss Risk row removed. */}
                   {/* Activity */}
                   <tr>
                     <td>Exercise Frequency</td>

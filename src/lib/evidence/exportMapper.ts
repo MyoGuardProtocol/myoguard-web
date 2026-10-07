@@ -86,7 +86,7 @@ export function toPhysicianReport(
   if (primarySignal) {
     lines.push(`Physician signal: ${primarySignal.status} (${primarySignal.confidence})`);
   }
-  lines.push(`Overall continuity: ${overallContinuityStatus}`);
+  if (overallContinuityStatus) lines.push(`Overall continuity: ${overallContinuityStatus}`);
   lines.push('');
 
   lines.push('LONGITUDINAL NARRATIVE');
@@ -147,8 +147,9 @@ export interface ResearchExportPayload {
   trajectoryStatus:        string;
   continuityStatus:        string;
   adherenceStatus:         string;
-  physicianSignalStatus:   string;
-  overallContinuityStatus: string;
+  // SRI Containment C1.2 (K1.2): null when withheld — never a substitute status.
+  physicianSignalStatus:   string | null;
+  overallContinuityStatus: string | null;
   assessmentCount:         number;
   checkinCount:            number;
   documentationCount:      number;
@@ -193,8 +194,8 @@ export function toResearchExport(
     trajectoryStatus:       record.trajectory.status,
     continuityStatus:       record.continuity.status,
     adherenceStatus:        record.adherence.status,
-    physicianSignalStatus:  record.physicianSignals[0]?.status ?? 'within_expected_range',
-    overallContinuityStatus: record.overallContinuityStatus as string,
+    physicianSignalStatus:  record.physicianSignals[0]?.status ?? null,
+    overallContinuityStatus: record.overallContinuityStatus,
     assessmentCount:        record.patientSummary.assessmentCount,
     checkinCount:           record.patientSummary.checkinCount,
     documentationCount:     record.documentationNotes.length,

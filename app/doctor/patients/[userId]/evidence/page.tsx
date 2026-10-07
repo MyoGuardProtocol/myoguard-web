@@ -56,14 +56,12 @@ const READINESS_LABEL: Record<string, string> = {
 // ─── Physician signal → summary bar display label ─────────────────────────────
 //
 // Maps intelligence signal status values to physician-readable review status labels.
-// "within_expected_range" maps to "No Review Signals" — the absence of a signal
-// is the most common state and deserves a clear affirmative label.
+// SRI Containment C1.2 (K1.2): the quarantined lean-velocity statuses are not
+// presentable (the record no longer carries them), so they have no label, and
+// the tile is omitted when there is nothing to show.
 
 const PHYSICIAN_SIGNAL_DISPLAY: Record<string, string> = {
-  review_recommended:       'Review Recommended',
-  review_threshold_crossed: 'Review Threshold Crossed',
   continuity_concern:       'Continuity Concern',
-  within_expected_range:    'No Review Signals',
 };
 
 // ─── Signal display helpers ───────────────────────────────────────────────────
@@ -231,7 +229,7 @@ export default async function PatientEvidencePage({
   })();
 
   const reviewSignalDisplay =
-    PHYSICIAN_SIGNAL_DISPLAY[record.physicianSignals[0]?.status ?? ''] ?? 'No Review Signals';
+    PHYSICIAN_SIGNAL_DISPLAY[record.physicianSignals[0]?.status ?? ''] ?? null;
 
   // ── Page render ────────────────────────────────────────────────────────
   return (
@@ -331,7 +329,7 @@ export default async function PatientEvidencePage({
                 value: reviewSignalDisplay,
               },
             ] as const
-          ).map(({ label, value }) => (
+          ).filter(({ value }) => value !== null).map(({ label, value }) => (
             <div key={label} style={{ minWidth: '130px', flex: '1 1 130px' }}>
               <p
                 style={{

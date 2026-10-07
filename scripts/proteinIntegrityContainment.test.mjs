@@ -169,8 +169,10 @@ section('-- C. False "Protein Gap" and "Protein Deficit" outputs --');
     /'GI Burden'/.test(d) && /'Recovery Impairment'/.test(d) && /'SRI Decline'/.test(d));
   const rec = code(F.record);
   t('[safety]    C. record escalation no longer depends on a protein deficit', !/proteinDeficit/.test(rec));
-  t('[preserve]  C. record escalation still covers exercise and lean-loss estimate',
-    /const escalate =\s*\(latest\?\.exerciseDaysWk \?\? 0\) < 2 \|\|\s*\(latestMs\?\.leanLossEstPct \?\? 0\) > 25;/.test(rec));
+  // SRI Containment C1 (K1) removed the lean-loss-estimate clause; the exercise
+  // trigger is preserved exactly.
+  t('[preserve]  C. record escalation still covers exercise (lean-loss clause removed by SRI Containment C1)',
+    /const escalate =\s*\(latest\?\.exerciseDaysWk \?\? 0\) < 2;/.test(rec) && !/leanLossEstPct/.test(code(F.record)));
   t('[safety]    C. record has no urgent "Increase daily protein" action', !/Increase daily protein/.test(rec));
   t('[safety]    C. record factor cards contain no protein card', !/label:\s*'Protein Intake'/.test(rec));
 }
@@ -220,8 +222,10 @@ section('-- F. Genuine WeeklyCheckin.avgProteinG remains available --');
   t('[preserve]  F. shared report check-in table still shows avgProteinG', /Math\.round\(c\.avgProteinG\)/.test(code(F.token)));
   t('[preserve]  F. journey still credits logged intake', /Protein intake logged/.test(code('app/dashboard/journey/page.tsx')));
   t('[preserve]  F. /api/checkins still persists avgProteinG', /avgProteinG:\s*data\.avgProteinG/.test(code('app/api/checkins/route.ts')));
-  t('[preserve]  F. Cockpit Level 3 tripwire still uses recentProteinAdherencePct < 60',
-    /velFlag === 'critical_review' &&\s*adherencePct != null &&\s*adherencePct < 60/.test(code('src/components/ui/ClinicalCockpit.tsx')));
+  // SRI Containment C1.1 (K1.1): the Level 3 tripwire was keyed on the
+  // lean-velocity flag and is removed with it; the cockpit reads no velocity flag.
+  t('[preserve]  F. Cockpit Level 3 lean-velocity tripwire removed by SRI Containment C1.1',
+    !/isLevel3|velFlag|leanVelocityFlag/.test(code('src/components/ui/ClinicalCockpit.tsx')));
   t('[preserve]  F. /api/assessment still computes recentProteinAdherencePct against the floor',
     /recentCheckin\.avgProteinG \/ adherenceDenominator/.test(code('app/api/assessment/route.ts')));
 }

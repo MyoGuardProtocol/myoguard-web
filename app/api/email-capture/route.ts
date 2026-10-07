@@ -1,13 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { EmailCaptureSchema } from '@/src/schemas/assessment';
-// Authoritative band union, re-exported from src/lib/protocolEngine via
-// src/types. Type-only import — erased at compile time, so it adds no runtime
-// dependency on the engine and cannot introduce a cycle.
-import type { RiskBand } from '@/src/types';
-// Canonical escaper for this email layer. `explanation` is free-form clinical
-// text that must stay free-form, so it is encoded at the output boundary
-// rather than constrained by the schema.
-import { escapeHtml } from '@/src/lib/email/templates/BaseEmail';
 import { consumeRecipientBudget } from '@/src/lib/emailThrottle';
 import { sendServiceEmail } from '@/src/lib/communications/serviceEmail';
 import { PROTEIN_GUIDANCE_PENDING_SHORT } from '@/src/lib/clinical/proteinContainment';
@@ -46,7 +38,20 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { email, protocolResult, formData } = parsed.data;
+  const { email, formData } = parsed.data;
+  // SRI Containment C1 (K1) and C1.1 (K2.1): EmailCaptureSchema (not modifiable
+  // under C1) still accepts the SRI-derived fields — the SRI value
+  // (myoguardScore), its band (riskBand), the band-derived engine explanation
+  // and leanLossEstPct. All four are dropped here, before the email template and
+  // before the n8n webhook payload, so none is rendered, returned or forwarded.
+  const {
+    leanLossEstPct: _containedLeanLoss,
+    myoguardScore:  _containedScore,
+    riskBand:       _containedBand,
+    explanation:    _containedExplanation,
+    ...protocolResult
+  } = parsed.data.protocolResult;
+  void _containedLeanLoss; void _containedScore; void _containedBand; void _containedExplanation;
 
   // ── Recipient throttle ──────────────────────────────────────────────────
   //
@@ -149,18 +154,12 @@ export async function POST(req: NextRequest) {
 
 type TemplateData = {
   email:          string;
+  // SRI Containment C1.1 (K2.1): no SRI value, band or explanation.
   protocolResult: {
-    myoguardScore:     number;
-    // Narrowed to the authoritative union so the band-keyed maps below are
-    // exhaustively checked. EmailCaptureSchema already validates this value
-    // against the same four bands, so no runtime behaviour changes.
-    riskBand:          RiskBand;
     proteinStandard:   number;
     proteinAggressive: number;
     fiber:             number;
     hydration:         number;
-    leanLossEstPct:    number;
-    explanation:       string;
   };
   formData: {
     medication:    string;
@@ -170,45 +169,8 @@ type TemplateData = {
   };
 };
 
-// One label per authoritative band. HIGH and CRITICAL are clinically distinct
-// and must never share a label: collapsing them would stop a CRITICAL result
-// — including one set by the engine's recovery override — from reaching the
-// patient as critical.
-// Exhaustively typed over the authoritative RiskBand union: adding a band to
-// the engine without adding it here is now a compile error rather than a
-// silent fall-through to a default label or colour.
-const RISK_LABELS: Record<RiskBand, string> = {
-  LOW:      'Low Risk',
-  MODERATE: 'Moderate Risk',
-  HIGH:     'High Risk',
-  CRITICAL: 'Critical Risk',
-};
-
-const RISK_COLOURS: Record<RiskBand, { bg: string; text: string; border: string }> = {
-  LOW:      { bg: '#f0fdf4', text: '#15803d', border: '#bbf7d0' },
-  MODERATE: { bg: '#fffbeb', text: '#b45309', border: '#fde68a' },
-  HIGH:     { bg: '#fff7ed', text: '#c2410c', border: '#fed7aa' },
-  CRITICAL: { bg: '#fef2f2', text: '#b91c1c', border: '#fecaca' },
-};
-
 function buildProtocolEmail({ protocolResult, formData }: TemplateData): string {
-  const score     = Math.round(protocolResult.myoguardScore);
-  // Authoritative band from the engine — includes the CRITICAL recovery
-  // override, so it is never re-derived from `score`. Summary wording below is
-  // band-based: point-distance framing is gamified and implies a precision the
-  // SRI does not claim.
-  const band      = protocolResult.riskBand;
-  const riskLabel = RISK_LABELS[band] ?? 'Unknown';
-  const riskColor = RISK_COLOURS[band] ?? RISK_COLOURS.HIGH;
   const medLabel  = formData.medication === 'semaglutide' ? 'Semaglutide' : 'Tirzepatide';
-
-  // Score track bar width (0–100 → 0%–100%)
-  const trackPct = `${score}%`;
-  const trackBg  =
-    band === 'LOW'      ? '#22c55e' :
-    band === 'MODERATE' ? '#f59e0b' :
-    band === 'HIGH'     ? '#f97316' :
-                          '#ef4444';
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -262,59 +224,6 @@ function buildProtocolEmail({ protocolResult, formData }: TemplateData): string 
             </td>
           </tr>
 
-          <!-- Score card -->
-          <tr>
-            <td style="padding-bottom:16px;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f172a;border-radius:16px;overflow:hidden;">
-                <tr>
-                  <td style="padding:20px 24px;">
-                    <p style="margin:0 0 4px;font-size:10px;font-weight:700;color:#2dd4bf;text-transform:uppercase;letter-spacing:0.15em;">Your Sarcopenia Risk Index (SRI)</p>
-                    <table width="100%" cellpadding="0" cellspacing="0">
-                      <tr>
-                        <td>
-                          <span style="font-size:52px;font-weight:900;color:#ffffff;line-height:1;">${score}</span>
-                          <span style="font-size:20px;color:#64748b;font-weight:300;"> / 100</span>
-                        </td>
-                        <td align="right" valign="middle">
-                          <span style="display:inline-block;padding:6px 14px;border-radius:50px;font-size:12px;font-weight:700;background:${riskColor.bg};color:${riskColor.text};border:1px solid ${riskColor.border};">
-                            ${riskLabel}
-                          </span>
-                        </td>
-                      </tr>
-                    </table>
-                    <!-- Progress track -->
-                    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;">
-                      <tr>
-                        <td style="background:#334155;border-radius:4px;height:8px;overflow:hidden;">
-                          <div style="width:${trackPct};height:8px;background:${trackBg};border-radius:4px;"></div>
-                        </td>
-                      </tr>
-                    </table>
-                    <p style="margin:10px 0 0;font-size:12px;color:#94a3b8;">${
-                      band === 'LOW'
-                        ? 'Your SRI is currently in the Low Risk band. Continue your current protein intake and activity to maintain muscle protection.'
-                        : `Your SRI is currently in the ${riskLabel} band. Consistent protein intake and activity may support muscle protection. Review this result with your physician.`
-                    }</p>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Explanation -->
-          <tr>
-            <td style="padding-bottom:16px;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #e2e8f0;border-radius:16px;">
-                <tr>
-                  <td style="padding:20px 24px;">
-                    <p style="margin:0 0 8px;font-size:11px;font-weight:700;color:#0d9488;text-transform:uppercase;letter-spacing:0.08em;">Clinical Summary</p>
-                    <p style="margin:0;font-size:14px;color:#374151;line-height:1.6;">${escapeHtml(protocolResult.explanation)}</p>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
           <!-- Protocol targets — 3 cards -->
           <tr>
             <td style="padding-bottom:16px;">
@@ -365,23 +274,6 @@ function buildProtocolEmail({ protocolResult, formData }: TemplateData): string 
             </td>
           </tr>
 
-          <!-- Lean loss risk -->
-          ${protocolResult.leanLossEstPct > 0 ? `
-          <tr>
-            <td style="padding-bottom:16px;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;">
-                <tr>
-                  <td style="padding:16px 20px;">
-                    <p style="margin:0 0 4px;font-size:12px;font-weight:700;color:#b45309;">⚠ Lean Mass Loss Risk</p>
-                    <p style="margin:0;font-size:13px;color:#78350f;line-height:1.5;">
-                      Your current risk band is <strong>${RISK_LABELS[band] ?? band}</strong>, based on your GLP-1 dose and activity pattern.
-                      Protein needs differ between individuals and should be set with a clinician.
-                    </p>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>` : ''}
 
           <!-- CTA -->
           <tr>
@@ -390,7 +282,7 @@ function buildProtocolEmail({ protocolResult, formData }: TemplateData): string 
                 Track Your Progress on Dashboard →
               </a>
               <p style="margin:10px 0 0;font-size:12px;color:#94a3b8;">
-                Create a free account to save weekly check-ins and monitor your score over time.
+                Create a free account to save weekly check-ins.
               </p>
             </td>
           </tr>

@@ -38,24 +38,12 @@ const eyebrow: CSSProperties = {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function ReviewQueueCard({ data }: Props) {
-  const hasSignals = data.reviewRequiredCount > 0 || data.inactiveCount > 0 || data.persistentDeficitCount > 0;
+  // SRI Containment C1.2 (K1.2): the Threshold Crossed and Review Recommended
+  // counts originate from quarantined lean-velocity logic and are not shown.
+  const hasSignals = data.inactiveCount > 0 || data.persistentDeficitCount > 0;
   const total      = data.totalPatients;
 
-  const reviewRecommendedOnly = data.reviewRequiredCount - data.reviewThresholdCount;
-
   const signalStats = [
-    {
-      label:   'Threshold Crossed',
-      value:   data.reviewThresholdCount,
-      color:   data.reviewThresholdCount > 0 ? '#F43F5E' : '#2DD4BF',
-      sub:     'Physician signal — threshold level',
-    },
-    {
-      label:   'Review Recommended',
-      value:   reviewRecommendedOnly,
-      color:   reviewRecommendedOnly > 0 ? '#FB923C' : '#2DD4BF',
-      sub:     'Physician signal — recommended',
-    },
     {
       label:   'Continuity Concern',
       value:   data.inactiveCount,
@@ -75,21 +63,6 @@ export default function ReviewQueueCard({ data }: Props) {
             Physician-signal review observations for your patient cohort
           </p>
         </div>
-        {hasSignals && (
-          <span style={{
-            fontSize:     '10px',
-            fontWeight:   700,
-            color:        '#FB923C',
-            background:   'rgba(251,146,60,0.1)',
-            border:       '1px solid rgba(251,146,60,0.25)',
-            borderRadius: '999px',
-            padding:      '3px 10px',
-            whiteSpace:   'nowrap',
-            flexShrink:   0,
-          }}>
-            {data.reviewRequiredCount} identified
-          </span>
-        )}
       </div>
 
       {/* Body */}
@@ -97,11 +70,7 @@ export default function ReviewQueueCard({ data }: Props) {
         <p style={{ fontSize: '13px', color: '#64748B', fontStyle: 'italic' }}>
           No patients enrolled yet. Invite patients to activate intelligence signals.
         </p>
-      ) : !hasSignals ? (
-        <p style={{ fontSize: '13px', color: '#2DD4BF' }}>
-          No review signals observed across {total} patient{total !== 1 ? 's' : ''}. Continuity active.
-        </p>
-      ) : (
+      ) : !hasSignals ? null : (
         <div style={{
           display:             'grid',
           gridTemplateColumns: 'repeat(3, 1fr)',

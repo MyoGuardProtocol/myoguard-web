@@ -55,7 +55,6 @@ export async function GET(
           select: {
             score:          true,
             riskBand:       true,
-            leanLossEstPct: true,
             proteinTargetG: true,
             explanation:    true,
           },
