@@ -58,7 +58,8 @@
  * article is an anchor to it, not another of it, and the day it grows a field
  * the governance suite fails.
  *
- * THE ONE FORWARD PATH (C-FUNNEL-2)
+ * THE ONE FORWARD PATH (C-FUNNEL-2) — REMOVED by SRI Containment C1.1 (K2.2);
+ * the panel described below no longer renders.
  * Founder decision, 23 September 2026: education may carry an OPTIONAL forward
  * path to the public Preliminary Sarcopenia Risk Index (SRI). That path is the
  * single `PreliminarySriLink` panel at the foot of the page, placed after the
@@ -76,7 +77,6 @@ import Link from 'next/link';
 import type { CSSProperties } from 'react';
 import type { Metadata } from 'next';
 import { GuideRequestForm } from '@/src/components/guide/GuideRequestForm';
-import { PreliminarySriLink } from '@/src/components/learn/PreliminarySriLink';
 import AnalyticsMount from '@/src/components/analytics/AnalyticsMount';
 import { AnalyticsEvents } from '@/src/lib/posthog';
 import {
@@ -529,8 +529,7 @@ export default function ProteinOnGlp1Page() {
           )}
         </section>
 
-        {/* ── The one optional forward path ───────────────────────────── */}
-        <PreliminarySriLink source="article" />
+        {/* SRI Containment C1.1 (K2.2): the Preliminary SRI link panel is removed. */}
 
         {/* ── Footer ──────────────────────────────────────────────────── */}
         <footer style={{ borderTop: '1px solid #1A2744', paddingTop: '28px' }}>

@@ -23,7 +23,7 @@
  * email, and needs no PostHog key.
  */
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { AnalyticsEvents, isAnalyticsEnabled, redactAnalyticsPath } from '../src/lib/posthog.ts';
 
 let pass = 0, fail = 0;
@@ -40,7 +40,10 @@ const HOME     = strip(src('app/page.tsx'));
 const INDEX    = strip(src('app/learn/page.tsx'));
 const TOPIC    = strip(src('app/learn/protein-on-glp-1/page.tsx'));
 const FORM     = strip(src('src/components/guide/GuideRequestForm.tsx'));
-const SRI      = strip(src('src/components/learn/PreliminarySriLink.tsx'));
+// SRI Containment C1.1 (K2.2) deleted PreliminarySriLink.tsx. Its absence is
+// asserted below; an empty string keeps the shared checks that scan it valid.
+const SRI_PANEL_PATH = new URL('../src/components/learn/PreliminarySriLink.tsx', import.meta.url);
+const SRI      = existsSync(SRI_PANEL_PATH) ? strip(readFileSync(SRI_PANEL_PATH, 'utf8')) : '';
 const MOUNT    = strip(src('src/components/analytics/AnalyticsMount.tsx'));
 const PROVIDER = strip(src('src/components/analytics/PostHogProvider.tsx'));
 const CONFIG   = src('src/lib/posthog.ts');
@@ -72,25 +75,17 @@ section('-- A. The funnel chain is unbroken --');
   t('[chain]  the request panel posts to /api/guide-request',
     /fetch\('\/api\/guide-request'/.test(FORM));
 
-  // Stage 5. C-FUNNEL-1 found the success state was a dead end — a message and
-  // nothing else. It now carries exactly one onward step.
-  t('[chain]  the success state offers the onward step',
-    /status === 'sent'/.test(FORM)
-    && /<PreliminarySriLink source="guide_success"/.test(FORM));
-
-  // Stage 6. And so does the article, for the reader who never asks for the
-  // Guide at all — which C-FUNNEL-1 found had no forward path of any kind.
-  t('[chain]  the article offers the onward step',
-    /<PreliminarySriLink source="article"/.test(TOPIC));
-
-  // Stage 7. The onward step lands on the public preliminary instrument.
-  t('[chain]  the onward step reaches the public preliminary SRI',
-    /'\/#sri-form'/.test(SRI) && /id="sri-form"/.test(HOME));
-
-  // The circularity C-FUNNEL-1 reported: the article's only link pointed back
-  // at its own index. That link is fine — it is no longer the only one.
-  t('[chain]  the article is no longer a closed loop with its index',
-    /href="\/learn"/.test(TOPIC) && /PreliminarySriLink/.test(TOPIC));
+  // Stages 5–7 (C-FUNNEL-2 onward step to the Preliminary SRI) were removed by
+  // SRI Containment C1.1 (K2.2): the public questionnaire no longer produces a
+  // Preliminary SRI. Their absence is pinned instead.
+  t('[C1.1]   the success state no longer offers a Preliminary SRI step',
+    /status === 'sent'/.test(FORM) && !/PreliminarySriLink/.test(FORM));
+  t('[C1.1]   the article no longer offers a Preliminary SRI step',
+    !/PreliminarySriLink/.test(TOPIC));
+  t('[C1.1]   the onward panel component is deleted',
+    !existsSync(SRI_PANEL_PATH));
+  t('[chain]  the article still links back to its index',
+    /href="\/learn"/.test(TOPIC));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -116,8 +111,10 @@ section('-- B. Every funnel stage is measured --');
     /AnalyticsEvents\.GUIDE_REQUESTED/.test(FORM));
   t('[measure] acceptance by the delivery pathway is counted',
     /AnalyticsEvents\.GUIDE_DELIVERY_SUCCEEDED/.test(FORM));
-  t('[measure] the onward step is counted',
-    /AnalyticsEvents\.PRELIMINARY_SRI_STARTED_FROM_LEARN/.test(SRI));
+  // The event name stays registered (not renamed); its only firing site was
+  // the deleted onward panel (SRI Containment C1.1).
+  t('[C1.1]    the onward-step event has no firing site left',
+    ![INDEX, TOPIC, FORM, HOME].some(s => /PRELIMINARY_SRI_STARTED_FROM_LEARN/.test(s)));
 
   // Pre-existing instrumentation the brief requires be preserved.
   t('[hold]    SRI_GENERATED instrumentation is preserved',
@@ -170,12 +167,6 @@ section('-- C. Nothing identifying reaches analytics --');
   t('[privacy] no hashing or encoding of the address appears in the panel',
     !/hash|sha|md5|btoa|encodeURIComponent\(email\)|digest/i.test(FORM));
 
-  // The onward event carries one label from a closed union, and nothing else.
-  t('[privacy] the onward event carries only a categorical source label',
-    /posthog\.capture\(AnalyticsEvents\.PRELIMINARY_SRI_STARTED_FROM_LEARN, \{ source \}\)/
-      .test(SRI.replace(/\s+/g, ' '))
-    && /type PreliminarySriSource = 'article' \| 'guide_success'/.test(SRI));
-
   // The server route must stay out of analytics entirely: it is the one place
   // that holds the address and knows the true delivery outcome.
   t('[privacy] the delivery route sends nothing to analytics',
@@ -218,7 +209,8 @@ section('-- D. PostHog remains fail-closed without a production key --');
     /if \(fired\.current \|\| !isAnalyticsEnabled\) return;/.test(MOUNT));
 
   // Every capture added by C-FUNNEL-2 on a funnel surface is guarded.
-  for (const [label, file] of [['request panel', FORM], ['onward panel', SRI]]) {
+  // The onward panel was deleted by SRI Containment C1.1 (K2.2).
+  for (const [label, file] of [['request panel', FORM]]) {
     const calls = captures(file).length;
     const guards = (file.match(/if \(isAnalyticsEnabled\)/g) || []).length;
     t(`[privacy] every capture in the ${label} is behind the gate`,
@@ -237,27 +229,14 @@ section('-- D. PostHog remains fail-closed without a production key --');
 // ─────────────────────────────────────────────────────────────────────────────
 section('-- E. Governed positions C-FUNNEL-2 must not move --');
 {
-  // SUPERSEDED, and deliberately recorded as such. C-FUNNEL-2 originally held
-  // this email to a single link. Production end-to-end review found that a
-  // recipient opening the Guide from their inbox days later had no route to the
-  // Preliminary SRI at all, because the only offer lived in a browser success
-  // state they had long closed. The Founder authorised one secondary
-  // continuation on 23 September 2026.
-  //
-  // TWO is now the number, and these assertions defend it against a third —
-  // checked against the SOURCE, so a link cannot be introduced behind a
-  // conditional the rendered fixture happens not to exercise.
-  t('[hold]    the Guide email source contains exactly two hrefs',
-    (EMAIL.match(/href=/g) || []).length === 2);
-  t('[hold]    the primary link is still the PDF action',
-    /proteinGuidePdfUrl/.test(EMAIL)
-    && EMAIL.indexOf('renderPdfAction()') < EMAIL.indexOf('renderSriContinuation()'));
-  t('[hold]    exactly one Preliminary SRI continuation exists',
-    (EMAIL.match(/renderSriContinuation\(\)/g) || []).length === 2 // definition + one call
-    && (EMAIL.match(/#sri-form/g) || []).length === 1);
-  t('[chain]  the continuation routes to the existing public SRI entry point',
-    /GUIDE_EMAIL_ORIGIN/.test(EMAIL) && /#sri-form/.test(EMAIL)
-    && !/\/api\/|new Route|assessment/i.test(EMAIL));
+  // SRI Containment C1.1 (K2.2) removed the Preliminary SRI continuation, so
+  // the email is back to ONE link — the PDF action — checked against the SOURCE.
+  t('[C1.1]    the Guide email source contains exactly one href',
+    (EMAIL.match(/href=/g) || []).length === 1);
+  t('[hold]    the only link is still the PDF action',
+    /proteinGuidePdfUrl/.test(EMAIL) && /renderPdfAction\(\)/.test(EMAIL));
+  t('[C1.1]    no Preliminary SRI continuation exists in the email source',
+    !/renderSriContinuation|#sri-form|PRELIMINARY_SRI_URL|Preliminary SRI →/.test(EMAIL));
 
   // The continuation is an offer to act once on a public page. It must never
   // become a subscription, a nurture sequence or a commercial placement.
@@ -267,32 +246,20 @@ section('-- E. Governed positions C-FUNNEL-2 must not move --');
   t('[hold]    the email grants no EDUCATIONAL or MARKETING permission',
     !/\bEDUCATIONAL\b|\bMARKETING\b|grantConsent|CommunicationPreference|ConsentEvent/.test(EMAIL));
 
-  // Attribution rides the existing analytics architecture: utm_* is already
-  // preserved through the PostHog sanitiser, so no new event, table or endpoint
-  // was created. The values are fixed for every recipient.
-  t('[privacy] attribution is a fixed campaign label, not a recipient token',
-    /utm_source=protein_guide_email/.test(EMAIL)
-    && !/encodeURIComponent|recipientKey|token|email\)/.test(EMAIL.split('PRELIMINARY_SRI_URL')[1] ?? ''));
-
-  // The committed PDF is printed from this same HTML. The continuation is a
-  // screen affordance and must stay out of the artifact and out of its drift
-  // signature — otherwise an eight-page clinical document grows a ninth block.
-  t('[hold]    the continuation is excluded from the printed artifact',
-    /class="mg-action mg-continue"/.test(EMAIL)
-    && /mg-continue/.test(PDFMOD)
-    && /\.mg-action\{display:none!important\}/.test(EMAIL));
+  // The campaign-attributed link left with the continuation (C1.1); the print
+  // rule for the remaining screen-only action is unchanged.
+  t('[C1.1]    no campaign-attributed link remains in the email',
+    !/utm_source=protein_guide_email/.test(EMAIL));
+  t('[hold]    the screen-only print rule is unchanged',
+    /mg-continue/.test(PDFMOD) && /\.mg-action\{display:none!important\}/.test(EMAIL));
 
   // Founder decision 2. The Guide is reachable without the SRI, from a page
   // that asks for an address and nothing else.
-  // The onward panel must RENDER only after a successful request. Measured on
-  // the JSX usage, not the import, which necessarily sits at the top of the
-  // file and says nothing about where the element appears.
-  const successGuard = FORM.indexOf("if (status === 'sent')");
-  const onwardUsage  = FORM.indexOf('<PreliminarySriLink');
+  // The onward panel no longer renders anywhere (SRI Containment C1.1).
   t('[hold]    the Guide remains independently accessible',
     /<GuideRequestForm\s*\/>/.test(TOPIC)
     && (FORM.match(/<input/g) || []).length === 1
-    && successGuard > 0 && onwardUsage > successGuard);
+    && FORM.indexOf("if (status === 'sent')") > 0 && !/<PreliminarySriLink/.test(FORM));
 
   // The consent architecture. Requesting a document is not subscribing, and
   // this phase created no preference, no consent event and no wording row.
@@ -306,9 +273,9 @@ section('-- E. Governed positions C-FUNNEL-2 must not move --');
     !/PrismaClient|from '@\/src\/lib\/prisma'/.test(INDEX + TOPIC + FORM + SRI));
 
   // Terminology, per the project's non-negotiable rules.
-  t('[hold]    the instrument is named in full and never called a calculator',
-    /Sarcopenia Risk Index \(SRI\)/.test(SRI)
-    && !/calculator/i.test(INDEX + TOPIC + FORM + SRI));
+  // The positive check read the deleted onward panel (SRI Containment C1.1).
+  t('[hold]    the instrument is never called a calculator',
+    !/calculator/i.test(INDEX + TOPIC + FORM + SRI));
   t('[hold]    no "score" wording entered the funnel surfaces',
     !/\bscores?\b/i.test(INDEX + TOPIC + FORM + SRI));
 }
@@ -367,11 +334,11 @@ section('-- F. Public journey containment (C-FUNNEL-2A) --');
     ['page 4 eating',   at('<ManuscriptSection n={4}')],
     ['Guide panel',     at('id="guide-request"')],
     ['About / refs',    at('positioningTail().map')],
-    ['optional SRI',    at('<PreliminarySriLink source="article"')],
+    // 'optional SRI' stage removed by SRI Containment C1.1 (K2.2).
   ];
   t('[chain]  every stage of the page is present',
     order.every(([, i]) => i > 0));
-  t('[chain]  the page runs education → ask → references → optional SRI',
+  t('[chain]  the page runs education → ask → references',
     order.every(([, i], k) => k === 0 || i > order[k - 1][1]));
 
   // Named explicitly, because these two are the regressions that matter: the
@@ -387,7 +354,7 @@ section('-- F. Public journey containment (C-FUNNEL-2A) --');
     && (FORM.match(/<input/g) || []).length === 1
     && /AnalyticsEvents\.GUIDE_REQUESTED/.test(FORM)
     && /AnalyticsEvents\.GUIDE_DELIVERY_SUCCEEDED/.test(FORM)
-    && /<PreliminarySriLink source="guide_success"/.test(FORM));
+    && !/<PreliminarySriLink/.test(FORM));
   t('[hold]    the article still renders whole manuscript pages, unselected',
     /page\.blocks\.map/.test(TOPIC) && !/blocks\.slice\(0/.test(TOPIC));
   t('[hold]    the article pages are still 2, 3 and 4',

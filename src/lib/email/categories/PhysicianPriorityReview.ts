@@ -2,9 +2,12 @@
 // Tone: institutional clinical escalation correspondence. Audience: physician only.
 // Variant: clinical-paper (white card on dark shell).
 // NEVER: emergency red, panic framing, alarmist language, flashing urgency.
-// Escalation hierarchy (restrained):
-//   leanVelocityFlag = "concerning"      → amber institutional tone, "Physician Review Recommended"
-//   leanVelocityFlag = "critical_review"  → rose/slate institutional tone, "Physician Review Recommended"
+// SRI Containment C1.1 (K1.1): the email no longer varies with, states or
+// encodes leanVelocityFlag. The former amber/rose tiers, the "Lean Mass
+// Velocity — (Escalated) Review Threshold" label and the threshold description
+// are removed; both flag values now produce the identical email. Whether the
+// email is sent at all is still decided by the unchanged trigger in
+// /api/assessment (quarantined internal logic).
 // Always: physician-aligned, CDS-positioned, institutionally restrained.
 
 import { prisma } from '@/src/lib/prisma';
@@ -27,8 +30,7 @@ export interface PhysicianPriorityReviewPayload {
   assessmentId:     string;
   /** Current SRI risk band */
   riskBand:         'CRITICAL' | 'HIGH' | 'MODERATE' | 'LOW';
-  /** Lean mass velocity signal that triggered this notification */
-  leanVelocityFlag: LeanVelocityFlag;
+  // SRI Containment C1.1 (K1.1): leanVelocityFlag is no longer part of the email.
   // SRI Containment C1 (K1): the email no longer carries leanLossEstPct or the
   // leanVelocityPct delta derived from it.
   /** Total assessments on record for this patient */
@@ -46,35 +48,19 @@ export interface PhysicianPriorityReviewTriggerInput {
   patientId:        string;
   assessmentId:     string;
   riskBand:         'CRITICAL' | 'HIGH' | 'MODERATE' | 'LOW';
+  /** Gates nothing here; stored in the Notification audit row only (C1.1). */
   leanVelocityFlag: LeanVelocityFlag;
   /** Stored in the Notification audit row only; not rendered (SRI Containment C1). */
   leanVelocityPct:  number;
 }
 
-// ─── Escalation styling ───────────────────────────────────────────────────────
+// ─── Email identity ───────────────────────────────────────────────────────────
 //
-// Restrained institutional palette — never emergency red, never panic framing.
-// Amber and rose tones signal clinical attention without alarm.
+// One fixed subject and heading, identical for every send (formerly per-flag).
 
-const ESCALATION_STYLE = {
-  concerning: {
-    subject:      'MyoGuard Protocol — Physician Review Recommended',
-    heading:      'Physician Review Recommended',
-    signalLabel:  'Lean Mass Velocity — Review Threshold',
-    borderColor:  '#D97706',  // amber-600 — restrained amber signal
-    bgColor:      '#FEFCE8',  // amber-50  — subtle institutional tint
-    headingColor: '#78350F',  // amber-950 — institutional, not alarming
-    labelColor:   '#B45309',  // amber-700
-  },
-  critical_review: {
-    subject:      'MyoGuard Protocol — Physician Review Recommended',
-    heading:      'Physician Review Recommended',
-    signalLabel:  'Lean Mass Velocity — Escalated Review Threshold',
-    borderColor:  '#BE123C',  // rose-700  — restrained rose signal
-    bgColor:      '#FFF1F2',  // rose-50   — subtle institutional tint
-    headingColor: '#881337',  // rose-900  — institutional, not alarming
-    labelColor:   '#BE123C',  // rose-700
-  },
+const REVIEW_EMAIL = {
+  subject: 'MyoGuard Protocol — Physician Review Recommended',
+  heading: 'Physician Review Recommended',
 } as const;
 
 // ─── Clinical label helpers ───────────────────────────────────────────────────
@@ -94,9 +80,8 @@ const BAND_LABEL: Record<string, string> = {
  * Produces the physician-facing Priority Review email HTML string.
  * Variant: clinical-paper (white card).
  *
- * Escalation hierarchy — restrained institutional only:
- *   concerning      → amber tone, "Physician Review Recommended"
- *   critical_review → rose/slate tone, "Physician Review Recommended"
+ * Identical for every send: it does not vary with the lean-velocity flag
+ * (SRI Containment C1.1, K1.1).
  *
  * Never: emergency red, panic language, urgency manipulation.
  * Always: deterministic clinical copy, no AI-generated language.
@@ -106,10 +91,9 @@ export function buildPhysicianPriorityReviewEmail({
   payload,
 }: PhysicianPriorityReviewEmailOptions): string {
   const {
-    patientName, riskBand, leanVelocityFlag, assessmentCount,
+    patientName, riskBand, assessmentCount,
   } = payload;
 
-  const style = ESCALATION_STYLE[leanVelocityFlag];
   const T     = EMAIL_TOKENS.color;
   const font  = EMAIL_TOKENS.font.body;
 
@@ -125,15 +109,7 @@ export function buildPhysicianPriorityReviewEmail({
     .split(' ')[0]
     .slice(0, 40);
 
-  // Signal description — restrained, institutional, not alarmist
-  //
-  // SRI Containment C1 (K1): the parenthetical lean-loss delta
-  // ("Δ n percentage points since the qualifying prior assessment") is removed.
-  const signalDescription = leanVelocityFlag === 'critical_review'
-    ? `Lean mass velocity markers have exceeded the escalated review threshold. ` +
-      `Prompt physician review is recommended to assess protocol appropriateness.`
-    : `Lean mass velocity markers met the standard review threshold. ` +
-      `Physician review is recommended at earliest clinical convenience.`;
+  // Signal description — SRI Containment C1.1 (K1.1): removed (lean-velocity threshold wording).
 
   // Clinical summary — deterministic; no AI-generated language.
   //
@@ -147,28 +123,14 @@ export function buildPhysicianPriorityReviewEmail({
   For: Dr. ${physicianFirst}
 </p>
 
-<h1 style="margin:0 0 20px;font-size:${EMAIL_TOKENS.size.heading};color:${style.headingColor};font-family:${EMAIL_TOKENS.font.heading};font-weight:700;line-height:1.2;">
-  ${style.heading}
+<h1 style="margin:0 0 20px;font-size:${EMAIL_TOKENS.size.heading};color:${bodyText};font-family:${EMAIL_TOKENS.font.heading};font-weight:700;line-height:1.2;">
+  ${REVIEW_EMAIL.heading}
 </h1>
 
 <p style="margin:0 0 20px;font-size:${EMAIL_TOKENS.size.body};color:${bodyText};font-family:${font};line-height:1.6;">
   A new assessment by <strong>${patientName}</strong> has generated a physician review signal
   from the MyoGuard Protocol clinical continuity system.
 </p>
-
-<!-- Escalation callout — restrained amber or rose, never emergency red -->
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;">
-  <tr>
-    <td style="border-left:3px solid ${style.borderColor};background-color:${style.bgColor};padding:14px 16px;border-radius:0 4px 4px 0;">
-      <p style="margin:0 0 6px;font-size:${EMAIL_TOKENS.size.caption};color:${style.labelColor};font-family:${font};letter-spacing:0.08em;text-transform:uppercase;font-weight:600;line-height:1;">
-        ${style.signalLabel}
-      </p>
-      <p style="margin:0;font-size:${EMAIL_TOKENS.size.body};color:${bodyText};font-family:${font};line-height:1.5;">
-        ${signalDescription}
-      </p>
-    </td>
-  </tr>
-</table>
 
 <!-- Clinical summary panel -->
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;">
@@ -206,7 +168,7 @@ export function buildPhysicianPriorityReviewEmail({
 </p>`;
 
   return buildPhysicianEmail({
-    title:    style.subject,
+    title:    REVIEW_EMAIL.subject,
     preheader: `Physician review signal generated for ${patientName}. Assessment data available in your MyoGuard dashboard.`,
     content,
     variant:  'clinical-paper',
@@ -230,7 +192,11 @@ const DEDUP_WINDOW_DAYS = 7;
  * triggerPhysicianPriorityReview()
  *
  * Active trigger — called fire-and-forget from POST /api/assessment when
- * leanVelocityFlag = "concerning" | "critical_review".
+ * leanVelocityFlag = "concerning" | "critical_review". That gating decision is
+ * unchanged and is quarantined internal logic pending Architecture
+ * Reconciliation (SRI Containment C1.1, K1.1). The flag reaches this function
+ * only to be stored in the Notification audit row; nothing it renders or sends
+ * varies with it.
  *
  * Execution contract:
  *   - Non-blocking: assessment persistence and HTTP response are complete before this runs
@@ -290,7 +256,6 @@ export async function triggerPhysicianPriorityReview(
   });
 
   // 5. Build and send email
-  const style = ESCALATION_STYLE[leanVelocityFlag];
   const html  = buildPhysicianPriorityReviewEmail({
     physicianName: physician.fullName,
     payload: {
@@ -298,7 +263,6 @@ export async function triggerPhysicianPriorityReview(
       patientName:     patient.fullName,
       assessmentId,
       riskBand,
-      leanVelocityFlag,
       assessmentCount,
     },
   });
@@ -318,7 +282,7 @@ export async function triggerPhysicianPriorityReview(
   // rendered body and none of which belong in governance metadata.
   const sent = await sendServiceEmail({
     to:         physician.email,
-    subject:    style.subject,
+    subject:    REVIEW_EMAIL.subject,
     html,
     from:       EMAIL_TOKENS.from.physician,
     templateId: TEMPLATE_ID,
@@ -341,7 +305,7 @@ export async function triggerPhysicianPriorityReview(
     data: {
       userId:  patientId,
       type:    'PHYSICIAN_REVIEW',
-      subject: style.subject,
+      subject: REVIEW_EMAIL.subject,
       body:    JSON.stringify({ leanVelocityFlag, assessmentId, leanVelocityPct, riskBand }),
       sentAt:  new Date(),
     },

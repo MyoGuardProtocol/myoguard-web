@@ -126,8 +126,11 @@ section('-- B. The artifact is the current approved document --');
     && SCREEN_ONLY_CLASSES.every(
       cls => !canonicalPdfSourceHtml(HTML).includes(`class="${cls}`)
         && !canonicalPdfSourceHtml(HTML).includes(`${cls}"`)));
-  t('[lock]   the continuation block is removed, not merely hidden',
-    HTML.includes('mg-continue')
+  // SRI Containment C1.1 (K2.2): the continuation is no longer rendered at all.
+  // The PDF never contained it, so the signature is unaffected.
+  t('[lock]   the continuation block is absent from the email and the artifact (C1.1)',
+    !HTML.includes('mg-continue')
+    && !HTML.includes('sri-form')
     && !canonicalPdfSourceHtml(HTML).includes('mg-continue')
     && !canonicalPdfSourceHtml(HTML).includes('sri-form'));
 }

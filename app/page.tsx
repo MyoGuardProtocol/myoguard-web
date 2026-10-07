@@ -83,7 +83,7 @@ export default function HomePage() {
     const drug = GLP1_DRUGS.find((d) => d.label === selectedDrug);
 
     if (!rawW || !p || !drug || !activityLevel) {
-      setFormError("Please complete all required fields before generating your SRI.");
+      setFormError("Please complete all required fields.");
       return;
     }
 
@@ -181,7 +181,7 @@ export default function HomePage() {
               }}
               className="bg-teal-600 text-white px-6 py-3.5 rounded-xl text-sm font-semibold hover:bg-teal-700 transition-colors cursor-pointer"
             >
-              Generate My Preliminary SRI →
+              →
             </a>
             <p className="text-xs text-slate-400">
               No account required&nbsp;•&nbsp;Takes about 60 seconds
@@ -198,7 +198,6 @@ export default function HomePage() {
           <div className="rounded-2xl p-6 flex flex-col gap-5" style={{ background: '#0D1421', border: '1px solid #1A2744' }}>
             <div>
               <h2 className="text-base font-semibold" style={{ color: '#F1F5F9' }}>Muscle Protection Assessment</h2>
-              <p className="text-xs text-slate-400 mt-0.5">Powered by the Sarcopenia Risk Index (SRI)</p>
 
               {/* Progress indicator */}
               <div className="flex items-center gap-2 mt-3">
@@ -215,7 +214,7 @@ export default function HomePage() {
                 <span className="text-xs text-slate-400">
                   {fieldsComplete < totalFields
                     ? `${totalFields - fieldsComplete} field${totalFields - fieldsComplete > 1 ? "s" : ""} remaining`
-                    : "Ready to generate SRI"}
+                    : ""}
                 </span>
               </div>
             </div>
@@ -285,7 +284,7 @@ export default function HomePage() {
                   className="border border-[#1A2744] rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
                 <span className="text-xs text-slate-400 leading-relaxed">
-                  Enter your current average daily intake. Used to estimate adequacy against your clinical protein floor.
+                  Enter your current average daily intake.
                 </span>
               </label>
 
@@ -448,7 +447,7 @@ export default function HomePage() {
                 </div>
                 <p className="text-xs text-slate-400">Typical adult range: 5–9 hours</p>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  Sleep duration is displayed as a recovery context indicator. Nocturnal GH and IGF-1 secretion support muscle protein synthesis — adequate sleep optimises your protocol outcomes. This parameter is not incorporated into the preliminary Sarcopenia Risk Index (SRI).
+                  Sleep duration is displayed as a recovery context indicator. Nocturnal GH and IGF-1 secretion support muscle protein synthesis — adequate sleep optimises your protocol outcomes.
                 </p>
               </div>
             </div>
@@ -487,9 +486,6 @@ export default function HomePage() {
                   </div>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <span className="text-xs font-bold text-amber-800">
-                    Required before generating SRI
-                  </span>
                   <span className="text-xs text-amber-700 leading-relaxed">
                     I understand this tool provides educational nutritional
                     reference information only. It does not constitute medical
@@ -537,8 +533,8 @@ export default function HomePage() {
               }}
             >
               {canCalculate
-                ? "Generate My Preliminary SRI →"
-                : "Complete all fields to generate Preliminary SRI"}
+                ? "→"
+                : "Complete all fields"}
             </button>
 
             {/* SRI Containment C1 (K2). Shown once the entries pass validation.
@@ -613,7 +609,7 @@ export default function HomePage() {
             {[
               {
                 title: "Real-time sarcopenia risk",
-                desc: "SRI generated against your GLP-1 dose stage and clinical protein floor",
+                desc: "SRI generated against your GLP-1 dose stage",
               },
               {
                 title: "Personalised protein targets",
