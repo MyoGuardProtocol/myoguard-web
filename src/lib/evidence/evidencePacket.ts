@@ -33,6 +33,10 @@
 import { prisma }                        from '@/src/lib/prisma';
 import { getPatientIntelligenceSummary } from '@/src/lib/intelligence/synthesis';
 import { INTELLIGENCE_WINDOWS }          from '@/src/lib/intelligence/types';
+import {
+  presentablePhysicianSignals,
+  presentableOverallContinuityStatus,
+} from '@/src/lib/intelligence/quarantine';
 import { generateLongitudinalNarrative } from './longitudinalSummary';
 import type {
   ClinicalEvidenceRecord,
@@ -242,7 +246,15 @@ export async function generateClinicalEvidenceRecord(
 
   // PhysicianSignal is a single object in PatientIntelligenceSummary.
   // The evidence layer represents physician signals as an array for extensibility.
-  const physicianSignals: IntelligenceSignal[] = [intelligence.physicianSignals];
+  // SRI Containment C1.2 (K1.2): a quarantined lean-velocity status is removed
+  // here, so it reaches no summary, export or client payload. The intelligence
+  // layer's computation is unchanged.
+  const physicianSignals: IntelligenceSignal[] =
+    presentablePhysicianSignals([intelligence.physicianSignals]);
+  const overallContinuityStatus = presentableOverallContinuityStatus(
+    intelligence.overallContinuityStatus,
+    intelligence.physicianSignals.status,
+  );
 
   // ── 6. Documentation notes (from PhysicianReview records) ─────────────────
   const documentationNotes: DocumentationNote[] = physicianReviews.map(review => ({
@@ -294,7 +306,7 @@ export async function generateClinicalEvidenceRecord(
     continuity,
     adherence,
     physicianSignals,
-    overallContinuityStatus: intelligence.overallContinuityStatus,
+    overallContinuityStatus,
     longitudinalNarrative,
     documentationNotes,
     exportMetadata,

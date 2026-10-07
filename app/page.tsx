@@ -181,7 +181,7 @@ export default function HomePage() {
               }}
               className="bg-teal-600 text-white px-6 py-3.5 rounded-xl text-sm font-semibold hover:bg-teal-700 transition-colors cursor-pointer"
             >
-              →
+              Continue →
             </a>
             <p className="text-xs text-slate-400">
               No account required&nbsp;•&nbsp;Takes about 60 seconds
@@ -533,7 +533,7 @@ export default function HomePage() {
               }}
             >
               {canCalculate
-                ? "→"
+                ? "Continue →"
                 : "Complete all fields"}
             </button>
 
@@ -609,7 +609,7 @@ export default function HomePage() {
             {[
               {
                 title: "Real-time sarcopenia risk",
-                desc: "SRI generated against your GLP-1 dose stage",
+                desc: "",
               },
               {
                 title: "Personalised protein targets",

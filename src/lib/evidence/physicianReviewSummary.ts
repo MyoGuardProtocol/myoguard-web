@@ -126,13 +126,14 @@ export function generatePhysicianReviewSummary(
   ].join(' ');
 
   // ── Section 4 — Physician signals ────────────────────────────────────────
+  // SRI Containment C1.2 (K1.2): empty when no signal is presentable.
   const primarySignal = physicianSignals[0];
   const section4_physicianSignals = primarySignal
     ? [
         `Review signal: ${formatStatus(primarySignal.status)} (${formatConfidence(primarySignal.confidence)}).`,
         primarySignal.explanation,
       ].join(' ')
-    : 'No physician signals recorded within the review window.';
+    : '';
 
   // ── Section 5 — Documentation history ────────────────────────────────────
   const section5_documentationHistory =

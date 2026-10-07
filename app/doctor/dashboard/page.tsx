@@ -135,7 +135,6 @@ export default async function DoctorDashboardPage() {
         totalPatients:              intel.totalPatients,
         patientsActive:             intel.patientsActive,
         patientsRequiringAttention: intel.patientsRequiringAttention,
-        reviewRequiredCount:        intel.reviewRequiredCount,
         generatedAt:                intel.generatedAt,
       };
     } catch {

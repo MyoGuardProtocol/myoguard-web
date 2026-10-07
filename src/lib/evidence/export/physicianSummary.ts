@@ -94,22 +94,24 @@ export function generatePhysicianSummary(packet: ClinicalEvidenceRecord): string
     `Adherence: ${formatStatus(adherence.status)} (${formatConfidence(adherence.confidence)}).`,
   );
   continuityParts.push(adherence.observationText);
-  continuityParts.push(`Overall continuity status: ${formatStatus(String(overallContinuityStatus))}.`);
+  // SRI Containment C1.2 (K1.2): omitted when withheld.
+  if (overallContinuityStatus) {
+    continuityParts.push(`Overall continuity status: ${formatStatus(String(overallContinuityStatus))}.`);
+  }
   sections.push(continuityParts.join(' '));
   sections.push('');
 
   // 4. Review Signals
-  sections.push('4. REVIEW SIGNALS');
+  // SRI Containment C1.2 (K1.2): the section is omitted when no signal is presentable.
   const primarySignal = physicianSignals[0];
   if (primarySignal) {
+    sections.push('4. REVIEW SIGNALS');
     sections.push(
       `Physician signal: ${formatStatus(primarySignal.status)} (${formatConfidence(primarySignal.confidence)}). ` +
       primarySignal.explanation,
     );
-  } else {
-    sections.push('No physician review signals were identified within this observation window.');
+    sections.push('');
   }
-  sections.push('');
 
   // 5. Documentation Timeline (prose narrative)
   sections.push('5. DOCUMENTATION TIMELINE');

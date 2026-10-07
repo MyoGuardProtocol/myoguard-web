@@ -282,7 +282,7 @@ function buildProtocolEmail({ protocolResult, formData }: TemplateData): string 
                 Track Your Progress on Dashboard →
               </a>
               <p style="margin:10px 0 0;font-size:12px;color:#94a3b8;">
-                Create a free account to save weekly check-ins and monitor your score over time.
+                Create a free account to save weekly check-ins.
               </p>
             </td>
           </tr>
